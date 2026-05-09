@@ -1,0 +1,7 @@
+# Godot project files
+Game/.godot/
+
+# OS generated files
+Thumbs.db
+Desktop.ini
+.DS_Store
