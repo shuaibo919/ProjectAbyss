@@ -1,7 +1,29 @@
 # Godot project files
 Game/.godot/
-
+Game/bin/*.dll
+Game/bin/*.dylib
+Game/bin/*.so
+Game/bin/*.pdb
+Game/bin/*.ilk
+Game/bin/*.map
+Game/bin/*.exp
+Game/bin/*.lib
+Game/bin/*.a
+Game/bin/*.obj
+Game/bin/*.o
+Game/bin/*.lo
+Game/bin/*.slo
+Game/bin/*.lst
+Game/bin/*.map
+Game/bin/*.sym
+Game/bin/*.debug
+Game/bin/*.uid
 # OS generated files
 Thumbs.db
 Desktop.ini
 .DS_Store
+
+## Build files
+*.dblite
+*.obj
+
