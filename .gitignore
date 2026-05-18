@@ -27,3 +27,5 @@ Desktop.ini
 *.dblite
 *.obj
 
+## Agents
+.claude
