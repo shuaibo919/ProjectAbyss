@@ -18,6 +18,7 @@ Game/bin/*.map
 Game/bin/*.sym
 Game/bin/*.debug
 Game/bin/*.uid
+Game/bin/*.TMP
 # OS generated files
 Thumbs.db
 Desktop.ini
