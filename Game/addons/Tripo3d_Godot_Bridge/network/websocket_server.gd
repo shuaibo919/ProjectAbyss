@@ -1,7 +1,6 @@
 # websocket_server.gd
 # WebSocket server using Godot 4 TCPServer + WebSocketPeer
 @tool
-class_name TripoWebSocketServer
 extends RefCounted
 
 # ————— config —————

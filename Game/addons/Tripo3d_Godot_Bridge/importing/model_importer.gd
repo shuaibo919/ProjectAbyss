@@ -1,7 +1,6 @@
 # model_importer.gd
 # Orchestrates ZIP/FBX/GLB extraction, Godot import, and scene placement
 @tool
-class_name TripoModelImporter
 extends RefCounted
 
 # ————— config —————

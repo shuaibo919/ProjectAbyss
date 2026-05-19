@@ -11,7 +11,7 @@ const _Dock   = preload("res://addons/Tripo3d_Godot_Bridge/ui/tripo_bridge_dock.
 const _Importer = preload("res://addons/Tripo3d_Godot_Bridge/importing/model_importer.gd")
 
 var _server = null
-var _dock: TripoBridgeDock
+var _dock = null
 var _importer = null
 var _plugin_dir: String
 var _active_import: Dictionary = {}
@@ -198,7 +198,7 @@ func _start_prepare_import(file_id: String, transfer_session: Dictionary) -> voi
 		_finish_import(file_id, false, "Import failed")
 
 func _run_prepare_import(file_id: String, transfer_session: Dictionary) -> Dictionary:
-	var importer: TripoModelImporter = _Importer.new()
+	var importer = _Importer.new()
 	return {
 		"file_id": file_id,
 		"info": importer.prepare_import_from_transfer_session(file_id, transfer_session),

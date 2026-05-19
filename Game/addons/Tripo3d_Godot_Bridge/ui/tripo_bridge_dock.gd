@@ -1,5 +1,4 @@
 @tool
-class_name TripoBridgeDock
 extends Control
 
 signal start_server_pressed
