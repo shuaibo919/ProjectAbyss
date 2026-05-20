@@ -2,20 +2,17 @@
 
 importer="texture"
 type="CompressedTexture2D"
-uid="uid://bh0atrs55jy0l"
-path.s3tc="res://.godot/imported/Rock01_SongDynasty_Rock01_SongDynasty_basecolor.jpg-2576e33a6c5eca077117725ad1043bc9.s3tc.ctex"
+uid="uid://dbttwmmdammse"
+path.s3tc="res://.godot/imported/SongDynastyRock_02_basecolor.JPEG-bc9b175d28b2cd63aedcd90a0a297406.s3tc.ctex"
 metadata={
 "imported_formats": ["s3tc_bptc"],
 "vram_texture": true
 }
-generator_parameters={
-"md5": "5237c2da71445c9535ed4f00bff3c309"
-}
 
 [deps]
 
-source_file="res://TripoModels/Rock01_SongDynasty_Rock01_SongDynasty_basecolor.jpg"
-dest_files=["res://.godot/imported/Rock01_SongDynasty_Rock01_SongDynasty_basecolor.jpg-2576e33a6c5eca077117725ad1043bc9.s3tc.ctex"]
+source_file="res://TripoModels/Tex/SongDynastyRock_02_basecolor.JPEG"
+dest_files=["res://.godot/imported/SongDynastyRock_02_basecolor.JPEG-bc9b175d28b2cd63aedcd90a0a297406.s3tc.ctex"]
 
 [params]
 
