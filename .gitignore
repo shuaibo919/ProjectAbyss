@@ -19,6 +19,7 @@ Game/bin/*.sym
 Game/bin/*.debug
 Game/bin/*.uid
 Game/bin/*.TMP
+Game/TripoModels/
 # OS generated files
 Thumbs.db
 Desktop.ini
