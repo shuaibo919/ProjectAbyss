@@ -1,0 +1,37 @@
+[gd_scene format=3 uid="uid://dx8dx6p81im1k"]
+
+[ext_resource type="PackedScene" uid="uid://d2p1oh3iqwff5" path="res://TripoModels/Rock01_SongDynasty.glb" id="1_8bcco"]
+[ext_resource type="PackedScene" uid="uid://cklw247whynk6" path="res://TripoModels/Rock02_SongDynasty.glb" id="2_n7iqy"]
+
+[sub_resource type="PlaneMesh" id="PlaneMesh_g8rx5"]
+
+[sub_resource type="BoxMesh" id="BoxMesh_8bcco"]
+
+[node name="Node3D" type="Node3D" unique_id=894711874]
+
+[node name="MeshInstance3D" type="MeshInstance3D" parent="." unique_id=409181701]
+transform = Transform3D(100, 0, 0, 0, 100, 0, 0, 0, 100, 0, 0, 0)
+mesh = SubResource("PlaneMesh_g8rx5")
+
+[node name="DirectionalLight3D" type="DirectionalLight3D" parent="." unique_id=44939997]
+transform = Transform3D(0.6031569, 0.36094326, 0.7112817, -0.79759353, 0.26532406, 0.5417082, 0.0068057477, -0.89404875, 0.44791806, 0, 0, 0)
+light_angular_distance = 5.0
+shadow_enabled = true
+shadow_bias = 1.45
+shadow_reverse_cull_face = true
+shadow_blur = 0.07
+directional_shadow_blend_splits = true
+sky_mode = 1
+
+[node name="Rock01_SongDynasty" parent="." unique_id=1475308248 instance=ExtResource("1_8bcco")]
+transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, -5.93713, 0.4275838, -4.7659245)
+
+[node name="Rock02_SongDynasty" parent="." unique_id=802326601 instance=ExtResource("2_n7iqy")]
+transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, -6.9623604, 0.48966217, -5.814185)
+
+[node name="MeshInstance3D2" type="MeshInstance3D" parent="." unique_id=1074908589]
+transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 0, 0.528407, 0)
+mesh = SubResource("BoxMesh_8bcco")
+
+[node name="Camera3D" type="Camera3D" parent="." unique_id=346323551]
+transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 0, 1.6295476, 3.117549)
