@@ -1,0 +1,1 @@
+claude mcp add godot -e GODOT_PATH=Engine/bin/godot.windows.editor.x86_64.exe -e DEBUG=true -- npx @coding-solo/godot-mcp
