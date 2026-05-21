@@ -19,6 +19,16 @@ enum Key {
 	PROGRESS,
 	MESSAGE_LOG,
 	CLEAR,
+	ASSET_CONVERTER,
+	REFRESH,
+	CONVERT,
+	CONVERT_ALL,
+	CATEGORY,
+	FRIENDLY_NAME,
+	CONVERT_SUCCESS,
+	CONVERT_FAILED,
+	NO_MODELS_FOUND,
+	SOURCE,
 }
 
 static var _texts: Dictionary = {}
@@ -68,6 +78,16 @@ static func _english() -> Dictionary:
 		Key.PROGRESS:       "Progress",
 		Key.MESSAGE_LOG:    "Message Log",
 		Key.CLEAR:          "Clear",
+		Key.ASSET_CONVERTER: "Asset Converter",
+		Key.REFRESH:        "Refresh",
+		Key.CONVERT:        "Convert",
+		Key.CONVERT_ALL:    "Convert All",
+		Key.CATEGORY:       "Category:",
+		Key.FRIENDLY_NAME:  "Name:",
+		Key.CONVERT_SUCCESS: "Conversion successful",
+		Key.CONVERT_FAILED: "Conversion failed",
+		Key.NO_MODELS_FOUND: "No models found in TripoModels/",
+		Key.SOURCE:         "Source:",
 	}
 
 static func _chinese() -> Dictionary:
@@ -87,6 +107,16 @@ static func _chinese() -> Dictionary:
 		Key.PROGRESS:       "进度",
 		Key.MESSAGE_LOG:    "消息日志",
 		Key.CLEAR:          "清空",
+		Key.ASSET_CONVERTER: "资源转换",
+		Key.REFRESH:        "刷新",
+		Key.CONVERT:        "转换",
+		Key.CONVERT_ALL:    "全部转换",
+		Key.CATEGORY:       "分类：",
+		Key.FRIENDLY_NAME:  "名称：",
+		Key.CONVERT_SUCCESS: "转换成功",
+		Key.CONVERT_FAILED: "转换失败",
+		Key.NO_MODELS_FOUND: "TripoModels/ 中未找到模型",
+		Key.SOURCE:         "来源：",
 	}
 
 static func _japanese() -> Dictionary:
@@ -106,6 +136,16 @@ static func _japanese() -> Dictionary:
 		Key.PROGRESS:       "進行状況",
 		Key.MESSAGE_LOG:    "メッセージログ",
 		Key.CLEAR:          "クリア",
+		Key.ASSET_CONVERTER: "アセット変換",
+		Key.REFRESH:        "更新",
+		Key.CONVERT:        "変換",
+		Key.CONVERT_ALL:    "すべて変換",
+		Key.CATEGORY:       "カテゴリ：",
+		Key.FRIENDLY_NAME:  "名前：",
+		Key.CONVERT_SUCCESS: "変換に成功しました",
+		Key.CONVERT_FAILED: "変換に失敗しました",
+		Key.NO_MODELS_FOUND: "TripoModels/ にモデルが見つかりません",
+		Key.SOURCE:         "ソース：",
 	}
 
 static func _korean() -> Dictionary:
@@ -125,6 +165,16 @@ static func _korean() -> Dictionary:
 		Key.PROGRESS:       "진행률",
 		Key.MESSAGE_LOG:    "메시지 로그",
 		Key.CLEAR:          "지우기",
+		Key.ASSET_CONVERTER: "에셋 변환",
+		Key.REFRESH:        "새로고침",
+		Key.CONVERT:        "변환",
+		Key.CONVERT_ALL:    "모두 변환",
+		Key.CATEGORY:       "카테고리:",
+		Key.FRIENDLY_NAME:  "이름:",
+		Key.CONVERT_SUCCESS: "변환 성공",
+		Key.CONVERT_FAILED: "변환 실패",
+		Key.NO_MODELS_FOUND: "TripoModels/에 모델이 없습니다",
+		Key.SOURCE:         "소스:",
 	}
 
 static func _russian() -> Dictionary:
@@ -144,6 +194,16 @@ static func _russian() -> Dictionary:
 		Key.PROGRESS:       "Прогресс",
 		Key.MESSAGE_LOG:    "Журнал сообщений",
 		Key.CLEAR:          "Очистить",
+		Key.ASSET_CONVERTER: "Конвертер ресурсов",
+		Key.REFRESH:        "Обновить",
+		Key.CONVERT:        "Конвертировать",
+		Key.CONVERT_ALL:    "Конвертировать все",
+		Key.CATEGORY:       "Категория:",
+		Key.FRIENDLY_NAME:  "Имя:",
+		Key.CONVERT_SUCCESS: "Конвертация выполнена",
+		Key.CONVERT_FAILED: "Ошибка конвертации",
+		Key.NO_MODELS_FOUND: "Модели в TripoModels/ не найдены",
+		Key.SOURCE:         "Источник:",
 	}
 
 static func _french() -> Dictionary:
@@ -163,6 +223,16 @@ static func _french() -> Dictionary:
 		Key.PROGRESS:       "Progression",
 		Key.MESSAGE_LOG:    "Journal des messages",
 		Key.CLEAR:          "Effacer",
+		Key.ASSET_CONVERTER: "Convertisseur d'assets",
+		Key.REFRESH:        "Actualiser",
+		Key.CONVERT:        "Convertir",
+		Key.CONVERT_ALL:    "Tout convertir",
+		Key.CATEGORY:       "Catégorie :",
+		Key.FRIENDLY_NAME:  "Nom :",
+		Key.CONVERT_SUCCESS: "Conversion réussie",
+		Key.CONVERT_FAILED: "Échec de la conversion",
+		Key.NO_MODELS_FOUND: "Aucun modèle trouvé dans TripoModels/",
+		Key.SOURCE:         "Source :",
 	}
 
 static func _german() -> Dictionary:
@@ -182,6 +252,16 @@ static func _german() -> Dictionary:
 		Key.PROGRESS:       "Fortschritt",
 		Key.MESSAGE_LOG:    "Nachrichtenprotokoll",
 		Key.CLEAR:          "Löschen",
+		Key.ASSET_CONVERTER: "Asset-Konverter",
+		Key.REFRESH:        "Aktualisieren",
+		Key.CONVERT:        "Konvertieren",
+		Key.CONVERT_ALL:    "Alle konvertieren",
+		Key.CATEGORY:       "Kategorie:",
+		Key.FRIENDLY_NAME:  "Name:",
+		Key.CONVERT_SUCCESS: "Konvertierung erfolgreich",
+		Key.CONVERT_FAILED: "Konvertierung fehlgeschlagen",
+		Key.NO_MODELS_FOUND: "Keine Modelle in TripoModels/ gefunden",
+		Key.SOURCE:         "Quelle:",
 	}
 
 static func _spanish() -> Dictionary:
@@ -201,6 +281,16 @@ static func _spanish() -> Dictionary:
 		Key.PROGRESS:       "Progreso",
 		Key.MESSAGE_LOG:    "Registro de mensajes",
 		Key.CLEAR:          "Limpiar",
+		Key.ASSET_CONVERTER: "Convertidor de assets",
+		Key.REFRESH:        "Actualizar",
+		Key.CONVERT:        "Convertir",
+		Key.CONVERT_ALL:    "Convertir todo",
+		Key.CATEGORY:       "Categoría:",
+		Key.FRIENDLY_NAME:  "Nombre:",
+		Key.CONVERT_SUCCESS: "Conversión exitosa",
+		Key.CONVERT_FAILED: "Error en la conversión",
+		Key.NO_MODELS_FOUND: "No se encontraron modelos en TripoModels/",
+		Key.SOURCE:         "Fuente:",
 	}
 
 static func _portuguese() -> Dictionary:
@@ -220,4 +310,14 @@ static func _portuguese() -> Dictionary:
 		Key.PROGRESS:       "Progresso",
 		Key.MESSAGE_LOG:    "Registro de mensagens",
 		Key.CLEAR:          "Limpar",
+		Key.ASSET_CONVERTER: "Conversor de assets",
+		Key.REFRESH:        "Atualizar",
+		Key.CONVERT:        "Converter",
+		Key.CONVERT_ALL:    "Converter tudo",
+		Key.CATEGORY:       "Categoria:",
+		Key.FRIENDLY_NAME:  "Nome:",
+		Key.CONVERT_SUCCESS: "Conversão realizada",
+		Key.CONVERT_FAILED: "Falha na conversão",
+		Key.NO_MODELS_FOUND: "Nenhum modelo encontrado em TripoModels/",
+		Key.SOURCE:         "Fonte:",
 	}

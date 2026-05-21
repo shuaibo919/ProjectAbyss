@@ -97,7 +97,7 @@ func _prepare_import_impl(file_id: String, file_name: String, file_type: String,
 		"temp_path": temp_path,
 	}
 
-# Phase 2 (synchronous): apply PBR textures and add the model to the scene.
+# Phase 2 (synchronous): apply PBR textures to imported materials.
 # Must be called after the filesystem scan completes.
 func finalize_import(asset_path: String, model_file_name: String,
 		model_name: String, temp_path: String) -> bool:
@@ -117,14 +117,9 @@ func finalize_import(asset_path: String, model_file_name: String,
 	TripoTextureApplicator.apply_textures_to_materials(
 			asset_path, asset_files, texture_maps, texture_cache)
 
-	progress_updated.emit(0.9)
-
-	var added := _add_to_scene(asset_path, model_file_name, model_name,
-			texture_maps, texture_cache)
-
 	progress_updated.emit(1.0)
 	ImportFileUtils.cleanup_temp_dir(temp_path)
-	return added
+	return true
 
 # ————— impl —————
 

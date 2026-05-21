@@ -9,6 +9,7 @@ extends EditorPlugin
 const _Server = preload("res://addons/Tripo3d_Godot_Bridge/network/websocket_server.gd")
 const _Dock   = preload("res://addons/Tripo3d_Godot_Bridge/ui/tripo_bridge_dock.gd")
 const _Importer = preload("res://addons/Tripo3d_Godot_Bridge/importing/model_importer.gd")
+const _Converter = preload("res://addons/Tripo3d_Godot_Bridge/converting/asset_converter.gd")
 
 var _server = null
 var _dock = null
@@ -59,6 +60,11 @@ func _enter_tree() -> void:
 	efs.filesystem_changed.connect(_on_filesystem_changed)
 
 	add_control_to_dock(DOCK_SLOT_RIGHT_BL, _dock)
+
+	# Connect converter panel
+	var converter_panel = _dock.get_converter_panel()
+	if converter_panel:
+		converter_panel.convert_requested.connect(_on_convert_requested)
 
 	# Auto-start server
 	_start_server()
@@ -349,3 +355,22 @@ func _is_model_resource_ready(model_res_path: String) -> bool:
 		return false
 	var model_resource: Resource = ResourceLoader.load(model_res_path, "", ResourceLoader.CACHE_MODE_REUSE)
 	return model_resource is PackedScene or model_resource is Mesh
+
+func _on_convert_requested(source_dir: String, category: String, friendly_name: String) -> void:
+	LogHelper.log("Converting: %s -> Assets/%s/%s" % [source_dir.get_file(), category, friendly_name])
+	var success := TripoAssetConverter.convert_model(source_dir, category, friendly_name)
+	var converter_panel = _dock.get_converter_panel() if _dock else null
+	if success:
+		LogHelper.log(TripoBridgeLocalization.get_text(TripoBridgeLocalization.Key.CONVERT_SUCCESS)
+			+ ": " + friendly_name)
+		if converter_panel:
+			converter_panel.set_status(
+				TripoBridgeLocalization.get_text(TripoBridgeLocalization.Key.CONVERT_SUCCESS)
+				+ ": " + friendly_name)
+	else:
+		LogHelper.error(TripoBridgeLocalization.get_text(TripoBridgeLocalization.Key.CONVERT_FAILED)
+			+ ": " + friendly_name)
+		if converter_panel:
+			converter_panel.set_status(
+				TripoBridgeLocalization.get_text(TripoBridgeLocalization.Key.CONVERT_FAILED)
+				+ ": " + friendly_name, true)

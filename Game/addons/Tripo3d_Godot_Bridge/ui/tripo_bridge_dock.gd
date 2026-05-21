@@ -1,6 +1,8 @@
 @tool
 extends Control
 
+const _ConverterPanel = preload("res://addons/Tripo3d_Godot_Bridge/ui/converter_panel.gd")
+
 signal start_server_pressed
 signal stop_server_pressed
 
@@ -25,6 +27,7 @@ var _file_value_label: Label
 var _progress_bar: ProgressBar
 var _log_edit: TextEdit
 var _logo_rect: TextureRect
+var _converter_panel = null
 var _plugin_dir: String = ""
 
 # State
@@ -173,6 +176,16 @@ func _build_ui() -> void:
 	_log_edit.size_flags_horizontal = Control.SIZE_EXPAND_FILL
 	log_vbox.add_child(_log_edit)
 
+	# --- Asset Converter ---
+	vbox.add_child(_make_section_separator())
+
+	var converter_panel_container := PanelContainer.new()
+	converter_panel_container.add_theme_stylebox_override("panel", _make_section_style())
+	vbox.add_child(converter_panel_container)
+
+	_converter_panel = _ConverterPanel.new()
+	converter_panel_container.add_child(_converter_panel)
+
 func _make_section_header(text: String, font_size: int = SECTION_HEADER_FONT_SIZE) -> Label:
 	var header := Label.new()
 	header.text = text
@@ -312,3 +325,6 @@ func set_server_running(v: bool) -> void:
 
 func _is_server_running() -> bool:
 	return _server_running
+
+func get_converter_panel():
+	return _converter_panel
