@@ -3,14 +3,12 @@
 @tool
 class_name StartupCleanup
 
-const CLEANUP_SETTING_KEY: String = "tripo_bridge/last_cleanup"
+const CACHE_FILE: String = "user://tripo_bridge_cache.cfg"
 const CLEANUP_INTERVAL_HOURS: float = 24.0
 const TEMP_DIR: String = "user://tripo_temp"
 
 static func run() -> void:
-	var last_str: String = ""
-	if ProjectSettings.has_setting(CLEANUP_SETTING_KEY):
-		last_str = ProjectSettings.get_setting(CLEANUP_SETTING_KEY)
+	var last_str: String = _read_last_cleanup()
 
 	if not last_str.is_empty():
 		var last := Time.get_unix_time_from_datetime_string(last_str)
@@ -21,8 +19,24 @@ static func run() -> void:
 	_cleanup_temp()
 
 	var now_str := Time.get_datetime_string_from_system(false)
-	ProjectSettings.set_setting(CLEANUP_SETTING_KEY, now_str)
-	ProjectSettings.save()
+	_write_last_cleanup(now_str)
+
+	# Remove legacy ProjectSettings entry if present
+	if ProjectSettings.has_setting("tripo_bridge/last_cleanup"):
+		ProjectSettings.set_setting("tripo_bridge/last_cleanup", null)
+		ProjectSettings.save()
+
+static func _read_last_cleanup() -> String:
+	var cfg := ConfigFile.new()
+	if cfg.load(ProjectSettings.globalize_path(CACHE_FILE)) != OK:
+		return ""
+	return cfg.get_value("cleanup", "last", "")
+
+static func _write_last_cleanup(value: String) -> void:
+	var cfg := ConfigFile.new()
+	cfg.load(ProjectSettings.globalize_path(CACHE_FILE))
+	cfg.set_value("cleanup", "last", value)
+	cfg.save(ProjectSettings.globalize_path(CACHE_FILE))
 
 static func _cleanup_temp() -> void:
 	var abs_temp := ProjectSettings.globalize_path(TEMP_DIR)
