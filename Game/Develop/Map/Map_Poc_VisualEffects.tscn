@@ -1,60 +1,37 @@
 [gd_scene format=3 uid="uid://dx8dx6p81im1k"]
 
+[ext_resource type="ArrayMesh" uid="uid://dpae8poeowm2s" path="res://Assets/Trees/Tree01_AncientPine.res" id="1_tree_pine"]
+[ext_resource type="ArrayMesh" uid="uid://div5vuky8cxrp" path="res://Assets/Trees/Tree02_AncientCamphor.res" id="2_tree_camphor"]
+[ext_resource type="ArrayMesh" uid="uid://ctvlvsp6e51s7" path="res://Assets/Rocks/Rock01_SongDynasty.res" id="3_rock_01"]
+[ext_resource type="ArrayMesh" uid="uid://62ftqyqmp2ya" path="res://Assets/Rocks/Rock02_SongDynasty.res" id="4_rock_02"]
+[ext_resource type="ArrayMesh" uid="uid://bcfvspwvdbm1m" path="res://Assets/Gazebos/Gazebo01_SongDynasty.res" id="5_gazebo_01"]
+[ext_resource type="Texture2D" uid="uid://cyiurliw6pw4t" path="res://Assets/Trees/Texs/Tree01_AncientPine_basecolor.JPEG" id="6_tree_pine_tex"]
+[ext_resource type="Texture2D" uid="uid://txmgpmocss2s" path="res://Assets/Trees/Texs/Tree02_AncientCamphor_basecolor.JPEG" id="7_tree_camphor_tex"]
+[ext_resource type="Texture2D" uid="uid://bex4vuimy7egx" path="res://Assets/Rocks/Texs/Rock01_SongDynasty_basecolor.JPEG" id="8_rock_01_tex"]
+[ext_resource type="Texture2D" uid="uid://dv3mnr3uputk7" path="res://Assets/Rocks/Texs/Rock02_SongDynasty_basecolor.JPEG" id="9_rock_02_tex"]
+[ext_resource type="Texture2D" uid="uid://db1gg4d14eybg" path="res://Assets/Gazebos/Texs/Gazebo01_SongDynasty_basecolor.JPEG" id="10_gazebo_tex"]
+
 [sub_resource type="PlaneMesh" id="PlaneMesh_ground"]
 size = Vector2(34, 24)
 subdivide_width = 6
 subdivide_depth = 6
 
 [sub_resource type="StandardMaterial3D" id="Mat_ground"]
-albedo_color = Color(0.58, 0.66, 0.46, 1)
 
-[sub_resource type="CylinderMesh" id="CylinderMesh_mountain"]
-top_radius = 0.0
-bottom_radius = 1.0
-radial_segments = 4
-rings = 1
+[sub_resource type="StandardMaterial3D" id="Mat_rock_01"]
+albedo_texture = ExtResource("8_rock_01_tex")
 
-[sub_resource type="StandardMaterial3D" id="Mat_mountain"]
-albedo_color = Color(0.45, 0.43, 0.55, 1)
+[sub_resource type="StandardMaterial3D" id="Mat_rock_02"]
+albedo_texture = ExtResource("9_rock_02_tex")
 
-[sub_resource type="BoxMesh" id="BoxMesh_block"]
+[sub_resource type="StandardMaterial3D" id="Mat_tree_pine"]
+albedo_texture = ExtResource("6_tree_pine_tex")
 
-[sub_resource type="StandardMaterial3D" id="Mat_rock"]
-albedo_color = Color(0.43, 0.45, 0.48, 1)
+[sub_resource type="StandardMaterial3D" id="Mat_tree_camphor"]
+albedo_texture = ExtResource("7_tree_camphor_tex")
 
-[sub_resource type="CylinderMesh" id="CylinderMesh_trunk"]
-top_radius = 0.45
-bottom_radius = 0.55
-radial_segments = 8
-rings = 1
-
-[sub_resource type="StandardMaterial3D" id="Mat_trunk"]
-albedo_color = Color(0.48, 0.29, 0.16, 1)
-
-[sub_resource type="CylinderMesh" id="CylinderMesh_foliage"]
-top_radius = 0.0
-bottom_radius = 1.0
-radial_segments = 8
-rings = 1
-
-[sub_resource type="StandardMaterial3D" id="Mat_leaf"]
-albedo_color = Color(0.18, 0.42, 0.26, 1)
-
-[sub_resource type="CylinderMesh" id="CylinderMesh_grass"]
-top_radius = 0.0
-bottom_radius = 0.25
-height = 1.0
-radial_segments = 5
-rings = 1
-
-[sub_resource type="StandardMaterial3D" id="Mat_grass"]
-albedo_color = Color(0.36, 0.62, 0.24, 1)
-
-[sub_resource type="StandardMaterial3D" id="Mat_pavilion_wood"]
-albedo_color = Color(0.63, 0.36, 0.19, 1)
-
-[sub_resource type="StandardMaterial3D" id="Mat_pavilion_roof"]
-albedo_color = Color(0.26, 0.22, 0.25, 1)
+[sub_resource type="StandardMaterial3D" id="Mat_gazebo"]
+albedo_texture = ExtResource("10_gazebo_tex")
 
 [node name="Node3D" type="Node3D" unique_id=894711874]
 
@@ -65,112 +42,52 @@ mesh = SubResource("PlaneMesh_ground")
 surface_material_override/0 = SubResource("Mat_ground")
 
 [node name="Mountain_Back_Left" type="MeshInstance3D" parent="Whitebox_Wild_Mountain_Scene" unique_id=1219112435]
-transform = Transform3D(5.2, 0, 0, 0, 3.8, 0, 0, 0, 3.4, -8.2, 1.9, -7.7)
-mesh = SubResource("CylinderMesh_mountain")
-surface_material_override/0 = SubResource("Mat_mountain")
+transform = Transform3D(7.0564795, -0.9536128, -4.5157382e-08, 0, -2.0981467e-07, 5.2, -1.4304191, -4.70432, -2.2276836e-07, -8.2, 0, -7.7)
+material_override = SubResource("Mat_rock_01")
+mesh = ExtResource("3_rock_01")
 
 [node name="Mountain_Back_Center" type="MeshInstance3D" parent="Whitebox_Wild_Mountain_Scene" unique_id=1787595410]
-transform = Transform3D(6.8, 0, 0, 0, 5.2, 0, 0, 0, 4.2, -1.5, 2.6, -9.1)
-mesh = SubResource("CylinderMesh_mountain")
-surface_material_override/0 = SubResource("Mat_mountain")
+transform = Transform3D(-4.098753, 5.0989, 2.766786e-07, 0, -2.5352603e-07, 7.1999993, 7.560438, 2.7642756, 1.4999628e-07, -1.5, 0, -9.1)
+material_override = SubResource("Mat_rock_02")
+mesh = ExtResource("4_rock_02")
 
 [node name="Mountain_Back_Right" type="MeshInstance3D" parent="Whitebox_Wild_Mountain_Scene" unique_id=1027930237]
-transform = Transform3D(4.7, 0, 0, 0, 3.4, 0, 0, 0, 3.1, 6.4, 1.7, -7.4)
-mesh = SubResource("CylinderMesh_mountain")
-surface_material_override/0 = SubResource("Mat_mountain")
+transform = Transform3D(5.636236, -1.4401708, -6.594957e-08, 0, -1.8358783e-07, 4.4, -2.0573869, -3.9453652, -1.8066966e-07, 6.4, 0, -7.4)
+material_override = SubResource("Mat_rock_01")
+mesh = ExtResource("3_rock_01")
 
 [node name="Rock_Large" type="MeshInstance3D" parent="Whitebox_Wild_Mountain_Scene" unique_id=627357911]
-transform = Transform3D(1.9, 0, 0, 0, 1.05, 0, 0, 0, 1.35, -3.4, 0.52, -1.6)
-mesh = SubResource("BoxMesh_block")
-surface_material_override/0 = SubResource("Mat_rock")
+transform = Transform3D(1.8008943, -0.69594485, -2.9470067e-08, 0, -6.9938224e-08, 1.55, -0.86993104, -1.4407154, -6.1007675e-08, -3.4, 0, -1.6)
+material_override = SubResource("Mat_rock_01")
+mesh = ExtResource("3_rock_01")
 
 [node name="Rock_Medium" type="MeshInstance3D" parent="Whitebox_Wild_Mountain_Scene" unique_id=205218136]
-transform = Transform3D(1.2, 0, 0, 0, 0.75, 0, 0, 0, 1, -1.7, 0.37, -2.2)
-mesh = SubResource("BoxMesh_block")
-surface_material_override/0 = SubResource("Mat_rock")
+transform = Transform3D(1.3620905, 0.39433247, 1.7236818e-08, 0, -5.0268095e-08, 1.15, 0.49720183, -1.0802786, -4.7220475e-08, -1.7, 0, -2.2)
+material_override = SubResource("Mat_rock_02")
+mesh = ExtResource("4_rock_02")
 
 [node name="Rock_Small" type="MeshInstance3D" parent="Whitebox_Wild_Mountain_Scene" unique_id=1319863991]
-transform = Transform3D(0.7, 0, 0, 0, 0.45, 0, 0, 0, 0.65, -4.8, 0.22, -0.6)
-mesh = SubResource("BoxMesh_block")
-surface_material_override/0 = SubResource("Mat_rock")
+transform = Transform3D(0.5905295, -0.62666154, -2.5680231e-08, 0, -3.4969112e-08, 0.75, -0.7441606, -0.497288, -2.0378575e-08, -4.8, 0, -0.6)
+material_override = SubResource("Mat_rock_01")
+mesh = ExtResource("3_rock_01")
 
-[node name="Tree_Left_Trunk" type="MeshInstance3D" parent="Whitebox_Wild_Mountain_Scene" unique_id=2142116217]
-transform = Transform3D(0.36, 0, 0, 0, 1.25, 0, 0, 0, 0.36, -6.7, 1.25, 1.7)
-mesh = SubResource("CylinderMesh_trunk")
-surface_material_override/0 = SubResource("Mat_trunk")
+[node name="Tree_Left" type="MeshInstance3D" parent="Whitebox_Wild_Mountain_Scene" unique_id=2142116217]
+transform = Transform3D(3.1938674, -1.1658525, -5.096103e-08, 0, -1.4861872e-07, 3.4, -1.1658525, -3.1938674, -1.3960837e-07, 4.8, 0, 1.1)
+material_override = SubResource("Mat_tree_pine")
+mesh = ExtResource("1_tree_pine")
 
-[node name="Tree_Left_Canopy" type="MeshInstance3D" parent="Whitebox_Wild_Mountain_Scene" unique_id=341399947]
-transform = Transform3D(1.25, 0, 0, 0, 1.35, 0, 0, 0, 1.25, -6.7, 3.6, 1.7)
-mesh = SubResource("CylinderMesh_foliage")
-surface_material_override/0 = SubResource("Mat_leaf")
-
-[node name="Tree_Right_Trunk" type="MeshInstance3D" parent="Whitebox_Wild_Mountain_Scene" unique_id=1302198372]
-transform = Transform3D(0.3, 0, 0, 0, 1, 0, 0, 0, 0.3, 4.8, 1, 1.1)
-mesh = SubResource("CylinderMesh_trunk")
-surface_material_override/0 = SubResource("Mat_trunk")
-
-[node name="Tree_Right_Canopy" type="MeshInstance3D" parent="Whitebox_Wild_Mountain_Scene" unique_id=1546707330]
-transform = Transform3D(1.05, 0, 0, 0, 1.2, 0, 0, 0, 1.05, 4.8, 3.1, 1.1)
-mesh = SubResource("CylinderMesh_foliage")
-surface_material_override/0 = SubResource("Mat_leaf")
-
-[node name="Grass_Clump_A" type="MeshInstance3D" parent="Whitebox_Wild_Mountain_Scene" unique_id=1570376416]
-transform = Transform3D(0.55, 0, 0, 0, 0.7, 0, 0, 0, 0.55, -5.3, 0.35, 3.7)
-mesh = SubResource("CylinderMesh_grass")
-surface_material_override/0 = SubResource("Mat_grass")
-
-[node name="Grass_Clump_B" type="MeshInstance3D" parent="Whitebox_Wild_Mountain_Scene" unique_id=1738410251]
-transform = Transform3D(0.45, 0, 0, 0, 0.55, 0, 0, 0, 0.45, -1.9, 0.27, 2.8)
-mesh = SubResource("CylinderMesh_grass")
-surface_material_override/0 = SubResource("Mat_grass")
-
-[node name="Grass_Clump_C" type="MeshInstance3D" parent="Whitebox_Wild_Mountain_Scene" unique_id=4776877]
-transform = Transform3D(0.5, 0, 0, 0, 0.65, 0, 0, 0, 0.5, 2.1, 0.32, 3.5)
-mesh = SubResource("CylinderMesh_grass")
-surface_material_override/0 = SubResource("Mat_grass")
-
-[node name="Grass_Clump_D" type="MeshInstance3D" parent="Whitebox_Wild_Mountain_Scene" unique_id=1864736987]
-transform = Transform3D(0.38, 0, 0, 0, 0.5, 0, 0, 0, 0.38, 6.5, 0.25, 2.4)
-mesh = SubResource("CylinderMesh_grass")
-surface_material_override/0 = SubResource("Mat_grass")
+[node name="Tree_Right" type="MeshInstance3D" parent="Whitebox_Wild_Mountain_Scene" unique_id=1302198372]
+transform = Transform3D(2.140463, 4.957663, 2.1670641e-07, 4.74636e-15, -2.3604157e-07, 5.400001, 4.957663, -2.140463, -9.3562626e-08, -6.7, 0, 1.7)
+material_override = SubResource("Mat_tree_camphor")
+mesh = ExtResource("2_tree_camphor")
 
 [node name="Pavilion" type="Node3D" parent="Whitebox_Wild_Mountain_Scene" unique_id=1410259080]
 transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 2.9, 0, -2)
 
-[node name="Base" type="MeshInstance3D" parent="Whitebox_Wild_Mountain_Scene/Pavilion" unique_id=461950208]
-transform = Transform3D(2.8, 0, 0, 0, 0.22, 0, 0, 0, 2.3, 0, 0.11, 0)
-mesh = SubResource("BoxMesh_block")
-surface_material_override/0 = SubResource("Mat_pavilion_wood")
-
-[node name="Post_Front_Left" type="MeshInstance3D" parent="Whitebox_Wild_Mountain_Scene/Pavilion" unique_id=1169446415]
-transform = Transform3D(0.18, 0, 0, 0, 1.7, 0, 0, 0, 0.18, -1.05, 1.05, 0.8)
-mesh = SubResource("BoxMesh_block")
-surface_material_override/0 = SubResource("Mat_pavilion_wood")
-
-[node name="Post_Front_Right" type="MeshInstance3D" parent="Whitebox_Wild_Mountain_Scene/Pavilion" unique_id=953359832]
-transform = Transform3D(0.18, 0, 0, 0, 1.7, 0, 0, 0, 0.18, 1.05, 1.05, 0.8)
-mesh = SubResource("BoxMesh_block")
-surface_material_override/0 = SubResource("Mat_pavilion_wood")
-
-[node name="Post_Back_Left" type="MeshInstance3D" parent="Whitebox_Wild_Mountain_Scene/Pavilion" unique_id=376833301]
-transform = Transform3D(0.18, 0, 0, 0, 1.7, 0, 0, 0, 0.18, -1.05, 1.05, -0.8)
-mesh = SubResource("BoxMesh_block")
-surface_material_override/0 = SubResource("Mat_pavilion_wood")
-
-[node name="Post_Back_Right" type="MeshInstance3D" parent="Whitebox_Wild_Mountain_Scene/Pavilion" unique_id=749636734]
-transform = Transform3D(0.18, 0, 0, 0, 1.7, 0, 0, 0, 0.18, 1.05, 1.05, -0.8)
-mesh = SubResource("BoxMesh_block")
-surface_material_override/0 = SubResource("Mat_pavilion_wood")
-
-[node name="Roof_Block" type="MeshInstance3D" parent="Whitebox_Wild_Mountain_Scene/Pavilion" unique_id=1708611652]
-transform = Transform3D(3.2, 0, 0, 0, 0.28, 0, 0, 0, 2.7, 0, 2.08, 0)
-mesh = SubResource("BoxMesh_block")
-surface_material_override/0 = SubResource("Mat_pavilion_roof")
-
-[node name="Roof_Ridge" type="MeshInstance3D" parent="Whitebox_Wild_Mountain_Scene/Pavilion" unique_id=1888549492]
-transform = Transform3D(0.34, 0, 0, 0, 0.55, 0, 0, 0, 2.95, 0, 2.5, 0)
-mesh = SubResource("BoxMesh_block")
-surface_material_override/0 = SubResource("Mat_pavilion_roof")
+[node name="Gazebo01_SongDynasty" type="MeshInstance3D" parent="Whitebox_Wild_Mountain_Scene/Pavilion" unique_id=461950208]
+transform = Transform3D(3.4, 0, 0, 0, -1.4861872e-07, 3.4, 0, -3.4, -1.4861872e-07, 0, 0, 0)
+material_override = SubResource("Mat_gazebo")
+mesh = ExtResource("5_gazebo_01")
 
 [node name="DirectionalLight3D" type="DirectionalLight3D" parent="." unique_id=44939997]
 transform = Transform3D(-0.0906827, 0.8351143, -0.5425502, -0.79759353, 0.26532406, 0.5417082, 0.5963399, 0.48185807, 0.6420215, 0, 0, 0)
@@ -182,4 +99,4 @@ directional_shadow_blend_splits = true
 sky_mode = 1
 
 [node name="Camera3D" type="Camera3D" parent="." unique_id=346323551]
-transform = Transform3D(0.946814, -0.15105, 0.284119, 0, 0.883067, 0.469247, -0.321781, -0.444293, 0.836089, 0, 5.2, 11)
+transform = Transform3D(0.99144477, 0.0011390527, 0.13051869, 0, 0.9999717, -0.008726366, -0.13052619, 0.008651963, 0.99138784, 0.125, 2.255, 7.405)
