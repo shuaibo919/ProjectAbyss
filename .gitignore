@@ -20,6 +20,7 @@ Game/bin/*.debug
 Game/bin/*.uid
 Game/bin/*.TMP
 Game/TripoModels/
+Game/UnrealToGodot/
 # OS generated files
 Thumbs.db
 Desktop.ini
