@@ -5,7 +5,7 @@ render_mode unshaded, cull_front, depth_draw_opaque;
 
 // === Outline Control ===
 uniform float outline_width : hint_range(0.0, 10.0) = 1.5;
-uniform float persp_exp : hint_range(0.0, 2.0) = 0.8;
+uniform float persp_exp : hint_range(0.0, 2.0) = 0.0;
 uniform vec4 outline_color : source_color = vec4(0.05, 0.05, 0.05, 1.0);
 uniform float max_distance = 256.0;
 
@@ -34,14 +34,12 @@ void vertex() {
 
 	// Clip-space position
 	vec4 clip_pos = PROJECTION_MATRIX * MODELVIEW_MATRIX * vec4(VERTEX, 1.0);
-	float depth = clip_pos.w;
-
 	// Normal in clip space for extrusion direction
 	vec3 view_normal = normalize(mat3(MODELVIEW_MATRIX) * NORMAL);
 	vec2 clip_normal = normalize((PROJECTION_MATRIX * vec4(view_normal, 0.0)).xy);
 
-	// Perspective-corrected width
-	float width = outline_width * 0.001 * pow(depth, persp_exp);
+	// Stable screen-space width. The legacy persp_exp uniform is kept for material compatibility.
+	float width = outline_width * 0.001;
 
 	// Pressure variation (sine wave along world position for organic feel)
 	float pressure = 1.0 + sin(length(world_pos) * pressure_period) * pressure_amount;
