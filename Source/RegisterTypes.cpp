@@ -1,10 +1,11 @@
 #include "RegisterTypes.h"
 
-#include "Camera/CameraManager.hpp"
-#include "Camera/CameraViewpoint.hpp"
-#include "Camera/CameraSwitcher.hpp"
-#include "Camera/CameraRigController.hpp"
-#include "Camera/WhiteboxPlayer.hpp"
+#include "InputMapping/InputMapping.hpp"
+#include "CameraManager/CameraManager.hpp"
+#include "CameraManager/CameraViewpoint.hpp"
+#include "CameraManager/CameraSwitcher.hpp"
+#include "CameraManager/CameraRigController.hpp"
+#include "CameraManager/WhiteboxPlayer.hpp"
 
 #include <gdextension_interface.h>
 #include <godot_cpp/core/defs.hpp>
@@ -16,6 +17,9 @@ void initialize_abyss_module(ModuleInitializationLevel p_level) {
 	if (p_level != MODULE_INITIALIZATION_LEVEL_SCENE) {
 		return;
 	}
+
+	GDREGISTER_CLASS(InputMapping);
+	InputMapping::SetupDefaults();
 
 	GDREGISTER_CLASS(CameraManager);
 	GDREGISTER_CLASS(CameraViewpoint);

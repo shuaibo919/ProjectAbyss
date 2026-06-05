@@ -9,8 +9,7 @@ class CameraViewpoint;
 class CameraSwitcher : public Node3D {
 	GDCLASS(CameraSwitcher, Node3D)
 
-private:
-	int _current_camera = 0;
+	int CurrentCameraIndex = 0;
 
 protected:
 	static void _bind_methods();
@@ -21,11 +20,11 @@ public:
 
 	void _ready() override;
 
-	void set_current_camera(int p_index);
-	int get_current_camera() const;
+	void SetCurrentCamera(int p_index);
+	int GetCurrentCamera() const;
 
 private:
-	void _apply_camera();
+	void _ApplyCamera();
 };
 
 } // namespace godot
