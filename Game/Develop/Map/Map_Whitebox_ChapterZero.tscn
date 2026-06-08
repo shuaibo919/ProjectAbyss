@@ -1,0 +1,1744 @@
+[gd_scene format=3 uid="uid://c7l1e6a2hd2d"]
+[ext_resource type="Shader" uid="uid://clpdpt7bnvxpa" path="res://Assets/Shaders/InkPainting/ink_surface.gdshader" id="1_ink_surface"]
+
+[sub_resource type="Sky" id="Sky_Dusk"]
+
+[sub_resource type="Environment" id="Env_Dusk"]
+background_mode = 2
+sky = SubResource("Sky_Dusk")
+ambient_light_color = Color(0.47, 0.32, 0.24, 1)
+ambient_light_energy = 0.7
+fog_enabled = true
+fog_light_color = Color(0.78, 0.44, 0.28, 1)
+fog_density = 0.006
+
+[sub_resource type="BoxMesh" id="BoxMesh_Unit"]
+
+[sub_resource type="ShaderMaterial" id="Mat_Water"]
+shader = ExtResource("1_ink_surface")
+shader_parameter/base_color = Color(0.08, 0.36, 0.86, 0.72)
+
+[sub_resource type="ShaderMaterial" id="Mat_Shore"]
+shader = ExtResource("1_ink_surface")
+shader_parameter/base_color = Color(0.46, 0.36, 0.25, 1)
+
+[sub_resource type="BoxShape3D" id="BoxShape_Unit"]
+
+[sub_resource type="ShaderMaterial" id="Mat_Path"]
+shader = ExtResource("1_ink_surface")
+shader_parameter/base_color = Color(0.5, 0.47, 0.4, 1)
+
+[sub_resource type="ShaderMaterial" id="Mat_Stone"]
+shader = ExtResource("1_ink_surface")
+shader_parameter/base_color = Color(0.34, 0.34, 0.32, 1)
+
+[sub_resource type="ShaderMaterial" id="Mat_Wood"]
+shader = ExtResource("1_ink_surface")
+shader_parameter/base_color = Color(0.34, 0.21, 0.13, 1)
+
+[sub_resource type="ShaderMaterial" id="Mat_Building"]
+shader = ExtResource("1_ink_surface")
+shader_parameter/base_color = Color(0.54, 0.39, 0.29, 1)
+
+[sub_resource type="ShaderMaterial" id="Mat_Roof"]
+shader = ExtResource("1_ink_surface")
+shader_parameter/base_color = Color(0.18, 0.19, 0.2, 1)
+
+[sub_resource type="CylinderMesh" id="CylinderMesh_Unit"]
+height = 1.0
+
+[sub_resource type="ShaderMaterial" id="Mat_Lantern"]
+shader = ExtResource("1_ink_surface")
+shader_parameter/base_color = Color(1, 0.42, 0.08, 1)
+
+[sub_resource type="ShaderMaterial" id="Mat_SeaFoam"]
+shader = ExtResource("1_ink_surface")
+shader_parameter/base_color = Color(0.72, 0.84, 0.82, 1)
+
+[sub_resource type="ShaderMaterial" id="Mat_Fire"]
+shader = ExtResource("1_ink_surface")
+shader_parameter/base_color = Color(1, 0.25, 0.02, 1)
+
+[sub_resource type="ShaderMaterial" id="Mat_Foliage"]
+shader = ExtResource("1_ink_surface")
+shader_parameter/base_color = Color(0.17, 0.28, 0.16, 1)
+
+[sub_resource type="ShaderMaterial" id="Mat_Mountain"]
+shader = ExtResource("1_ink_surface")
+shader_parameter/base_color = Color(0.3, 0.27, 0.25, 1)
+
+[sub_resource type="ShaderMaterial" id="Mat_Sand"]
+shader = ExtResource("1_ink_surface")
+shader_parameter/base_color = Color(0.58, 0.5, 0.38, 1)
+
+[sub_resource type="ShaderMaterial" id="Mat_Cliff"]
+shader = ExtResource("1_ink_surface")
+shader_parameter/base_color = Color(0.24, 0.23, 0.21, 1)
+
+[sub_resource type="ShaderMaterial" id="Mat_Combat"]
+shader = ExtResource("1_ink_surface")
+shader_parameter/base_color = Color(0.62, 0.18, 0.12, 1)
+
+[sub_resource type="ShaderMaterial" id="Mat_DebugBlue"]
+shader = ExtResource("1_ink_surface")
+shader_parameter/base_color = Color(0.15, 0.31, 0.62, 1)
+
+[sub_resource type="ShaderMaterial" id="Mat_WhiteHair"]
+shader = ExtResource("1_ink_surface")
+shader_parameter/base_color = Color(0.82, 0.78, 0.68, 1)
+
+[sub_resource type="CapsuleMesh" id="CapsuleMesh_Player"]
+
+[sub_resource type="ShaderMaterial" id="Mat_Player"]
+shader = ExtResource("1_ink_surface")
+shader_parameter/base_color = Color(0.22, 0.48, 0.82, 1)
+
+[sub_resource type="CapsuleShape3D" id="CapsuleShape_Player"]
+
+[node name="Map_Whitebox_ChapterZero" type="Node3D" unique_id=416720559]
+
+[node name="CameraManager" type="CameraManager" parent="." unique_id=724961636 groups=["camera_manager_singleton"]]
+
+[node name="WorldEnvironment" type="WorldEnvironment" parent="." unique_id=1366142181]
+environment = SubResource("Env_Dusk")
+
+[node name="DuskKeyLight" type="DirectionalLight3D" parent="." unique_id=707725035]
+transform = Transform3D(0.866025, -0.353553, 0.353553, 0, 0.707107, 0.707107, -0.5, -0.612372, 0.612372, 0, 24, 0)
+light_color = Color(1, 0.62, 0.38, 1)
+light_energy = 2.2
+shadow_enabled = true
+
+[node name="CompositionPreviewCamera" type="Camera3D" parent="." unique_id=538073022]
+transform = Transform3D(0.8, 0, -0.6, -0.210674, 0.936329, -0.280899, 0.561798, 0.351123, 0.749063, 24, 16, 32)
+projection = 1
+size = 38.0
+near = 0.1
+far = 520.0
+
+[node name="Whitebox_Level" type="Node3D" parent="." unique_id=618788427]
+
+[node name="Water" type="Node3D" parent="Whitebox_Level" unique_id=454407116]
+
+[node name="Outer_Ocean_Plane" type="MeshInstance3D" parent="Whitebox_Level/Water" unique_id=2037480470]
+transform = Transform3D(1000, 0, 0, 0, 0.096, 0, 0, 0, 1000, 0, -0.32, -18)
+mesh = SubResource("BoxMesh_Unit")
+surface_material_override/0 = SubResource("Mat_Water")
+
+[node name="Foreground_Water_Plane" type="MeshInstance3D" parent="Whitebox_Level/Water" unique_id=373965038]
+transform = Transform3D(150, 0, 0, 0, 0.04, 0, 0, 0, 80, -10, -0.18, 28)
+mesh = SubResource("BoxMesh_Unit")
+surface_material_override/0 = SubResource("Mat_Water")
+
+[node name="Far_Left_Water_Plane" type="MeshInstance3D" parent="Whitebox_Level/Water" unique_id=1301338054]
+transform = Transform3D(86, 0, 0, 0, 0.03, 0, 0, 0, 82, -62, -0.16, -18)
+mesh = SubResource("BoxMesh_Unit")
+surface_material_override/0 = SubResource("Mat_Water")
+
+[node name="East_Landing_Water_Plane" type="MeshInstance3D" parent="Whitebox_Level/Water" unique_id=2050137052]
+transform = Transform3D(68, 0, 0, 0, 0.035, 0, 0, 0, 92, 76, -0.17, -2)
+mesh = SubResource("BoxMesh_Unit")
+surface_material_override/0 = SubResource("Mat_Water")
+
+[node name="Walkable_Shore" type="Node3D" parent="Whitebox_Level" unique_id=1003800774]
+
+[node name="Main_Right_Shore" type="StaticBody3D" parent="Whitebox_Level/Walkable_Shore" unique_id=1223959502]
+transform = Transform3D(22, 0, 0, 0, 0.55, 0, 0, 0, 15, 11, 0.1, 5)
+
+[node name="Mesh" type="MeshInstance3D" parent="Whitebox_Level/Walkable_Shore/Main_Right_Shore" unique_id=284619205]
+mesh = SubResource("BoxMesh_Unit")
+surface_material_override/0 = SubResource("Mat_Shore")
+
+[node name="Collision" type="CollisionShape3D" parent="Whitebox_Level/Walkable_Shore/Main_Right_Shore" unique_id=184960453]
+shape = SubResource("BoxShape_Unit")
+
+[node name="Campfire_Flat" type="StaticBody3D" parent="Whitebox_Level/Walkable_Shore" unique_id=1144377264]
+transform = Transform3D(8, 0, 0, 0, 0.18, 0, 0, 0, 6, 4, 0.48, 5.6)
+
+[node name="Mesh" type="MeshInstance3D" parent="Whitebox_Level/Walkable_Shore/Campfire_Flat" unique_id=1084200123]
+mesh = SubResource("BoxMesh_Unit")
+surface_material_override/0 = SubResource("Mat_Path")
+
+[node name="Collision" type="CollisionShape3D" parent="Whitebox_Level/Walkable_Shore/Campfire_Flat" unique_id=516622969]
+shape = SubResource("BoxShape_Unit")
+
+[node name="Upper_Village_Terrace" type="StaticBody3D" parent="Whitebox_Level/Walkable_Shore" unique_id=1532053689]
+transform = Transform3D(30, 0, 0, 0, 0.85, 0, 0, 0, 18, 6, 0.55, -13)
+
+[node name="Mesh" type="MeshInstance3D" parent="Whitebox_Level/Walkable_Shore/Upper_Village_Terrace" unique_id=779428961]
+mesh = SubResource("BoxMesh_Unit")
+surface_material_override/0 = SubResource("Mat_Shore")
+
+[node name="Collision" type="CollisionShape3D" parent="Whitebox_Level/Walkable_Shore/Upper_Village_Terrace" unique_id=1878719143]
+shape = SubResource("BoxShape_Unit")
+
+[node name="Central_Stone_Path" type="StaticBody3D" parent="Whitebox_Level/Walkable_Shore" unique_id=1458657417]
+transform = Transform3D(6, 0, 0, 0, 0.16, 0, 0, 0, 23, 4, 1.04, -3.5)
+
+[node name="Mesh" type="MeshInstance3D" parent="Whitebox_Level/Walkable_Shore/Central_Stone_Path" unique_id=277523321]
+mesh = SubResource("BoxMesh_Unit")
+surface_material_override/0 = SubResource("Mat_Path")
+
+[node name="Collision" type="CollisionShape3D" parent="Whitebox_Level/Walkable_Shore/Central_Stone_Path" unique_id=1472896396]
+shape = SubResource("BoxShape_Unit")
+
+[node name="Right_High_Bank" type="StaticBody3D" parent="Whitebox_Level/Walkable_Shore" unique_id=1457690226]
+transform = Transform3D(14, 0, 0, 0, 1.25, 0, 0, 0, 10, 20, 0.82, -1)
+
+[node name="Mesh" type="MeshInstance3D" parent="Whitebox_Level/Walkable_Shore/Right_High_Bank" unique_id=1858813339]
+mesh = SubResource("BoxMesh_Unit")
+surface_material_override/0 = SubResource("Mat_Shore")
+
+[node name="Collision" type="CollisionShape3D" parent="Whitebox_Level/Walkable_Shore/Right_High_Bank" unique_id=157801908]
+shape = SubResource("BoxShape_Unit")
+
+[node name="Downstage_Stairs" type="Node3D" parent="Whitebox_Level/Walkable_Shore" unique_id=1097902673]
+
+[node name="Step_01_Waterline" type="StaticBody3D" parent="Whitebox_Level/Walkable_Shore/Downstage_Stairs" unique_id=901616411]
+transform = Transform3D(8, 0, 0, 0, 0.25, 0, 0, 0, 1.6, 18, 0.05, 13.4)
+
+[node name="Mesh" type="MeshInstance3D" parent="Whitebox_Level/Walkable_Shore/Downstage_Stairs/Step_01_Waterline" unique_id=753710457]
+mesh = SubResource("BoxMesh_Unit")
+surface_material_override/0 = SubResource("Mat_Stone")
+
+[node name="Collision" type="CollisionShape3D" parent="Whitebox_Level/Walkable_Shore/Downstage_Stairs/Step_01_Waterline" unique_id=1750374]
+shape = SubResource("BoxShape_Unit")
+
+[node name="Step_02" type="StaticBody3D" parent="Whitebox_Level/Walkable_Shore/Downstage_Stairs" unique_id=1248413079]
+transform = Transform3D(8, 0, 0, 0, 0.25, 0, 0, 0, 1.6, 18.5, 0.25, 12)
+
+[node name="Mesh" type="MeshInstance3D" parent="Whitebox_Level/Walkable_Shore/Downstage_Stairs/Step_02" unique_id=561905303]
+mesh = SubResource("BoxMesh_Unit")
+surface_material_override/0 = SubResource("Mat_Stone")
+
+[node name="Collision" type="CollisionShape3D" parent="Whitebox_Level/Walkable_Shore/Downstage_Stairs/Step_02" unique_id=52756368]
+shape = SubResource("BoxShape_Unit")
+
+[node name="Step_03" type="StaticBody3D" parent="Whitebox_Level/Walkable_Shore/Downstage_Stairs" unique_id=613985461]
+transform = Transform3D(8, 0, 0, 0, 0.25, 0, 0, 0, 1.6, 19, 0.45, 10.6)
+
+[node name="Mesh" type="MeshInstance3D" parent="Whitebox_Level/Walkable_Shore/Downstage_Stairs/Step_03" unique_id=1684802924]
+mesh = SubResource("BoxMesh_Unit")
+surface_material_override/0 = SubResource("Mat_Stone")
+
+[node name="Collision" type="CollisionShape3D" parent="Whitebox_Level/Walkable_Shore/Downstage_Stairs/Step_03" unique_id=1720218658]
+shape = SubResource("BoxShape_Unit")
+
+[node name="Step_04_Top" type="StaticBody3D" parent="Whitebox_Level/Walkable_Shore/Downstage_Stairs" unique_id=1387201218]
+transform = Transform3D(8, 0, 0, 0, 0.25, 0, 0, 0, 1.6, 19.5, 0.65, 9.2)
+
+[node name="Mesh" type="MeshInstance3D" parent="Whitebox_Level/Walkable_Shore/Downstage_Stairs/Step_04_Top" unique_id=1139407542]
+mesh = SubResource("BoxMesh_Unit")
+surface_material_override/0 = SubResource("Mat_Stone")
+
+[node name="Collision" type="CollisionShape3D" parent="Whitebox_Level/Walkable_Shore/Downstage_Stairs/Step_04_Top" unique_id=2050913670]
+shape = SubResource("BoxShape_Unit")
+
+[node name="Boat_And_Docks" type="Node3D" parent="Whitebox_Level" unique_id=1579900793]
+
+[node name="Main_Dock_Run" type="StaticBody3D" parent="Whitebox_Level/Boat_And_Docks" unique_id=1701147662]
+transform = Transform3D(15, 0, 0, 0, 0.28, 0, 0, 0, 2.4, -6, 0.4, 7.8)
+
+[node name="Mesh" type="MeshInstance3D" parent="Whitebox_Level/Boat_And_Docks/Main_Dock_Run" unique_id=1347239466]
+mesh = SubResource("BoxMesh_Unit")
+surface_material_override/0 = SubResource("Mat_Wood")
+
+[node name="Collision" type="CollisionShape3D" parent="Whitebox_Level/Boat_And_Docks/Main_Dock_Run" unique_id=119871494]
+shape = SubResource("BoxShape_Unit")
+
+[node name="Dock_To_Shore" type="StaticBody3D" parent="Whitebox_Level/Boat_And_Docks" unique_id=110849685]
+transform = Transform3D(2.4, 0, 0, 0, 0.25, 0, 0, 0, 10, -0.5, 0.45, 4.4)
+
+[node name="Mesh" type="MeshInstance3D" parent="Whitebox_Level/Boat_And_Docks/Dock_To_Shore" unique_id=1656619558]
+mesh = SubResource("BoxMesh_Unit")
+surface_material_override/0 = SubResource("Mat_Wood")
+
+[node name="Collision" type="CollisionShape3D" parent="Whitebox_Level/Boat_And_Docks/Dock_To_Shore" unique_id=1822977628]
+shape = SubResource("BoxShape_Unit")
+
+[node name="Fishing_Boat" type="StaticBody3D" parent="Whitebox_Level/Boat_And_Docks" unique_id=1529614560]
+transform = Transform3D(13, 0, 0, 0, 1.2, 0, 0, 0, 4.2, -18, 0.35, 8.4)
+
+[node name="Mesh" type="MeshInstance3D" parent="Whitebox_Level/Boat_And_Docks/Fishing_Boat" unique_id=834679229]
+mesh = SubResource("BoxMesh_Unit")
+surface_material_override/0 = SubResource("Mat_Wood")
+
+[node name="Collision" type="CollisionShape3D" parent="Whitebox_Level/Boat_And_Docks/Fishing_Boat" unique_id=1989501891]
+shape = SubResource("BoxShape_Unit")
+
+[node name="Boat_Cabin" type="MeshInstance3D" parent="Whitebox_Level/Boat_And_Docks" unique_id=1963996746]
+transform = Transform3D(5, 0, 0, 0, 2.2, 0, 0, 0, 3, -19.4, 1.65, 8.3)
+mesh = SubResource("BoxMesh_Unit")
+surface_material_override/0 = SubResource("Mat_Building")
+
+[node name="Boat_Cabin_Roof" type="MeshInstance3D" parent="Whitebox_Level/Boat_And_Docks" unique_id=2032708008]
+transform = Transform3D(5.8, 0, 0, 0, 0.35, 0, 0, 0, 3.8, -19.4, 2.9, 8.3)
+mesh = SubResource("BoxMesh_Unit")
+surface_material_override/0 = SubResource("Mat_Roof")
+
+[node name="Boat_Mast" type="MeshInstance3D" parent="Whitebox_Level/Boat_And_Docks" unique_id=1104100063]
+transform = Transform3D(0.35, 0, 0, 0, 6.5, 0, 0, 0, 0.35, -15.4, 3.65, 7)
+mesh = SubResource("CylinderMesh_Unit")
+surface_material_override/0 = SubResource("Mat_Wood")
+
+[node name="Boat_Lantern" type="MeshInstance3D" parent="Whitebox_Level/Boat_And_Docks" unique_id=455516319]
+transform = Transform3D(0.7, 0, 0, 0, 0.7, 0, 0, 0, 0.7, -14.4, 3.5, 7.8)
+mesh = SubResource("BoxMesh_Unit")
+surface_material_override/0 = SubResource("Mat_Lantern")
+
+[node name="Boat_Lantern_Light" type="OmniLight3D" parent="Whitebox_Level/Boat_And_Docks" unique_id=153648064]
+transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, -14.4, 3.45, 7.8)
+light_color = Color(1, 0.47, 0.14, 1)
+light_energy = 1.7
+omni_range = 8.0
+
+[node name="Dock_Posts" type="Node3D" parent="Whitebox_Level/Boat_And_Docks" unique_id=1561464960]
+
+[node name="Post_01" type="MeshInstance3D" parent="Whitebox_Level/Boat_And_Docks/Dock_Posts" unique_id=286888205]
+transform = Transform3D(0.45, 0, 0, 0, 3.2, 0, 0, 0, 0.45, -12.5, 1.6, 6.3)
+mesh = SubResource("CylinderMesh_Unit")
+surface_material_override/0 = SubResource("Mat_Wood")
+
+[node name="Post_02" type="MeshInstance3D" parent="Whitebox_Level/Boat_And_Docks/Dock_Posts" unique_id=2113561990]
+transform = Transform3D(0.45, 0, 0, 0, 3.6, 0, 0, 0, 0.45, -8.2, 1.8, 9.2)
+mesh = SubResource("CylinderMesh_Unit")
+surface_material_override/0 = SubResource("Mat_Wood")
+
+[node name="Post_03" type="MeshInstance3D" parent="Whitebox_Level/Boat_And_Docks/Dock_Posts" unique_id=1493331404]
+transform = Transform3D(0.45, 0, 0, 0, 3.4, 0, 0, 0, 0.45, -2.4, 1.7, 7)
+mesh = SubResource("CylinderMesh_Unit")
+surface_material_override/0 = SubResource("Mat_Wood")
+
+[node name="Post_04" type="MeshInstance3D" parent="Whitebox_Level/Boat_And_Docks/Dock_Posts" unique_id=1109387588]
+transform = Transform3D(0.45, 0, 0, 0, 3.2, 0, 0, 0, 0.45, 1.8, 1.6, 4.8)
+mesh = SubResource("CylinderMesh_Unit")
+surface_material_override/0 = SubResource("Mat_Wood")
+
+[node name="Dock_Plank_Loose_01" type="MeshInstance3D" parent="Whitebox_Level/Boat_And_Docks" unique_id=659305565]
+transform = Transform3D(2.2, 0, 0, 0, 0.12, 0, 0, 0, 0.55, -10.5, 0.62, 8.95)
+mesh = SubResource("BoxMesh_Unit")
+surface_material_override/0 = SubResource("Mat_Wood")
+
+[node name="Dock_Plank_Loose_02" type="MeshInstance3D" parent="Whitebox_Level/Boat_And_Docks" unique_id=2070933240]
+transform = Transform3D(2.5, 0, 0, 0, 0.12, 0, 0, 0, 0.55, -5.2, 0.62, 6.65)
+mesh = SubResource("BoxMesh_Unit")
+surface_material_override/0 = SubResource("Mat_Wood")
+
+[node name="Mooring_Rope_Blockout_A" type="MeshInstance3D" parent="Whitebox_Level/Boat_And_Docks" unique_id=1981466375]
+transform = Transform3D(3.8, 0, 0, 0, 0.16, 0, 0, 0, 0.16, -12.8, 1.08, 7.3)
+mesh = SubResource("BoxMesh_Unit")
+surface_material_override/0 = SubResource("Mat_SeaFoam")
+
+[node name="Mooring_Rope_Blockout_B" type="MeshInstance3D" parent="Whitebox_Level/Boat_And_Docks" unique_id=1804237937]
+transform = Transform3D(3.5, 0, 0, 0, 0.16, 0, 0, 0, 0.16, -2.5, 1.05, 5.8)
+mesh = SubResource("BoxMesh_Unit")
+surface_material_override/0 = SubResource("Mat_SeaFoam")
+
+[node name="Oar_Rack_01" type="MeshInstance3D" parent="Whitebox_Level/Boat_And_Docks" unique_id=70813112]
+transform = Transform3D(5.5, 0, 0, 0, 0.18, 0, 0, 0, 0.22, -17.8, 1.45, 11)
+mesh = SubResource("BoxMesh_Unit")
+surface_material_override/0 = SubResource("Mat_Wood")
+
+[node name="Fish_Basket_Cluster_01" type="MeshInstance3D" parent="Whitebox_Level/Boat_And_Docks" unique_id=79194000]
+transform = Transform3D(1.3, 0, 0, 0, 1, 0, 0, 0, 1.3, -1.5, 1.05, 9.8)
+mesh = SubResource("CylinderMesh_Unit")
+surface_material_override/0 = SubResource("Mat_Wood")
+
+[node name="Fish_Basket_Cluster_02" type="MeshInstance3D" parent="Whitebox_Level/Boat_And_Docks" unique_id=877242065]
+transform = Transform3D(1, 0, 0, 0, 0.85, 0, 0, 0, 1, 1.5, 0.95, 7.2)
+mesh = SubResource("CylinderMesh_Unit")
+surface_material_override/0 = SubResource("Mat_Wood")
+
+[node name="Fire_And_Interaction_Markers" type="Node3D" parent="Whitebox_Level" unique_id=1683123501]
+
+[node name="Campfire_Blockout" type="MeshInstance3D" parent="Whitebox_Level/Fire_And_Interaction_Markers" unique_id=1335860548]
+transform = Transform3D(1.1, 0, 0, 0, 0.7, 0, 0, 0, 1.1, 3.7, 1, 5.4)
+mesh = SubResource("CylinderMesh_Unit")
+surface_material_override/0 = SubResource("Mat_Fire")
+
+[node name="Campfire_Light" type="OmniLight3D" parent="Whitebox_Level/Fire_And_Interaction_Markers" unique_id=2144193552]
+transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 3.7, 1.4, 5.4)
+light_color = Color(1, 0.36, 0.09, 1)
+light_energy = 3.0
+omni_range = 10.0
+
+[node name="Right_Gate_Lantern_Post" type="MeshInstance3D" parent="Whitebox_Level/Fire_And_Interaction_Markers" unique_id=1572298490]
+transform = Transform3D(0.5, 0, 0, 0, 6, 0, 0, 0, 0.5, 22.6, 3.6, 2.8)
+mesh = SubResource("CylinderMesh_Unit")
+surface_material_override/0 = SubResource("Mat_Wood")
+
+[node name="Right_Gate_Lantern" type="MeshInstance3D" parent="Whitebox_Level/Fire_And_Interaction_Markers" unique_id=398206069]
+transform = Transform3D(0.9, 0, 0, 0, 0.9, 0, 0, 0, 0.9, 21.6, 5.9, 2.8)
+mesh = SubResource("BoxMesh_Unit")
+surface_material_override/0 = SubResource("Mat_Lantern")
+
+[node name="Right_Gate_Lantern_Light" type="OmniLight3D" parent="Whitebox_Level/Fire_And_Interaction_Markers" unique_id=350191264]
+transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 21.6, 5.8, 2.8)
+light_color = Color(1, 0.45, 0.12, 1)
+light_energy = 2.5
+omni_range = 9.0
+
+[node name="Buildings_And_Village" type="Node3D" parent="Whitebox_Level" unique_id=199706232]
+
+[node name="Main_Hall_Blockout" type="StaticBody3D" parent="Whitebox_Level/Buildings_And_Village" unique_id=526922045]
+transform = Transform3D(10, 0, 0, 0, 5.2, 0, 0, 0, 6.5, 9.5, 3.45, -19)
+
+[node name="Mesh" type="MeshInstance3D" parent="Whitebox_Level/Buildings_And_Village/Main_Hall_Blockout" unique_id=1151795123]
+mesh = SubResource("BoxMesh_Unit")
+surface_material_override/0 = SubResource("Mat_Building")
+
+[node name="Collision" type="CollisionShape3D" parent="Whitebox_Level/Buildings_And_Village/Main_Hall_Blockout" unique_id=1045005801]
+shape = SubResource("BoxShape_Unit")
+
+[node name="Main_Hall_Large_Roof" type="MeshInstance3D" parent="Whitebox_Level/Buildings_And_Village" unique_id=1385734581]
+transform = Transform3D(12.4, 0, 0, 0, 1, 0, 0, 0, 8.3, 9.5, 6.55, -19)
+mesh = SubResource("BoxMesh_Unit")
+surface_material_override/0 = SubResource("Mat_Roof")
+
+[node name="Main_Hall_Upper_Roof" type="MeshInstance3D" parent="Whitebox_Level/Buildings_And_Village" unique_id=2062849256]
+transform = Transform3D(8.2, 0, 0, 0, 0.75, 0, 0, 0, 5.2, 9.5, 7.55, -19)
+mesh = SubResource("BoxMesh_Unit")
+surface_material_override/0 = SubResource("Mat_Roof")
+
+[node name="Center_Pavilion_Base" type="StaticBody3D" parent="Whitebox_Level/Buildings_And_Village" unique_id=1188292603]
+transform = Transform3D(5.8, 0, 0, 0, 3, 0, 0, 0, 5.2, -0.5, 2.4, -11.8)
+
+[node name="Mesh" type="MeshInstance3D" parent="Whitebox_Level/Buildings_And_Village/Center_Pavilion_Base" unique_id=1147040024]
+mesh = SubResource("BoxMesh_Unit")
+surface_material_override/0 = SubResource("Mat_Building")
+
+[node name="Collision" type="CollisionShape3D" parent="Whitebox_Level/Buildings_And_Village/Center_Pavilion_Base" unique_id=503230928]
+shape = SubResource("BoxShape_Unit")
+
+[node name="Center_Pavilion_Roof" type="MeshInstance3D" parent="Whitebox_Level/Buildings_And_Village" unique_id=577288159]
+transform = Transform3D(7.4, 0, 0, 0, 0.75, 0, 0, 0, 6.6, -0.5, 4.35, -11.8)
+mesh = SubResource("BoxMesh_Unit")
+surface_material_override/0 = SubResource("Mat_Roof")
+
+[node name="Left_Back_House" type="StaticBody3D" parent="Whitebox_Level/Buildings_And_Village" unique_id=1149608281]
+transform = Transform3D(7.4, 0, 0, 0, 4, 0, 0, 0, 5.4, -8.5, 3, -18.5)
+
+[node name="Mesh" type="MeshInstance3D" parent="Whitebox_Level/Buildings_And_Village/Left_Back_House" unique_id=272279089]
+mesh = SubResource("BoxMesh_Unit")
+surface_material_override/0 = SubResource("Mat_Building")
+
+[node name="Collision" type="CollisionShape3D" parent="Whitebox_Level/Buildings_And_Village/Left_Back_House" unique_id=197126245]
+shape = SubResource("BoxShape_Unit")
+
+[node name="Left_Back_House_Roof" type="MeshInstance3D" parent="Whitebox_Level/Buildings_And_Village" unique_id=1863857439]
+transform = Transform3D(8.8, 0, 0, 0, 0.8, 0, 0, 0, 6.8, -8.5, 5.4, -18.5)
+mesh = SubResource("BoxMesh_Unit")
+surface_material_override/0 = SubResource("Mat_Roof")
+
+[node name="Right_Hut_Blockout" type="StaticBody3D" parent="Whitebox_Level/Buildings_And_Village" unique_id=120215025]
+transform = Transform3D(7.2, 0, 0, 0, 3.6, 0, 0, 0, 5, 21, 3, -7.5)
+
+[node name="Mesh" type="MeshInstance3D" parent="Whitebox_Level/Buildings_And_Village/Right_Hut_Blockout" unique_id=1675032424]
+mesh = SubResource("BoxMesh_Unit")
+surface_material_override/0 = SubResource("Mat_Building")
+
+[node name="Collision" type="CollisionShape3D" parent="Whitebox_Level/Buildings_And_Village/Right_Hut_Blockout" unique_id=1978841463]
+shape = SubResource("BoxShape_Unit")
+
+[node name="Right_Hut_Roof" type="MeshInstance3D" parent="Whitebox_Level/Buildings_And_Village" unique_id=1286204000]
+transform = Transform3D(8.5, 0, 0, 0, 0.8, 0, 0, 0, 6.1, 21, 5.2, -7.5)
+mesh = SubResource("BoxMesh_Unit")
+surface_material_override/0 = SubResource("Mat_Roof")
+
+[node name="Foliage_Masses" type="Node3D" parent="Whitebox_Level/Buildings_And_Village" unique_id=102322960]
+
+[node name="Back_Right_Tree_Mass" type="MeshInstance3D" parent="Whitebox_Level/Buildings_And_Village/Foliage_Masses" unique_id=25264804]
+transform = Transform3D(8, 0, 0, 0, 7, 0, 0, 0, 6, 18, 4.2, -17)
+mesh = SubResource("BoxMesh_Unit")
+surface_material_override/0 = SubResource("Mat_Foliage")
+
+[node name="Left_Village_Tree_Mass" type="MeshInstance3D" parent="Whitebox_Level/Buildings_And_Village/Foliage_Masses" unique_id=763701663]
+transform = Transform3D(7, 0, 0, 0, 5, 0, 0, 0, 5, -15, 3.2, -13)
+mesh = SubResource("BoxMesh_Unit")
+surface_material_override/0 = SubResource("Mat_Foliage")
+
+[node name="Foreground_Props" type="Node3D" parent="Whitebox_Level" unique_id=607322909]
+
+[node name="Crate_Cluster_A" type="MeshInstance3D" parent="Whitebox_Level/Foreground_Props" unique_id=1473610922]
+transform = Transform3D(1.5, 0, 0, 0, 1.1, 0, 0, 0, 1.4, 8.7, 1.15, 7.5)
+mesh = SubResource("BoxMesh_Unit")
+surface_material_override/0 = SubResource("Mat_Wood")
+
+[node name="Barrel_A" type="MeshInstance3D" parent="Whitebox_Level/Foreground_Props" unique_id=1388620145]
+transform = Transform3D(0.9, 0, 0, 0, 1.4, 0, 0, 0, 0.9, 12.2, 1.3, 7)
+mesh = SubResource("CylinderMesh_Unit")
+surface_material_override/0 = SubResource("Mat_Wood")
+
+[node name="Low_Rock_Breakwater_A" type="MeshInstance3D" parent="Whitebox_Level/Foreground_Props" unique_id=372924086]
+transform = Transform3D(4.6, 0, 0, 0, 1.1, 0, 0, 0, 1.8, 11.8, 0.95, 10.6)
+mesh = SubResource("BoxMesh_Unit")
+surface_material_override/0 = SubResource("Mat_Stone")
+
+[node name="Low_Rock_Breakwater_B" type="MeshInstance3D" parent="Whitebox_Level/Foreground_Props" unique_id=208949741]
+transform = Transform3D(5.2, 0, 0, 0, 1, 0, 0, 0, 1.6, 4.5, 0.85, 10.2)
+mesh = SubResource("BoxMesh_Unit")
+surface_material_override/0 = SubResource("Mat_Stone")
+
+[node name="Backdrop_Mountains" type="Node3D" parent="Whitebox_Level" unique_id=1437809868]
+
+[node name="Mountain_Left_Silhouette" type="MeshInstance3D" parent="Whitebox_Level/Backdrop_Mountains" unique_id=1111231179]
+transform = Transform3D(18, 0, 0, 0, 7.5, 0, 0, 0, 3.2, -24, 3.4, -34)
+mesh = SubResource("BoxMesh_Unit")
+surface_material_override/0 = SubResource("Mat_Mountain")
+
+[node name="Mountain_Center_Tall" type="MeshInstance3D" parent="Whitebox_Level/Backdrop_Mountains" unique_id=587389324]
+transform = Transform3D(22, 0, 0, 0, 11.5, 0, 0, 0, 4, -2, 5.4, -37)
+mesh = SubResource("BoxMesh_Unit")
+surface_material_override/0 = SubResource("Mat_Mountain")
+
+[node name="Mountain_Right_Silhouette" type="MeshInstance3D" parent="Whitebox_Level/Backdrop_Mountains" unique_id=435604422]
+transform = Transform3D(18, 0, 0, 0, 8.5, 0, 0, 0, 3.4, 22, 4, -35)
+mesh = SubResource("BoxMesh_Unit")
+surface_material_override/0 = SubResource("Mat_Mountain")
+
+[node name="Expanded_Whitebox_Areas" type="Node3D" parent="Whitebox_Level" unique_id=934303657]
+
+[node name="H_Island_Frame" type="Node3D" parent="Whitebox_Level/Expanded_Whitebox_Areas" unique_id=1451948954]
+
+[node name="Island_Core_Terrain" type="StaticBody3D" parent="Whitebox_Level/Expanded_Whitebox_Areas/H_Island_Frame" unique_id=1600218184]
+transform = Transform3D(104, 0, 0, 0, 0.38, 0, 0, 0, 142, 0, -0.03, -18)
+
+[node name="Mesh" type="MeshInstance3D" parent="Whitebox_Level/Expanded_Whitebox_Areas/H_Island_Frame/Island_Core_Terrain" unique_id=37663492]
+mesh = SubResource("BoxMesh_Unit")
+surface_material_override/0 = SubResource("Mat_Sand")
+
+[node name="Collision" type="CollisionShape3D" parent="Whitebox_Level/Expanded_Whitebox_Areas/H_Island_Frame/Island_Core_Terrain" unique_id=1799827179]
+shape = SubResource("BoxShape_Unit")
+
+[node name="South_Beach_Shelf" type="StaticBody3D" parent="Whitebox_Level/Expanded_Whitebox_Areas/H_Island_Frame" unique_id=1691784429]
+transform = Transform3D(82, 0, 0, 0, 0.22, 0, 0, 0, 28, -8, 0.08, 62)
+
+[node name="Mesh" type="MeshInstance3D" parent="Whitebox_Level/Expanded_Whitebox_Areas/H_Island_Frame/South_Beach_Shelf" unique_id=1506245928]
+mesh = SubResource("BoxMesh_Unit")
+surface_material_override/0 = SubResource("Mat_Sand")
+
+[node name="Collision" type="CollisionShape3D" parent="Whitebox_Level/Expanded_Whitebox_Areas/H_Island_Frame/South_Beach_Shelf" unique_id=716171298]
+shape = SubResource("BoxShape_Unit")
+
+[node name="East_Beach_Shelf" type="StaticBody3D" parent="Whitebox_Level/Expanded_Whitebox_Areas/H_Island_Frame" unique_id=1332718150]
+transform = Transform3D(32, 0, 0, 0, 0.24, 0, 0, 0, 88, 66, 0.04, -8)
+
+[node name="Mesh" type="MeshInstance3D" parent="Whitebox_Level/Expanded_Whitebox_Areas/H_Island_Frame/East_Beach_Shelf" unique_id=1064605175]
+mesh = SubResource("BoxMesh_Unit")
+surface_material_override/0 = SubResource("Mat_Sand")
+
+[node name="Collision" type="CollisionShape3D" parent="Whitebox_Level/Expanded_Whitebox_Areas/H_Island_Frame/East_Beach_Shelf" unique_id=1177213043]
+shape = SubResource("BoxShape_Unit")
+
+[node name="West_Rock_Shelf" type="StaticBody3D" parent="Whitebox_Level/Expanded_Whitebox_Areas/H_Island_Frame" unique_id=1884174396]
+transform = Transform3D(36, 0, 0, 0, 0.32, 0, 0, 0, 72, -68, 0.18, -12)
+
+[node name="Mesh" type="MeshInstance3D" parent="Whitebox_Level/Expanded_Whitebox_Areas/H_Island_Frame/West_Rock_Shelf" unique_id=719839455]
+mesh = SubResource("BoxMesh_Unit")
+surface_material_override/0 = SubResource("Mat_Stone")
+
+[node name="Collision" type="CollisionShape3D" parent="Whitebox_Level/Expanded_Whitebox_Areas/H_Island_Frame/West_Rock_Shelf" unique_id=890607207]
+shape = SubResource("BoxShape_Unit")
+
+[node name="North_Highland_Base" type="StaticBody3D" parent="Whitebox_Level/Expanded_Whitebox_Areas/H_Island_Frame" unique_id=1562976566]
+transform = Transform3D(74, 0, 0, 0, 1.2, 0, 0, 0, 44, 6, 1.05, -82)
+
+[node name="Mesh" type="MeshInstance3D" parent="Whitebox_Level/Expanded_Whitebox_Areas/H_Island_Frame/North_Highland_Base" unique_id=1440070680]
+mesh = SubResource("BoxMesh_Unit")
+surface_material_override/0 = SubResource("Mat_Stone")
+
+[node name="Collision" type="CollisionShape3D" parent="Whitebox_Level/Expanded_Whitebox_Areas/H_Island_Frame/North_Highland_Base" unique_id=1907085963]
+shape = SubResource("BoxShape_Unit")
+
+[node name="North_Cliff_Drop" type="MeshInstance3D" parent="Whitebox_Level/Expanded_Whitebox_Areas/H_Island_Frame" unique_id=160975316]
+transform = Transform3D(110, 0, 0, 0, 4.2, 0, 0, 0, 3, 2, -1.9, -104)
+mesh = SubResource("BoxMesh_Unit")
+surface_material_override/0 = SubResource("Mat_Cliff")
+
+[node name="East_Cliff_Drop" type="MeshInstance3D" parent="Whitebox_Level/Expanded_Whitebox_Areas/H_Island_Frame" unique_id=479349224]
+transform = Transform3D(3, 0, 0, 0, 3.4, 0, 0, 0, 148, 84, -1.55, -18)
+mesh = SubResource("BoxMesh_Unit")
+surface_material_override/0 = SubResource("Mat_Cliff")
+
+[node name="West_Cliff_Drop" type="MeshInstance3D" parent="Whitebox_Level/Expanded_Whitebox_Areas/H_Island_Frame" unique_id=172942014]
+transform = Transform3D(3.2, 0, 0, 0, 3.8, 0, 0, 0, 128, -88, -1.7, -18)
+mesh = SubResource("BoxMesh_Unit")
+surface_material_override/0 = SubResource("Mat_Cliff")
+
+[node name="South_Sandbar_Edge" type="MeshInstance3D" parent="Whitebox_Level/Expanded_Whitebox_Areas/H_Island_Frame" unique_id=2132939229]
+transform = Transform3D(112, 0, 0, 0, 0.08, 0, 0, 0, 1.4, -5, 0.26, 78.5)
+mesh = SubResource("BoxMesh_Unit")
+surface_material_override/0 = SubResource("Mat_SeaFoam")
+
+[node name="East_Foam_Edge" type="MeshInstance3D" parent="Whitebox_Level/Expanded_Whitebox_Areas/H_Island_Frame" unique_id=801465022]
+transform = Transform3D(1.2, 0, 0, 0, 0.08, 0, 0, 0, 126, 82.5, 0.22, -7)
+mesh = SubResource("BoxMesh_Unit")
+surface_material_override/0 = SubResource("Mat_SeaFoam")
+
+[node name="West_Foam_Edge" type="MeshInstance3D" parent="Whitebox_Level/Expanded_Whitebox_Areas/H_Island_Frame" unique_id=1078976720]
+transform = Transform3D(1.4, 0, 0, 0, 0.08, 0, 0, 0, 112, -86.5, 0.22, -16)
+mesh = SubResource("BoxMesh_Unit")
+surface_material_override/0 = SubResource("Mat_SeaFoam")
+
+[node name="North_Foam_Edge" type="MeshInstance3D" parent="Whitebox_Level/Expanded_Whitebox_Areas/H_Island_Frame" unique_id=213042655]
+transform = Transform3D(118, 0, 0, 0, 0.08, 0, 0, 0, 1.5, 0, 0.24, -106.2)
+mesh = SubResource("BoxMesh_Unit")
+surface_material_override/0 = SubResource("Mat_SeaFoam")
+
+[node name="Offshore_Rock_SW_01" type="MeshInstance3D" parent="Whitebox_Level/Expanded_Whitebox_Areas/H_Island_Frame" unique_id=878457019]
+transform = Transform3D(5.5, 0, 0, 0, 2.4, 0, 0, 0, 4.2, -42, 0.7, 24)
+mesh = SubResource("BoxMesh_Unit")
+surface_material_override/0 = SubResource("Mat_Cliff")
+
+[node name="Offshore_Rock_SW_02" type="MeshInstance3D" parent="Whitebox_Level/Expanded_Whitebox_Areas/H_Island_Frame" unique_id=1337294860]
+transform = Transform3D(3.2, 0, 0, 0, 1.7, 0, 0, 0, 2.6, -35, 0.38, 31)
+mesh = SubResource("BoxMesh_Unit")
+surface_material_override/0 = SubResource("Mat_Cliff")
+
+[node name="Offshore_Rock_E_01" type="MeshInstance3D" parent="Whitebox_Level/Expanded_Whitebox_Areas/H_Island_Frame" unique_id=1823076989]
+transform = Transform3D(4.8, 0, 0, 0, 1.8, 0, 0, 0, 5, 52, 0.48, 2)
+mesh = SubResource("BoxMesh_Unit")
+surface_material_override/0 = SubResource("Mat_Cliff")
+
+[node name="Offshore_Rock_N_01" type="MeshInstance3D" parent="Whitebox_Level/Expanded_Whitebox_Areas/H_Island_Frame" unique_id=1652708894]
+transform = Transform3D(7, 0, 0, 0, 2.6, 0, 0, 0, 4, -18, 0.85, -66)
+mesh = SubResource("BoxMesh_Unit")
+surface_material_override/0 = SubResource("Mat_Cliff")
+
+[node name="Outer_Boat_Silhouette_East" type="MeshInstance3D" parent="Whitebox_Level/Expanded_Whitebox_Areas/H_Island_Frame" unique_id=530133183]
+transform = Transform3D(9, 0, 0, 0, 0.55, 0, 0, 0, 2.2, 59, 0.18, -18)
+mesh = SubResource("BoxMesh_Unit")
+surface_material_override/0 = SubResource("Mat_Wood")
+
+[node name="Outer_Boat_Mast_East" type="MeshInstance3D" parent="Whitebox_Level/Expanded_Whitebox_Areas/H_Island_Frame" unique_id=1259466025]
+transform = Transform3D(0.25, 0, 0, 0, 4.6, 0, 0, 0, 0.25, 59, 2.5, -18)
+mesh = SubResource("CylinderMesh_Unit")
+surface_material_override/0 = SubResource("Mat_Wood")
+
+[node name="I_Outer_Island_Reserve" type="Node3D" parent="Whitebox_Level/Expanded_Whitebox_Areas/H_Island_Frame" unique_id=1978299466]
+
+[node name="South_Tidal_Flat_Reserve" type="StaticBody3D" parent="Whitebox_Level/Expanded_Whitebox_Areas/H_Island_Frame/I_Outer_Island_Reserve" unique_id=1329584146]
+transform = Transform3D(96, 0, 0, 0, 0.18, 0, 0, 0, 26, -4, 0.02, 92)
+
+[node name="Mesh" type="MeshInstance3D" parent="Whitebox_Level/Expanded_Whitebox_Areas/H_Island_Frame/I_Outer_Island_Reserve/South_Tidal_Flat_Reserve" unique_id=1892469431]
+mesh = SubResource("BoxMesh_Unit")
+surface_material_override/0 = SubResource("Mat_Sand")
+
+[node name="Collision" type="CollisionShape3D" parent="Whitebox_Level/Expanded_Whitebox_Areas/H_Island_Frame/I_Outer_Island_Reserve/South_Tidal_Flat_Reserve" unique_id=1020310641]
+shape = SubResource("BoxShape_Unit")
+
+[node name="East_Wild_Shore_Reserve" type="StaticBody3D" parent="Whitebox_Level/Expanded_Whitebox_Areas/H_Island_Frame/I_Outer_Island_Reserve" unique_id=1004062079]
+transform = Transform3D(42, 0, 0, 0, 0.34, 0, 0, 0, 104, 104, 0.18, -12)
+
+[node name="Mesh" type="MeshInstance3D" parent="Whitebox_Level/Expanded_Whitebox_Areas/H_Island_Frame/I_Outer_Island_Reserve/East_Wild_Shore_Reserve" unique_id=7132121]
+mesh = SubResource("BoxMesh_Unit")
+surface_material_override/0 = SubResource("Mat_Shore")
+
+[node name="Collision" type="CollisionShape3D" parent="Whitebox_Level/Expanded_Whitebox_Areas/H_Island_Frame/I_Outer_Island_Reserve/East_Wild_Shore_Reserve" unique_id=293089549]
+shape = SubResource("BoxShape_Unit")
+
+[node name="West_Reef_Cove_Reserve" type="StaticBody3D" parent="Whitebox_Level/Expanded_Whitebox_Areas/H_Island_Frame/I_Outer_Island_Reserve" unique_id=447885021]
+transform = Transform3D(48, 0, 0, 0, 0.42, 0, 0, 0, 82, -112, 0.26, -4)
+
+[node name="Mesh" type="MeshInstance3D" parent="Whitebox_Level/Expanded_Whitebox_Areas/H_Island_Frame/I_Outer_Island_Reserve/West_Reef_Cove_Reserve" unique_id=1867335723]
+mesh = SubResource("BoxMesh_Unit")
+surface_material_override/0 = SubResource("Mat_Stone")
+
+[node name="Collision" type="CollisionShape3D" parent="Whitebox_Level/Expanded_Whitebox_Areas/H_Island_Frame/I_Outer_Island_Reserve/West_Reef_Cove_Reserve" unique_id=865009977]
+shape = SubResource("BoxShape_Unit")
+
+[node name="North_Backcountry_Highland_Reserve" type="StaticBody3D" parent="Whitebox_Level/Expanded_Whitebox_Areas/H_Island_Frame/I_Outer_Island_Reserve" unique_id=1528035336]
+transform = Transform3D(94, 0, 0, 0, 1.05, 0, 0, 0, 38, -2, 1.45, -127)
+
+[node name="Mesh" type="MeshInstance3D" parent="Whitebox_Level/Expanded_Whitebox_Areas/H_Island_Frame/I_Outer_Island_Reserve/North_Backcountry_Highland_Reserve" unique_id=1953523992]
+mesh = SubResource("BoxMesh_Unit")
+surface_material_override/0 = SubResource("Mat_Stone")
+
+[node name="Collision" type="CollisionShape3D" parent="Whitebox_Level/Expanded_Whitebox_Areas/H_Island_Frame/I_Outer_Island_Reserve/North_Backcountry_Highland_Reserve" unique_id=857367900]
+shape = SubResource("BoxShape_Unit")
+
+[node name="Outer_South_Foam_Edge" type="MeshInstance3D" parent="Whitebox_Level/Expanded_Whitebox_Areas/H_Island_Frame/I_Outer_Island_Reserve" unique_id=647775919]
+transform = Transform3D(118, 0, 0, 0, 0.08, 0, 0, 0, 1.4, -6, 0.24, 106.5)
+mesh = SubResource("BoxMesh_Unit")
+surface_material_override/0 = SubResource("Mat_SeaFoam")
+
+[node name="Outer_East_Foam_Edge" type="MeshInstance3D" parent="Whitebox_Level/Expanded_Whitebox_Areas/H_Island_Frame/I_Outer_Island_Reserve" unique_id=13670762]
+transform = Transform3D(1.4, 0, 0, 0, 0.08, 0, 0, 0, 112, 126.2, 0.24, -10)
+mesh = SubResource("BoxMesh_Unit")
+surface_material_override/0 = SubResource("Mat_SeaFoam")
+
+[node name="Outer_West_Foam_Edge" type="MeshInstance3D" parent="Whitebox_Level/Expanded_Whitebox_Areas/H_Island_Frame/I_Outer_Island_Reserve" unique_id=182473313]
+transform = Transform3D(1.4, 0, 0, 0, 0.08, 0, 0, 0, 92, -137, 0.24, -4)
+mesh = SubResource("BoxMesh_Unit")
+surface_material_override/0 = SubResource("Mat_SeaFoam")
+
+[node name="Outer_North_Foam_Edge" type="MeshInstance3D" parent="Whitebox_Level/Expanded_Whitebox_Areas/H_Island_Frame/I_Outer_Island_Reserve" unique_id=2072071387]
+transform = Transform3D(108, 0, 0, 0, 0.08, 0, 0, 0, 1.4, -2, 0.24, -148.2)
+mesh = SubResource("BoxMesh_Unit")
+surface_material_override/0 = SubResource("Mat_SeaFoam")
+
+[node name="Outer_Cliff_East_Wall" type="MeshInstance3D" parent="Whitebox_Level/Expanded_Whitebox_Areas/H_Island_Frame/I_Outer_Island_Reserve" unique_id=29349951]
+transform = Transform3D(3, 0, 0, 0, 4.4, 0, 0, 0, 118, 128, -1.9, -12)
+mesh = SubResource("BoxMesh_Unit")
+surface_material_override/0 = SubResource("Mat_Cliff")
+
+[node name="Outer_Cliff_West_Wall" type="MeshInstance3D" parent="Whitebox_Level/Expanded_Whitebox_Areas/H_Island_Frame/I_Outer_Island_Reserve" unique_id=1756279085]
+transform = Transform3D(3.2, 0, 0, 0, 4.8, 0, 0, 0, 94, -139, -2, -6)
+mesh = SubResource("BoxMesh_Unit")
+surface_material_override/0 = SubResource("Mat_Cliff")
+
+[node name="Outer_Cliff_North_Wall" type="MeshInstance3D" parent="Whitebox_Level/Expanded_Whitebox_Areas/H_Island_Frame/I_Outer_Island_Reserve" unique_id=484778947]
+transform = Transform3D(112, 0, 0, 0, 5.2, 0, 0, 0, 3.2, -2, -2.15, -150)
+mesh = SubResource("BoxMesh_Unit")
+surface_material_override/0 = SubResource("Mat_Cliff")
+
+[node name="Outer_Reef_South_01" type="MeshInstance3D" parent="Whitebox_Level/Expanded_Whitebox_Areas/H_Island_Frame/I_Outer_Island_Reserve" unique_id=1223375004]
+transform = Transform3D(8, 0, 0, 0, 1.8, 0, 0, 0, 4.5, -48, 0.55, 113)
+mesh = SubResource("BoxMesh_Unit")
+surface_material_override/0 = SubResource("Mat_Cliff")
+
+[node name="Outer_Reef_South_02" type="MeshInstance3D" parent="Whitebox_Level/Expanded_Whitebox_Areas/H_Island_Frame/I_Outer_Island_Reserve" unique_id=142156070]
+transform = Transform3D(6.5, 0, 0, 0, 1.45, 0, 0, 0, 3.8, 31, 0.45, 116)
+mesh = SubResource("BoxMesh_Unit")
+surface_material_override/0 = SubResource("Mat_Cliff")
+
+[node name="Outer_Reef_West_01" type="MeshInstance3D" parent="Whitebox_Level/Expanded_Whitebox_Areas/H_Island_Frame/I_Outer_Island_Reserve" unique_id=1942332258]
+transform = Transform3D(7.2, 0, 0, 0, 2.2, 0, 0, 0, 4, -151, 0.72, 18)
+mesh = SubResource("BoxMesh_Unit")
+surface_material_override/0 = SubResource("Mat_Cliff")
+
+[node name="Outer_Reef_East_01" type="MeshInstance3D" parent="Whitebox_Level/Expanded_Whitebox_Areas/H_Island_Frame/I_Outer_Island_Reserve" unique_id=1430712401]
+transform = Transform3D(6.8, 0, 0, 0, 2, 0, 0, 0, 4.2, 140, 0.62, -42)
+mesh = SubResource("BoxMesh_Unit")
+surface_material_override/0 = SubResource("Mat_Cliff")
+
+[node name="Outer_Terrain_Detail" type="Node3D" parent="Whitebox_Level/Expanded_Whitebox_Areas/H_Island_Frame/I_Outer_Island_Reserve" unique_id=1952656261]
+
+[node name="South_Tide_Pool_Low_A" type="MeshInstance3D" parent="Whitebox_Level/Expanded_Whitebox_Areas/H_Island_Frame/I_Outer_Island_Reserve/Outer_Terrain_Detail" unique_id=399891929]
+transform = Transform3D(18, 0, 0, 0, 0.05, 0, 0, 0, 7, -34, 0.18, 88)
+mesh = SubResource("BoxMesh_Unit")
+surface_material_override/0 = SubResource("Mat_Water")
+
+[node name="South_Tide_Pool_Low_B" type="MeshInstance3D" parent="Whitebox_Level/Expanded_Whitebox_Areas/H_Island_Frame/I_Outer_Island_Reserve/Outer_Terrain_Detail" unique_id=1051795529]
+transform = Transform3D(16, 0, 0, 0, 0.05, 0, 0, 0, 6, 22, 0.18, 95)
+mesh = SubResource("BoxMesh_Unit")
+surface_material_override/0 = SubResource("Mat_Water")
+
+[node name="South_Tidal_Ridge_A" type="StaticBody3D" parent="Whitebox_Level/Expanded_Whitebox_Areas/H_Island_Frame/I_Outer_Island_Reserve/Outer_Terrain_Detail" unique_id=212457780]
+transform = Transform3D(34, 0, 0, 0, 0.42, 0, 0, 0, 5.5, -28, 0.34, 75)
+
+[node name="Mesh" type="MeshInstance3D" parent="Whitebox_Level/Expanded_Whitebox_Areas/H_Island_Frame/I_Outer_Island_Reserve/Outer_Terrain_Detail/South_Tidal_Ridge_A" unique_id=1184989216]
+mesh = SubResource("BoxMesh_Unit")
+surface_material_override/0 = SubResource("Mat_Sand")
+
+[node name="Collision" type="CollisionShape3D" parent="Whitebox_Level/Expanded_Whitebox_Areas/H_Island_Frame/I_Outer_Island_Reserve/Outer_Terrain_Detail/South_Tidal_Ridge_A" unique_id=1122872871]
+shape = SubResource("BoxShape_Unit")
+
+[node name="South_Fisher_Shed_Body" type="MeshInstance3D" parent="Whitebox_Level/Expanded_Whitebox_Areas/H_Island_Frame/I_Outer_Island_Reserve/Outer_Terrain_Detail" unique_id=888566788]
+transform = Transform3D(5.5, 0, 0, 0, 2.6, 0, 0, 0, 4, 43, 1.55, 78)
+mesh = SubResource("BoxMesh_Unit")
+surface_material_override/0 = SubResource("Mat_Building")
+
+[node name="South_Fisher_Shed_Roof" type="MeshInstance3D" parent="Whitebox_Level/Expanded_Whitebox_Areas/H_Island_Frame/I_Outer_Island_Reserve/Outer_Terrain_Detail" unique_id=118405680]
+transform = Transform3D(6.6, 0, 0, 0, 0.45, 0, 0, 0, 5, 43, 3.05, 78)
+mesh = SubResource("BoxMesh_Unit")
+surface_material_override/0 = SubResource("Mat_Roof")
+
+[node name="East_Scrub_Terrace_Low" type="StaticBody3D" parent="Whitebox_Level/Expanded_Whitebox_Areas/H_Island_Frame/I_Outer_Island_Reserve/Outer_Terrain_Detail" unique_id=1903710683]
+transform = Transform3D(36, 0, 0, 0, 0.55, 0, 0, 0, 28, 93, 0.58, 31)
+
+[node name="Mesh" type="MeshInstance3D" parent="Whitebox_Level/Expanded_Whitebox_Areas/H_Island_Frame/I_Outer_Island_Reserve/Outer_Terrain_Detail/East_Scrub_Terrace_Low" unique_id=1925217734]
+mesh = SubResource("BoxMesh_Unit")
+surface_material_override/0 = SubResource("Mat_Shore")
+
+[node name="Collision" type="CollisionShape3D" parent="Whitebox_Level/Expanded_Whitebox_Areas/H_Island_Frame/I_Outer_Island_Reserve/Outer_Terrain_Detail/East_Scrub_Terrace_Low" unique_id=671228068]
+shape = SubResource("BoxShape_Unit")
+
+[node name="East_Scrub_Terrace_High" type="StaticBody3D" parent="Whitebox_Level/Expanded_Whitebox_Areas/H_Island_Frame/I_Outer_Island_Reserve/Outer_Terrain_Detail" unique_id=2044993363]
+transform = Transform3D(28, 0, 0, 0, 0.9, 0, 0, 0, 24, 111, 1.18, -24)
+
+[node name="Mesh" type="MeshInstance3D" parent="Whitebox_Level/Expanded_Whitebox_Areas/H_Island_Frame/I_Outer_Island_Reserve/Outer_Terrain_Detail/East_Scrub_Terrace_High" unique_id=1914672908]
+mesh = SubResource("BoxMesh_Unit")
+surface_material_override/0 = SubResource("Mat_Stone")
+
+[node name="Collision" type="CollisionShape3D" parent="Whitebox_Level/Expanded_Whitebox_Areas/H_Island_Frame/I_Outer_Island_Reserve/Outer_Terrain_Detail/East_Scrub_Terrace_High" unique_id=2130372202]
+shape = SubResource("BoxShape_Unit")
+
+[node name="East_Slope_Link" type="StaticBody3D" parent="Whitebox_Level/Expanded_Whitebox_Areas/H_Island_Frame/I_Outer_Island_Reserve/Outer_Terrain_Detail" unique_id=895707725]
+transform = Transform3D(10, 0, 0, 0, 0.28, 0, 0, 0, 34, 102, 0.92, 3)
+
+[node name="Mesh" type="MeshInstance3D" parent="Whitebox_Level/Expanded_Whitebox_Areas/H_Island_Frame/I_Outer_Island_Reserve/Outer_Terrain_Detail/East_Slope_Link" unique_id=1688524460]
+mesh = SubResource("BoxMesh_Unit")
+surface_material_override/0 = SubResource("Mat_Path")
+
+[node name="Collision" type="CollisionShape3D" parent="Whitebox_Level/Expanded_Whitebox_Areas/H_Island_Frame/I_Outer_Island_Reserve/Outer_Terrain_Detail/East_Slope_Link" unique_id=1084304434]
+shape = SubResource("BoxShape_Unit")
+
+[node name="East_Watch_Shed_Body" type="MeshInstance3D" parent="Whitebox_Level/Expanded_Whitebox_Areas/H_Island_Frame/I_Outer_Island_Reserve/Outer_Terrain_Detail" unique_id=869750558]
+transform = Transform3D(5, 0, 0, 0, 3, 0, 0, 0, 4.5, 112, 2.9, -44)
+mesh = SubResource("BoxMesh_Unit")
+surface_material_override/0 = SubResource("Mat_Building")
+
+[node name="East_Watch_Shed_Roof" type="MeshInstance3D" parent="Whitebox_Level/Expanded_Whitebox_Areas/H_Island_Frame/I_Outer_Island_Reserve/Outer_Terrain_Detail" unique_id=1688763738]
+transform = Transform3D(6.4, 0, 0, 0, 0.5, 0, 0, 0, 5.4, 112, 4.65, -44)
+mesh = SubResource("BoxMesh_Unit")
+surface_material_override/0 = SubResource("Mat_Roof")
+
+[node name="East_Foliage_Mass_A" type="MeshInstance3D" parent="Whitebox_Level/Expanded_Whitebox_Areas/H_Island_Frame/I_Outer_Island_Reserve/Outer_Terrain_Detail" unique_id=827726805]
+transform = Transform3D(8, 0, 0, 0, 5.5, 0, 0, 0, 7, 92, 3, 12)
+mesh = SubResource("BoxMesh_Unit")
+surface_material_override/0 = SubResource("Mat_Foliage")
+
+[node name="East_Foliage_Mass_B" type="MeshInstance3D" parent="Whitebox_Level/Expanded_Whitebox_Areas/H_Island_Frame/I_Outer_Island_Reserve/Outer_Terrain_Detail" unique_id=737929767]
+transform = Transform3D(7, 0, 0, 0, 4.8, 0, 0, 0, 8, 118, 3.2, -8)
+mesh = SubResource("BoxMesh_Unit")
+surface_material_override/0 = SubResource("Mat_Foliage")
+
+[node name="West_Cove_Lower_Dock" type="StaticBody3D" parent="Whitebox_Level/Expanded_Whitebox_Areas/H_Island_Frame/I_Outer_Island_Reserve/Outer_Terrain_Detail" unique_id=1244371725]
+transform = Transform3D(18, 0, 0, 0, 0.25, 0, 0, 0, 3.2, -119, 0.72, 22)
+
+[node name="Mesh" type="MeshInstance3D" parent="Whitebox_Level/Expanded_Whitebox_Areas/H_Island_Frame/I_Outer_Island_Reserve/Outer_Terrain_Detail/West_Cove_Lower_Dock" unique_id=971605267]
+mesh = SubResource("BoxMesh_Unit")
+surface_material_override/0 = SubResource("Mat_Wood")
+
+[node name="Collision" type="CollisionShape3D" parent="Whitebox_Level/Expanded_Whitebox_Areas/H_Island_Frame/I_Outer_Island_Reserve/Outer_Terrain_Detail/West_Cove_Lower_Dock" unique_id=532267508]
+shape = SubResource("BoxShape_Unit")
+
+[node name="West_Cove_Upper_Ledge" type="StaticBody3D" parent="Whitebox_Level/Expanded_Whitebox_Areas/H_Island_Frame/I_Outer_Island_Reserve/Outer_Terrain_Detail" unique_id=1655764620]
+transform = Transform3D(22, 0, 0, 0, 0.85, 0, 0, 0, 18, -96, 1.15, -32)
+
+[node name="Mesh" type="MeshInstance3D" parent="Whitebox_Level/Expanded_Whitebox_Areas/H_Island_Frame/I_Outer_Island_Reserve/Outer_Terrain_Detail/West_Cove_Upper_Ledge" unique_id=1642744394]
+mesh = SubResource("BoxMesh_Unit")
+surface_material_override/0 = SubResource("Mat_Stone")
+
+[node name="Collision" type="CollisionShape3D" parent="Whitebox_Level/Expanded_Whitebox_Areas/H_Island_Frame/I_Outer_Island_Reserve/Outer_Terrain_Detail/West_Cove_Upper_Ledge" unique_id=4734957]
+shape = SubResource("BoxShape_Unit")
+
+[node name="West_Cove_Stair_01" type="StaticBody3D" parent="Whitebox_Level/Expanded_Whitebox_Areas/H_Island_Frame/I_Outer_Island_Reserve/Outer_Terrain_Detail" unique_id=1481802026]
+transform = Transform3D(6, 0, 0, 0, 0.22, 0, 0, 0, 2, -108, 0.62, -4)
+
+[node name="Mesh" type="MeshInstance3D" parent="Whitebox_Level/Expanded_Whitebox_Areas/H_Island_Frame/I_Outer_Island_Reserve/Outer_Terrain_Detail/West_Cove_Stair_01" unique_id=1860320357]
+mesh = SubResource("BoxMesh_Unit")
+surface_material_override/0 = SubResource("Mat_Stone")
+
+[node name="Collision" type="CollisionShape3D" parent="Whitebox_Level/Expanded_Whitebox_Areas/H_Island_Frame/I_Outer_Island_Reserve/Outer_Terrain_Detail/West_Cove_Stair_01" unique_id=628550453]
+shape = SubResource("BoxShape_Unit")
+
+[node name="West_Cove_Stair_02" type="StaticBody3D" parent="Whitebox_Level/Expanded_Whitebox_Areas/H_Island_Frame/I_Outer_Island_Reserve/Outer_Terrain_Detail" unique_id=914639354]
+transform = Transform3D(6, 0, 0, 0, 0.22, 0, 0, 0, 2, -105, 0.9, -9)
+
+[node name="Mesh" type="MeshInstance3D" parent="Whitebox_Level/Expanded_Whitebox_Areas/H_Island_Frame/I_Outer_Island_Reserve/Outer_Terrain_Detail/West_Cove_Stair_02" unique_id=251534276]
+mesh = SubResource("BoxMesh_Unit")
+surface_material_override/0 = SubResource("Mat_Stone")
+
+[node name="Collision" type="CollisionShape3D" parent="Whitebox_Level/Expanded_Whitebox_Areas/H_Island_Frame/I_Outer_Island_Reserve/Outer_Terrain_Detail/West_Cove_Stair_02" unique_id=384514936]
+shape = SubResource("BoxShape_Unit")
+
+[node name="West_Cove_Hut_Body" type="MeshInstance3D" parent="Whitebox_Level/Expanded_Whitebox_Areas/H_Island_Frame/I_Outer_Island_Reserve/Outer_Terrain_Detail" unique_id=901708428]
+transform = Transform3D(5.5, 0, 0, 0, 2.8, 0, 0, 0, 4.5, -96, 2.95, -42)
+mesh = SubResource("BoxMesh_Unit")
+surface_material_override/0 = SubResource("Mat_Building")
+
+[node name="West_Cove_Hut_Roof" type="MeshInstance3D" parent="Whitebox_Level/Expanded_Whitebox_Areas/H_Island_Frame/I_Outer_Island_Reserve/Outer_Terrain_Detail" unique_id=155408234]
+transform = Transform3D(6.8, 0, 0, 0, 0.5, 0, 0, 0, 5.4, -96, 4.6, -42)
+mesh = SubResource("BoxMesh_Unit")
+surface_material_override/0 = SubResource("Mat_Roof")
+
+[node name="North_Ridge_Terrace_Mid" type="StaticBody3D" parent="Whitebox_Level/Expanded_Whitebox_Areas/H_Island_Frame/I_Outer_Island_Reserve/Outer_Terrain_Detail" unique_id=2080680484]
+transform = Transform3D(62, 0, 0, 0, 0.75, 0, 0, 0, 18, -4, 2.15, -112)
+
+[node name="Mesh" type="MeshInstance3D" parent="Whitebox_Level/Expanded_Whitebox_Areas/H_Island_Frame/I_Outer_Island_Reserve/Outer_Terrain_Detail/North_Ridge_Terrace_Mid" unique_id=691952840]
+mesh = SubResource("BoxMesh_Unit")
+surface_material_override/0 = SubResource("Mat_Stone")
+
+[node name="Collision" type="CollisionShape3D" parent="Whitebox_Level/Expanded_Whitebox_Areas/H_Island_Frame/I_Outer_Island_Reserve/Outer_Terrain_Detail/North_Ridge_Terrace_Mid" unique_id=1548890440]
+shape = SubResource("BoxShape_Unit")
+
+[node name="North_Ridge_Terrace_High" type="StaticBody3D" parent="Whitebox_Level/Expanded_Whitebox_Areas/H_Island_Frame/I_Outer_Island_Reserve/Outer_Terrain_Detail" unique_id=1892063348]
+transform = Transform3D(44, 0, 0, 0, 0.85, 0, 0, 0, 14, 18, 3, -134)
+
+[node name="Mesh" type="MeshInstance3D" parent="Whitebox_Level/Expanded_Whitebox_Areas/H_Island_Frame/I_Outer_Island_Reserve/Outer_Terrain_Detail/North_Ridge_Terrace_High" unique_id=1763386354]
+mesh = SubResource("BoxMesh_Unit")
+surface_material_override/0 = SubResource("Mat_Stone")
+
+[node name="Collision" type="CollisionShape3D" parent="Whitebox_Level/Expanded_Whitebox_Areas/H_Island_Frame/I_Outer_Island_Reserve/Outer_Terrain_Detail/North_Ridge_Terrace_High" unique_id=294805741]
+shape = SubResource("BoxShape_Unit")
+
+[node name="North_Ridge_Stair_A" type="StaticBody3D" parent="Whitebox_Level/Expanded_Whitebox_Areas/H_Island_Frame/I_Outer_Island_Reserve/Outer_Terrain_Detail" unique_id=885222173]
+transform = Transform3D(10, 0, 0, 0, 0.24, 0, 0, 0, 2, 2, 2.08, -102)
+
+[node name="Mesh" type="MeshInstance3D" parent="Whitebox_Level/Expanded_Whitebox_Areas/H_Island_Frame/I_Outer_Island_Reserve/Outer_Terrain_Detail/North_Ridge_Stair_A" unique_id=1510424951]
+mesh = SubResource("BoxMesh_Unit")
+surface_material_override/0 = SubResource("Mat_Stone")
+
+[node name="Collision" type="CollisionShape3D" parent="Whitebox_Level/Expanded_Whitebox_Areas/H_Island_Frame/I_Outer_Island_Reserve/Outer_Terrain_Detail/North_Ridge_Stair_A" unique_id=1551597836]
+shape = SubResource("BoxShape_Unit")
+
+[node name="North_Ridge_Stair_B" type="StaticBody3D" parent="Whitebox_Level/Expanded_Whitebox_Areas/H_Island_Frame/I_Outer_Island_Reserve/Outer_Terrain_Detail" unique_id=35085610]
+transform = Transform3D(10, 0, 0, 0, 0.24, 0, 0, 0, 2, 5, 2.42, -108)
+
+[node name="Mesh" type="MeshInstance3D" parent="Whitebox_Level/Expanded_Whitebox_Areas/H_Island_Frame/I_Outer_Island_Reserve/Outer_Terrain_Detail/North_Ridge_Stair_B" unique_id=1483831286]
+mesh = SubResource("BoxMesh_Unit")
+surface_material_override/0 = SubResource("Mat_Stone")
+
+[node name="Collision" type="CollisionShape3D" parent="Whitebox_Level/Expanded_Whitebox_Areas/H_Island_Frame/I_Outer_Island_Reserve/Outer_Terrain_Detail/North_Ridge_Stair_B" unique_id=1393255692]
+shape = SubResource("BoxShape_Unit")
+
+[node name="North_Backcountry_Shrine_Body" type="MeshInstance3D" parent="Whitebox_Level/Expanded_Whitebox_Areas/H_Island_Frame/I_Outer_Island_Reserve/Outer_Terrain_Detail" unique_id=321643863]
+transform = Transform3D(7, 0, 0, 0, 3.2, 0, 0, 0, 5.2, 18, 4.6, -137)
+mesh = SubResource("BoxMesh_Unit")
+surface_material_override/0 = SubResource("Mat_Building")
+
+[node name="North_Backcountry_Shrine_Roof" type="MeshInstance3D" parent="Whitebox_Level/Expanded_Whitebox_Areas/H_Island_Frame/I_Outer_Island_Reserve/Outer_Terrain_Detail" unique_id=1107225679]
+transform = Transform3D(8.8, 0, 0, 0, 0.55, 0, 0, 0, 6.4, 18, 6.45, -137)
+mesh = SubResource("BoxMesh_Unit")
+surface_material_override/0 = SubResource("Mat_Roof")
+
+[node name="North_Backcountry_Tree_Mass_A" type="MeshInstance3D" parent="Whitebox_Level/Expanded_Whitebox_Areas/H_Island_Frame/I_Outer_Island_Reserve/Outer_Terrain_Detail" unique_id=1921618976]
+transform = Transform3D(10, 0, 0, 0, 7, 0, 0, 0, 9, -32, 5.1, -124)
+mesh = SubResource("BoxMesh_Unit")
+surface_material_override/0 = SubResource("Mat_Foliage")
+
+[node name="North_Backcountry_Tree_Mass_B" type="MeshInstance3D" parent="Whitebox_Level/Expanded_Whitebox_Areas/H_Island_Frame/I_Outer_Island_Reserve/Outer_Terrain_Detail" unique_id=795522229]
+transform = Transform3D(9, 0, 0, 0, 6.5, 0, 0, 0, 8, 43, 5, -121)
+mesh = SubResource("BoxMesh_Unit")
+surface_material_override/0 = SubResource("Mat_Foliage")
+
+[node name="Outer_Combat_Marker_EastHigh" type="MeshInstance3D" parent="Whitebox_Level/Expanded_Whitebox_Areas/H_Island_Frame/I_Outer_Island_Reserve/Outer_Terrain_Detail" unique_id=1996555373]
+transform = Transform3D(0.9, 0, 0, 0, 1.9, 0, 0, 0, 0.9, 104, 2.25, -15)
+mesh = SubResource("CylinderMesh_Unit")
+surface_material_override/0 = SubResource("Mat_Combat")
+
+[node name="Outer_Combat_Marker_NorthHigh" type="MeshInstance3D" parent="Whitebox_Level/Expanded_Whitebox_Areas/H_Island_Frame/I_Outer_Island_Reserve/Outer_Terrain_Detail" unique_id=577034158]
+transform = Transform3D(0.9, 0, 0, 0, 1.9, 0, 0, 0, 0.9, -8, 3.95, -132)
+mesh = SubResource("CylinderMesh_Unit")
+surface_material_override/0 = SubResource("Mat_Combat")
+
+[node name="L_Outer_Region_Fill" type="Node3D" parent="Whitebox_Level/Expanded_Whitebox_Areas/H_Island_Frame/I_Outer_Island_Reserve" unique_id=1661408059]
+
+[node name="South_Salt_Pan_01" type="MeshInstance3D" parent="Whitebox_Level/Expanded_Whitebox_Areas/H_Island_Frame/I_Outer_Island_Reserve/L_Outer_Region_Fill" unique_id=2086050745]
+transform = Transform3D(14, 0, 0, 0, 0.08, 0, 0, 0, 8, -20, 0.24, 72)
+mesh = SubResource("BoxMesh_Unit")
+surface_material_override/0 = SubResource("Mat_SeaFoam")
+
+[node name="South_Salt_Pan_02" type="MeshInstance3D" parent="Whitebox_Level/Expanded_Whitebox_Areas/H_Island_Frame/I_Outer_Island_Reserve/L_Outer_Region_Fill" unique_id=1242528101]
+transform = Transform3D(12, 0, 0, 0, 0.08, 0, 0, 0, 7, 2, 0.24, 77)
+mesh = SubResource("BoxMesh_Unit")
+surface_material_override/0 = SubResource("Mat_SeaFoam")
+
+[node name="South_Salt_Pan_03" type="MeshInstance3D" parent="Whitebox_Level/Expanded_Whitebox_Areas/H_Island_Frame/I_Outer_Island_Reserve/L_Outer_Region_Fill" unique_id=1171469588]
+transform = Transform3D(13, 0, 0, 0, 0.08, 0, 0, 0, 7, 25, 0.24, 86)
+mesh = SubResource("BoxMesh_Unit")
+surface_material_override/0 = SubResource("Mat_SeaFoam")
+
+[node name="South_Work_Shed_A_Body" type="MeshInstance3D" parent="Whitebox_Level/Expanded_Whitebox_Areas/H_Island_Frame/I_Outer_Island_Reserve/L_Outer_Region_Fill" unique_id=990010748]
+transform = Transform3D(4.5, 0, 0, 0, 2.4, 0, 0, 0, 3.6, -52, 1.45, 74)
+mesh = SubResource("BoxMesh_Unit")
+surface_material_override/0 = SubResource("Mat_Building")
+
+[node name="South_Work_Shed_A_Roof" type="MeshInstance3D" parent="Whitebox_Level/Expanded_Whitebox_Areas/H_Island_Frame/I_Outer_Island_Reserve/L_Outer_Region_Fill" unique_id=447160808]
+transform = Transform3D(5.8, 0, 0, 0, 0.45, 0, 0, 0, 4.5, -52, 2.85, 74)
+mesh = SubResource("BoxMesh_Unit")
+surface_material_override/0 = SubResource("Mat_Roof")
+
+[node name="South_Work_Shed_B_Body" type="MeshInstance3D" parent="Whitebox_Level/Expanded_Whitebox_Areas/H_Island_Frame/I_Outer_Island_Reserve/L_Outer_Region_Fill" unique_id=1665902924]
+transform = Transform3D(4.8, 0, 0, 0, 2.3, 0, 0, 0, 3.8, 57, 1.4, 89)
+mesh = SubResource("BoxMesh_Unit")
+surface_material_override/0 = SubResource("Mat_Building")
+
+[node name="South_Work_Shed_B_Roof" type="MeshInstance3D" parent="Whitebox_Level/Expanded_Whitebox_Areas/H_Island_Frame/I_Outer_Island_Reserve/L_Outer_Region_Fill" unique_id=537731463]
+transform = Transform3D(6, 0, 0, 0, 0.45, 0, 0, 0, 4.7, 57, 2.75, 89)
+mesh = SubResource("BoxMesh_Unit")
+surface_material_override/0 = SubResource("Mat_Roof")
+
+[node name="South_Field_Crate_Line" type="MeshInstance3D" parent="Whitebox_Level/Expanded_Whitebox_Areas/H_Island_Frame/I_Outer_Island_Reserve/L_Outer_Region_Fill" unique_id=51025294]
+transform = Transform3D(18, 0, 0, 0, 0.8, 0, 0, 0, 1.1, -4, 0.62, 66)
+mesh = SubResource("BoxMesh_Unit")
+surface_material_override/0 = SubResource("Mat_Wood")
+
+[node name="East_Ruined_Wall_A" type="MeshInstance3D" parent="Whitebox_Level/Expanded_Whitebox_Areas/H_Island_Frame/I_Outer_Island_Reserve/L_Outer_Region_Fill" unique_id=1839933118]
+transform = Transform3D(18, 0, 0, 0, 2.2, 0, 0, 0, 0.8, 88, 1.8, 40)
+mesh = SubResource("BoxMesh_Unit")
+surface_material_override/0 = SubResource("Mat_Stone")
+
+[node name="East_Ruined_Wall_B" type="MeshInstance3D" parent="Whitebox_Level/Expanded_Whitebox_Areas/H_Island_Frame/I_Outer_Island_Reserve/L_Outer_Region_Fill" unique_id=1778319572]
+transform = Transform3D(0.8, 0, 0, 0, 2.2, 0, 0, 0, 16, 97, 1.8, 31)
+mesh = SubResource("BoxMesh_Unit")
+surface_material_override/0 = SubResource("Mat_Stone")
+
+[node name="East_Path_Signpost" type="MeshInstance3D" parent="Whitebox_Level/Expanded_Whitebox_Areas/H_Island_Frame/I_Outer_Island_Reserve/L_Outer_Region_Fill" unique_id=834079804]
+transform = Transform3D(0.45, 0, 0, 0, 3.2, 0, 0, 0, 0.45, 83, 1.75, -3)
+mesh = SubResource("CylinderMesh_Unit")
+surface_material_override/0 = SubResource("Mat_Wood")
+
+[node name="East_Path_Sign_Board" type="MeshInstance3D" parent="Whitebox_Level/Expanded_Whitebox_Areas/H_Island_Frame/I_Outer_Island_Reserve/L_Outer_Region_Fill" unique_id=1577317565]
+transform = Transform3D(2.8, 0, 0, 0, 0.75, 0, 0, 0, 0.25, 83, 3.2, -3)
+mesh = SubResource("BoxMesh_Unit")
+surface_material_override/0 = SubResource("Mat_Wood")
+
+[node name="West_Cove_Boat_A" type="MeshInstance3D" parent="Whitebox_Level/Expanded_Whitebox_Areas/H_Island_Frame/I_Outer_Island_Reserve/L_Outer_Region_Fill" unique_id=448901135]
+transform = Transform3D(7.5, 0, 0, 0, 0.65, 0, 0, 0, 2.4, -125, 0.32, 11)
+mesh = SubResource("BoxMesh_Unit")
+surface_material_override/0 = SubResource("Mat_Wood")
+
+[node name="West_Cove_Boat_B" type="MeshInstance3D" parent="Whitebox_Level/Expanded_Whitebox_Areas/H_Island_Frame/I_Outer_Island_Reserve/L_Outer_Region_Fill" unique_id=522037636]
+transform = Transform3D(6.8, 0, 0, 0, 0.6, 0, 0, 0, 2.2, -121, 0.3, 33)
+mesh = SubResource("BoxMesh_Unit")
+surface_material_override/0 = SubResource("Mat_Wood")
+
+[node name="West_Cove_Net_Drying_Frame" type="MeshInstance3D" parent="Whitebox_Level/Expanded_Whitebox_Areas/H_Island_Frame/I_Outer_Island_Reserve/L_Outer_Region_Fill" unique_id=1423176559]
+transform = Transform3D(8.5, 0, 0, 0, 0.25, 0, 0, 0, 0.35, -105, 2.6, 14)
+mesh = SubResource("BoxMesh_Unit")
+surface_material_override/0 = SubResource("Mat_Wood")
+
+[node name="West_Cove_Rock_Field_A" type="MeshInstance3D" parent="Whitebox_Level/Expanded_Whitebox_Areas/H_Island_Frame/I_Outer_Island_Reserve/L_Outer_Region_Fill" unique_id=93136956]
+transform = Transform3D(9, 0, 0, 0, 2.4, 0, 0, 0, 6, -104, 1.2, 48)
+mesh = SubResource("BoxMesh_Unit")
+surface_material_override/0 = SubResource("Mat_Cliff")
+
+[node name="West_Cove_Rock_Field_B" type="MeshInstance3D" parent="Whitebox_Level/Expanded_Whitebox_Areas/H_Island_Frame/I_Outer_Island_Reserve/L_Outer_Region_Fill" unique_id=109747024]
+transform = Transform3D(7, 0, 0, 0, 2.1, 0, 0, 0, 5, -136, 1.1, -18)
+mesh = SubResource("BoxMesh_Unit")
+surface_material_override/0 = SubResource("Mat_Cliff")
+
+[node name="North_Forest_Cluster_A" type="MeshInstance3D" parent="Whitebox_Level/Expanded_Whitebox_Areas/H_Island_Frame/I_Outer_Island_Reserve/L_Outer_Region_Fill" unique_id=231918580]
+transform = Transform3D(18, 0, 0, 0, 10, 0, 0, 0, 12, -58, 7, -104)
+mesh = SubResource("BoxMesh_Unit")
+surface_material_override/0 = SubResource("Mat_Foliage")
+
+[node name="North_Forest_Cluster_B" type="MeshInstance3D" parent="Whitebox_Level/Expanded_Whitebox_Areas/H_Island_Frame/I_Outer_Island_Reserve/L_Outer_Region_Fill" unique_id=650389931]
+transform = Transform3D(16, 0, 0, 0, 9, 0, 0, 0, 12, 62, 6.6, -101)
+mesh = SubResource("BoxMesh_Unit")
+surface_material_override/0 = SubResource("Mat_Foliage")
+
+[node name="North_Trail_Stone_Marker_A" type="MeshInstance3D" parent="Whitebox_Level/Expanded_Whitebox_Areas/H_Island_Frame/I_Outer_Island_Reserve/L_Outer_Region_Fill" unique_id=1065559596]
+transform = Transform3D(1.4, 0, 0, 0, 3, 0, 0, 0, 1, -18, 4, -105)
+mesh = SubResource("BoxMesh_Unit")
+surface_material_override/0 = SubResource("Mat_Stone")
+
+[node name="North_Trail_Stone_Marker_B" type="MeshInstance3D" parent="Whitebox_Level/Expanded_Whitebox_Areas/H_Island_Frame/I_Outer_Island_Reserve/L_Outer_Region_Fill" unique_id=154587644]
+transform = Transform3D(1.4, 0, 0, 0, 2.6, 0, 0, 0, 1, 25, 4.1, -112)
+mesh = SubResource("BoxMesh_Unit")
+surface_material_override/0 = SubResource("Mat_Stone")
+
+[node name="J_Readable_Mountain_Stairs_Blockout" type="Node3D" parent="Whitebox_Level/Expanded_Whitebox_Areas/H_Island_Frame" unique_id=910384323]
+
+[node name="Mountain_Backbone_Base" type="MeshInstance3D" parent="Whitebox_Level/Expanded_Whitebox_Areas/H_Island_Frame/J_Readable_Mountain_Stairs_Blockout" unique_id=403768784]
+transform = Transform3D(72, 0, 0, 0, 8, 0, 0, 0, 12, -6, 3.7, -118)
+mesh = SubResource("BoxMesh_Unit")
+surface_material_override/0 = SubResource("Mat_Cliff")
+
+[node name="Mountain_Backbone_Mid" type="MeshInstance3D" parent="Whitebox_Level/Expanded_Whitebox_Areas/H_Island_Frame/J_Readable_Mountain_Stairs_Blockout" unique_id=613739725]
+transform = Transform3D(56, 0, 0, 0, 11, 0, 0, 0, 10, 1, 7, -132)
+mesh = SubResource("BoxMesh_Unit")
+surface_material_override/0 = SubResource("Mat_Cliff")
+
+[node name="Mountain_Backbone_Peak_Left" type="MeshInstance3D" parent="Whitebox_Level/Expanded_Whitebox_Areas/H_Island_Frame/J_Readable_Mountain_Stairs_Blockout" unique_id=535083522]
+transform = Transform3D(22, 0, 0, 0, 16, 0, 0, 0, 9, -28, 10.8, -143)
+mesh = SubResource("BoxMesh_Unit")
+surface_material_override/0 = SubResource("Mat_Cliff")
+
+[node name="Mountain_Backbone_Peak_Right" type="MeshInstance3D" parent="Whitebox_Level/Expanded_Whitebox_Areas/H_Island_Frame/J_Readable_Mountain_Stairs_Blockout" unique_id=1667765846]
+transform = Transform3D(28, 0, 0, 0, 14, 0, 0, 0, 9, 28, 9.8, -141)
+mesh = SubResource("BoxMesh_Unit")
+surface_material_override/0 = SubResource("Mat_Cliff")
+
+[node name="Mountain_Front_Ledge_Low" type="StaticBody3D" parent="Whitebox_Level/Expanded_Whitebox_Areas/H_Island_Frame/J_Readable_Mountain_Stairs_Blockout" unique_id=1394168333]
+transform = Transform3D(54, 0, 0, 0, 0.65, 0, 0, 0, 10, -8, 2.4, -92)
+
+[node name="Mesh" type="MeshInstance3D" parent="Whitebox_Level/Expanded_Whitebox_Areas/H_Island_Frame/J_Readable_Mountain_Stairs_Blockout/Mountain_Front_Ledge_Low" unique_id=1151303259]
+mesh = SubResource("BoxMesh_Unit")
+surface_material_override/0 = SubResource("Mat_Stone")
+
+[node name="Collision" type="CollisionShape3D" parent="Whitebox_Level/Expanded_Whitebox_Areas/H_Island_Frame/J_Readable_Mountain_Stairs_Blockout/Mountain_Front_Ledge_Low" unique_id=654139674]
+shape = SubResource("BoxShape_Unit")
+
+[node name="Mountain_Front_Ledge_Mid" type="StaticBody3D" parent="Whitebox_Level/Expanded_Whitebox_Areas/H_Island_Frame/J_Readable_Mountain_Stairs_Blockout" unique_id=548232734]
+transform = Transform3D(44, 0, 0, 0, 0.65, 0, 0, 0, 9, -2, 4, -105)
+
+[node name="Mesh" type="MeshInstance3D" parent="Whitebox_Level/Expanded_Whitebox_Areas/H_Island_Frame/J_Readable_Mountain_Stairs_Blockout/Mountain_Front_Ledge_Mid" unique_id=462030785]
+mesh = SubResource("BoxMesh_Unit")
+surface_material_override/0 = SubResource("Mat_Stone")
+
+[node name="Collision" type="CollisionShape3D" parent="Whitebox_Level/Expanded_Whitebox_Areas/H_Island_Frame/J_Readable_Mountain_Stairs_Blockout/Mountain_Front_Ledge_Mid" unique_id=1663960487]
+shape = SubResource("BoxShape_Unit")
+
+[node name="Mountain_Front_Ledge_High" type="StaticBody3D" parent="Whitebox_Level/Expanded_Whitebox_Areas/H_Island_Frame/J_Readable_Mountain_Stairs_Blockout" unique_id=889166699]
+transform = Transform3D(34, 0, 0, 0, 0.65, 0, 0, 0, 8, 8, 5.6, -119)
+
+[node name="Mesh" type="MeshInstance3D" parent="Whitebox_Level/Expanded_Whitebox_Areas/H_Island_Frame/J_Readable_Mountain_Stairs_Blockout/Mountain_Front_Ledge_High" unique_id=974832915]
+mesh = SubResource("BoxMesh_Unit")
+surface_material_override/0 = SubResource("Mat_Stone")
+
+[node name="Collision" type="CollisionShape3D" parent="Whitebox_Level/Expanded_Whitebox_Areas/H_Island_Frame/J_Readable_Mountain_Stairs_Blockout/Mountain_Front_Ledge_High" unique_id=1073824454]
+shape = SubResource("BoxShape_Unit")
+
+[node name="Grand_Stone_Stair_01" type="StaticBody3D" parent="Whitebox_Level/Expanded_Whitebox_Areas/H_Island_Frame/J_Readable_Mountain_Stairs_Blockout" unique_id=423807821]
+transform = Transform3D(11, 0, 0, 0, 0.32, 0, 0, 0, 2.8, -8, 2.45, -82)
+
+[node name="Mesh" type="MeshInstance3D" parent="Whitebox_Level/Expanded_Whitebox_Areas/H_Island_Frame/J_Readable_Mountain_Stairs_Blockout/Grand_Stone_Stair_01" unique_id=1281065531]
+mesh = SubResource("BoxMesh_Unit")
+surface_material_override/0 = SubResource("Mat_Path")
+
+[node name="Collision" type="CollisionShape3D" parent="Whitebox_Level/Expanded_Whitebox_Areas/H_Island_Frame/J_Readable_Mountain_Stairs_Blockout/Grand_Stone_Stair_01" unique_id=517503047]
+shape = SubResource("BoxShape_Unit")
+
+[node name="Grand_Stone_Stair_02" type="StaticBody3D" parent="Whitebox_Level/Expanded_Whitebox_Areas/H_Island_Frame/J_Readable_Mountain_Stairs_Blockout" unique_id=1653586818]
+transform = Transform3D(11, 0, 0, 0, 0.32, 0, 0, 0, 2.8, -7, 2.7, -86)
+
+[node name="Mesh" type="MeshInstance3D" parent="Whitebox_Level/Expanded_Whitebox_Areas/H_Island_Frame/J_Readable_Mountain_Stairs_Blockout/Grand_Stone_Stair_02" unique_id=1272965956]
+mesh = SubResource("BoxMesh_Unit")
+surface_material_override/0 = SubResource("Mat_Stone")
+
+[node name="Collision" type="CollisionShape3D" parent="Whitebox_Level/Expanded_Whitebox_Areas/H_Island_Frame/J_Readable_Mountain_Stairs_Blockout/Grand_Stone_Stair_02" unique_id=1478574108]
+shape = SubResource("BoxShape_Unit")
+
+[node name="Grand_Stone_Stair_03" type="StaticBody3D" parent="Whitebox_Level/Expanded_Whitebox_Areas/H_Island_Frame/J_Readable_Mountain_Stairs_Blockout" unique_id=1686464879]
+transform = Transform3D(11, 0, 0, 0, 0.32, 0, 0, 0, 2.8, -6, 2.95, -90)
+
+[node name="Mesh" type="MeshInstance3D" parent="Whitebox_Level/Expanded_Whitebox_Areas/H_Island_Frame/J_Readable_Mountain_Stairs_Blockout/Grand_Stone_Stair_03" unique_id=1978162499]
+mesh = SubResource("BoxMesh_Unit")
+surface_material_override/0 = SubResource("Mat_Path")
+
+[node name="Collision" type="CollisionShape3D" parent="Whitebox_Level/Expanded_Whitebox_Areas/H_Island_Frame/J_Readable_Mountain_Stairs_Blockout/Grand_Stone_Stair_03" unique_id=1426738103]
+shape = SubResource("BoxShape_Unit")
+
+[node name="Grand_Stone_Stair_04" type="StaticBody3D" parent="Whitebox_Level/Expanded_Whitebox_Areas/H_Island_Frame/J_Readable_Mountain_Stairs_Blockout" unique_id=774295063]
+transform = Transform3D(11, 0, 0, 0, 0.32, 0, 0, 0, 2.8, -5, 3.2, -94)
+
+[node name="Mesh" type="MeshInstance3D" parent="Whitebox_Level/Expanded_Whitebox_Areas/H_Island_Frame/J_Readable_Mountain_Stairs_Blockout/Grand_Stone_Stair_04" unique_id=1902925907]
+mesh = SubResource("BoxMesh_Unit")
+surface_material_override/0 = SubResource("Mat_Stone")
+
+[node name="Collision" type="CollisionShape3D" parent="Whitebox_Level/Expanded_Whitebox_Areas/H_Island_Frame/J_Readable_Mountain_Stairs_Blockout/Grand_Stone_Stair_04" unique_id=1549074778]
+shape = SubResource("BoxShape_Unit")
+
+[node name="Grand_Stone_Stair_05" type="StaticBody3D" parent="Whitebox_Level/Expanded_Whitebox_Areas/H_Island_Frame/J_Readable_Mountain_Stairs_Blockout" unique_id=1223573779]
+transform = Transform3D(11, 0, 0, 0, 0.32, 0, 0, 0, 2.8, -4, 3.45, -98)
+
+[node name="Mesh" type="MeshInstance3D" parent="Whitebox_Level/Expanded_Whitebox_Areas/H_Island_Frame/J_Readable_Mountain_Stairs_Blockout/Grand_Stone_Stair_05" unique_id=212682193]
+mesh = SubResource("BoxMesh_Unit")
+surface_material_override/0 = SubResource("Mat_Path")
+
+[node name="Collision" type="CollisionShape3D" parent="Whitebox_Level/Expanded_Whitebox_Areas/H_Island_Frame/J_Readable_Mountain_Stairs_Blockout/Grand_Stone_Stair_05" unique_id=1498261429]
+shape = SubResource("BoxShape_Unit")
+
+[node name="Grand_Stone_Stair_06" type="StaticBody3D" parent="Whitebox_Level/Expanded_Whitebox_Areas/H_Island_Frame/J_Readable_Mountain_Stairs_Blockout" unique_id=286411445]
+transform = Transform3D(11, 0, 0, 0, 0.32, 0, 0, 0, 2.8, -3, 3.7, -102)
+
+[node name="Mesh" type="MeshInstance3D" parent="Whitebox_Level/Expanded_Whitebox_Areas/H_Island_Frame/J_Readable_Mountain_Stairs_Blockout/Grand_Stone_Stair_06" unique_id=1422685873]
+mesh = SubResource("BoxMesh_Unit")
+surface_material_override/0 = SubResource("Mat_Stone")
+
+[node name="Collision" type="CollisionShape3D" parent="Whitebox_Level/Expanded_Whitebox_Areas/H_Island_Frame/J_Readable_Mountain_Stairs_Blockout/Grand_Stone_Stair_06" unique_id=1397137772]
+shape = SubResource("BoxShape_Unit")
+
+[node name="Grand_Stone_Stair_07" type="StaticBody3D" parent="Whitebox_Level/Expanded_Whitebox_Areas/H_Island_Frame/J_Readable_Mountain_Stairs_Blockout" unique_id=729912972]
+transform = Transform3D(11, 0, 0, 0, 0.32, 0, 0, 0, 2.8, -1.5, 3.95, -106)
+
+[node name="Mesh" type="MeshInstance3D" parent="Whitebox_Level/Expanded_Whitebox_Areas/H_Island_Frame/J_Readable_Mountain_Stairs_Blockout/Grand_Stone_Stair_07" unique_id=1733738610]
+mesh = SubResource("BoxMesh_Unit")
+surface_material_override/0 = SubResource("Mat_Path")
+
+[node name="Collision" type="CollisionShape3D" parent="Whitebox_Level/Expanded_Whitebox_Areas/H_Island_Frame/J_Readable_Mountain_Stairs_Blockout/Grand_Stone_Stair_07" unique_id=126042898]
+shape = SubResource("BoxShape_Unit")
+
+[node name="Grand_Stone_Stair_08" type="StaticBody3D" parent="Whitebox_Level/Expanded_Whitebox_Areas/H_Island_Frame/J_Readable_Mountain_Stairs_Blockout" unique_id=172814392]
+transform = Transform3D(11, 0, 0, 0, 0.32, 0, 0, 0, 2.8, 0, 4.2, -110)
+
+[node name="Mesh" type="MeshInstance3D" parent="Whitebox_Level/Expanded_Whitebox_Areas/H_Island_Frame/J_Readable_Mountain_Stairs_Blockout/Grand_Stone_Stair_08" unique_id=208489602]
+mesh = SubResource("BoxMesh_Unit")
+surface_material_override/0 = SubResource("Mat_Stone")
+
+[node name="Collision" type="CollisionShape3D" parent="Whitebox_Level/Expanded_Whitebox_Areas/H_Island_Frame/J_Readable_Mountain_Stairs_Blockout/Grand_Stone_Stair_08" unique_id=679936771]
+shape = SubResource("BoxShape_Unit")
+
+[node name="Grand_Stone_Stair_Left_Rail" type="MeshInstance3D" parent="Whitebox_Level/Expanded_Whitebox_Areas/H_Island_Frame/J_Readable_Mountain_Stairs_Blockout" unique_id=1939835328]
+transform = Transform3D(0.45, 0, 0, 0, 1.1, 0, 0, 0, 31, -14.2, 4, -96)
+mesh = SubResource("BoxMesh_Unit")
+surface_material_override/0 = SubResource("Mat_Cliff")
+
+[node name="Grand_Stone_Stair_Right_Rail" type="MeshInstance3D" parent="Whitebox_Level/Expanded_Whitebox_Areas/H_Island_Frame/J_Readable_Mountain_Stairs_Blockout" unique_id=2116648270]
+transform = Transform3D(0.45, 0, 0, 0, 1.1, 0, 0, 0, 31, 7.2, 4, -96)
+mesh = SubResource("BoxMesh_Unit")
+surface_material_override/0 = SubResource("Mat_Cliff")
+
+[node name="Mountain_Silhouette_Test_Tree_A" type="MeshInstance3D" parent="Whitebox_Level/Expanded_Whitebox_Areas/H_Island_Frame/J_Readable_Mountain_Stairs_Blockout" unique_id=176035688]
+transform = Transform3D(7, 0, 0, 0, 8, 0, 0, 0, 6, -38, 8.2, -112)
+mesh = SubResource("BoxMesh_Unit")
+surface_material_override/0 = SubResource("Mat_Foliage")
+
+[node name="Mountain_Silhouette_Test_Tree_B" type="MeshInstance3D" parent="Whitebox_Level/Expanded_Whitebox_Areas/H_Island_Frame/J_Readable_Mountain_Stairs_Blockout" unique_id=1158096261]
+transform = Transform3D(6, 0, 0, 0, 7, 0, 0, 0, 6, 35, 8, -114)
+mesh = SubResource("BoxMesh_Unit")
+surface_material_override/0 = SubResource("Mat_Foliage")
+
+[node name="K_Large_Mountain_Massif" type="Node3D" parent="Whitebox_Level/Expanded_Whitebox_Areas/H_Island_Frame" unique_id=1533133966]
+
+[node name="Massif_Back_Wall_Main" type="MeshInstance3D" parent="Whitebox_Level/Expanded_Whitebox_Areas/H_Island_Frame/K_Large_Mountain_Massif" unique_id=639076138]
+transform = Transform3D(150, 0, 0, 0, 18, 0, 0, 0, 16, -2, 8.8, -168)
+mesh = SubResource("BoxMesh_Unit")
+surface_material_override/0 = SubResource("Mat_Cliff")
+
+[node name="Massif_Back_Wall_Shadow" type="MeshInstance3D" parent="Whitebox_Level/Expanded_Whitebox_Areas/H_Island_Frame/K_Large_Mountain_Massif" unique_id=442468630]
+transform = Transform3D(118, 0, 0, 0, 24, 0, 0, 0, 10, -10, 13.5, -181)
+mesh = SubResource("BoxMesh_Unit")
+surface_material_override/0 = SubResource("Mat_Mountain")
+
+[node name="Massif_Peak_Center" type="MeshInstance3D" parent="Whitebox_Level/Expanded_Whitebox_Areas/H_Island_Frame/K_Large_Mountain_Massif" unique_id=577434916]
+transform = Transform3D(38, 0, 0, 0, 34, 0, 0, 0, 13, 0, 21, -190)
+mesh = SubResource("BoxMesh_Unit")
+surface_material_override/0 = SubResource("Mat_Cliff")
+
+[node name="Massif_Peak_Left" type="MeshInstance3D" parent="Whitebox_Level/Expanded_Whitebox_Areas/H_Island_Frame/K_Large_Mountain_Massif" unique_id=1476925502]
+transform = Transform3D(46, 0, 0, 0, 27, 0, 0, 0, 12, -55, 17.5, -184)
+mesh = SubResource("BoxMesh_Unit")
+surface_material_override/0 = SubResource("Mat_Cliff")
+
+[node name="Massif_Peak_Right" type="MeshInstance3D" parent="Whitebox_Level/Expanded_Whitebox_Areas/H_Island_Frame/K_Large_Mountain_Massif" unique_id=708796363]
+transform = Transform3D(54, 0, 0, 0, 29, 0, 0, 0, 12, 56, 18.5, -183)
+mesh = SubResource("BoxMesh_Unit")
+surface_material_override/0 = SubResource("Mat_Cliff")
+
+[node name="Massif_Foothill_West" type="StaticBody3D" parent="Whitebox_Level/Expanded_Whitebox_Areas/H_Island_Frame/K_Large_Mountain_Massif" unique_id=2012988678]
+transform = Transform3D(64, 0, 0, 0, 2.2, 0, 0, 0, 20, -52, 2.2, -139)
+
+[node name="Mesh" type="MeshInstance3D" parent="Whitebox_Level/Expanded_Whitebox_Areas/H_Island_Frame/K_Large_Mountain_Massif/Massif_Foothill_West" unique_id=702045939]
+mesh = SubResource("BoxMesh_Unit")
+surface_material_override/0 = SubResource("Mat_Stone")
+
+[node name="Collision" type="CollisionShape3D" parent="Whitebox_Level/Expanded_Whitebox_Areas/H_Island_Frame/K_Large_Mountain_Massif/Massif_Foothill_West" unique_id=1586407837]
+shape = SubResource("BoxShape_Unit")
+
+[node name="Massif_Foothill_East" type="StaticBody3D" parent="Whitebox_Level/Expanded_Whitebox_Areas/H_Island_Frame/K_Large_Mountain_Massif" unique_id=1397375589]
+transform = Transform3D(70, 0, 0, 0, 2.4, 0, 0, 0, 22, 48, 2.3, -138)
+
+[node name="Mesh" type="MeshInstance3D" parent="Whitebox_Level/Expanded_Whitebox_Areas/H_Island_Frame/K_Large_Mountain_Massif/Massif_Foothill_East" unique_id=1039742735]
+mesh = SubResource("BoxMesh_Unit")
+surface_material_override/0 = SubResource("Mat_Stone")
+
+[node name="Collision" type="CollisionShape3D" parent="Whitebox_Level/Expanded_Whitebox_Areas/H_Island_Frame/K_Large_Mountain_Massif/Massif_Foothill_East" unique_id=1363758673]
+shape = SubResource("BoxShape_Unit")
+
+[node name="Massif_Foothill_Center_Ramp" type="StaticBody3D" parent="Whitebox_Level/Expanded_Whitebox_Areas/H_Island_Frame/K_Large_Mountain_Massif" unique_id=854837859]
+transform = Transform3D(48, 0, 0, 0, 1.5, 0, 0, 0, 18, -2, 2.65, -130)
+
+[node name="Mesh" type="MeshInstance3D" parent="Whitebox_Level/Expanded_Whitebox_Areas/H_Island_Frame/K_Large_Mountain_Massif/Massif_Foothill_Center_Ramp" unique_id=294383447]
+mesh = SubResource("BoxMesh_Unit")
+surface_material_override/0 = SubResource("Mat_Path")
+
+[node name="Collision" type="CollisionShape3D" parent="Whitebox_Level/Expanded_Whitebox_Areas/H_Island_Frame/K_Large_Mountain_Massif/Massif_Foothill_Center_Ramp" unique_id=1982030919]
+shape = SubResource("BoxShape_Unit")
+
+[node name="Massif_Cliff_Face_West_Dark" type="MeshInstance3D" parent="Whitebox_Level/Expanded_Whitebox_Areas/H_Island_Frame/K_Large_Mountain_Massif" unique_id=108734415]
+transform = Transform3D(34, 0, 0, 0, 12, 0, 0, 0, 5, -78, 6, -149)
+mesh = SubResource("BoxMesh_Unit")
+surface_material_override/0 = SubResource("Mat_Cliff")
+
+[node name="Massif_Cliff_Face_East_Dark" type="MeshInstance3D" parent="Whitebox_Level/Expanded_Whitebox_Areas/H_Island_Frame/K_Large_Mountain_Massif" unique_id=1570440788]
+transform = Transform3D(38, 0, 0, 0, 13, 0, 0, 0, 5, 80, 6.5, -150)
+mesh = SubResource("BoxMesh_Unit")
+surface_material_override/0 = SubResource("Mat_Cliff")
+
+[node name="Massif_Forest_Band_Left" type="MeshInstance3D" parent="Whitebox_Level/Expanded_Whitebox_Areas/H_Island_Frame/K_Large_Mountain_Massif" unique_id=772483197]
+transform = Transform3D(46, 0, 0, 0, 10, 0, 0, 0, 12, -54, 8.4, -124)
+mesh = SubResource("BoxMesh_Unit")
+surface_material_override/0 = SubResource("Mat_Foliage")
+
+[node name="Massif_Forest_Band_Right" type="MeshInstance3D" parent="Whitebox_Level/Expanded_Whitebox_Areas/H_Island_Frame/K_Large_Mountain_Massif" unique_id=1211757128]
+transform = Transform3D(52, 0, 0, 0, 10, 0, 0, 0, 12, 52, 8.4, -123)
+mesh = SubResource("BoxMesh_Unit")
+surface_material_override/0 = SubResource("Mat_Foliage")
+
+[node name="Massif_Forest_Band_Center" type="MeshInstance3D" parent="Whitebox_Level/Expanded_Whitebox_Areas/H_Island_Frame/K_Large_Mountain_Massif" unique_id=109845973]
+transform = Transform3D(38, 0, 0, 0, 8, 0, 0, 0, 10, 0, 8, -116)
+mesh = SubResource("BoxMesh_Unit")
+surface_material_override/0 = SubResource("Mat_Foliage")
+
+[node name="M_Always_Visible_Mountain_Backdrop" type="Node3D" parent="Whitebox_Level/Expanded_Whitebox_Areas/H_Island_Frame" unique_id=1122798774]
+
+[node name="Backdrop_Mountain_Range_Main" type="MeshInstance3D" parent="Whitebox_Level/Expanded_Whitebox_Areas/H_Island_Frame/M_Always_Visible_Mountain_Backdrop" unique_id=1677909477]
+transform = Transform3D(260, 0, 0, 0, 42, 0, 0, 0, 18, 0, 17, -232)
+mesh = SubResource("BoxMesh_Unit")
+surface_material_override/0 = SubResource("Mat_Cliff")
+
+[node name="Backdrop_Mountain_Range_Shadow" type="MeshInstance3D" parent="Whitebox_Level/Expanded_Whitebox_Areas/H_Island_Frame/M_Always_Visible_Mountain_Backdrop" unique_id=2041604224]
+transform = Transform3D(220, 0, 0, 0, 52, 0, 0, 0, 12, -8, 24, -250)
+mesh = SubResource("BoxMesh_Unit")
+surface_material_override/0 = SubResource("Mat_Mountain")
+
+[node name="Backdrop_Peak_West_High" type="MeshInstance3D" parent="Whitebox_Level/Expanded_Whitebox_Areas/H_Island_Frame/M_Always_Visible_Mountain_Backdrop" unique_id=1365936818]
+transform = Transform3D(62, 0, 0, 0, 70, 0, 0, 0, 14, -92, 37, -260)
+mesh = SubResource("BoxMesh_Unit")
+surface_material_override/0 = SubResource("Mat_Cliff")
+
+[node name="Backdrop_Peak_Center_High" type="MeshInstance3D" parent="Whitebox_Level/Expanded_Whitebox_Areas/H_Island_Frame/M_Always_Visible_Mountain_Backdrop" unique_id=427316373]
+transform = Transform3D(70, 0, 0, 0, 88, 0, 0, 0, 15, 0, 46, -268)
+mesh = SubResource("BoxMesh_Unit")
+surface_material_override/0 = SubResource("Mat_Cliff")
+
+[node name="Backdrop_Peak_East_High" type="MeshInstance3D" parent="Whitebox_Level/Expanded_Whitebox_Areas/H_Island_Frame/M_Always_Visible_Mountain_Backdrop" unique_id=1522391651]
+transform = Transform3D(68, 0, 0, 0, 76, 0, 0, 0, 14, 96, 40, -260)
+mesh = SubResource("BoxMesh_Unit")
+surface_material_override/0 = SubResource("Mat_Cliff")
+
+[node name="Backdrop_West_Wing_Ridge" type="MeshInstance3D" parent="Whitebox_Level/Expanded_Whitebox_Areas/H_Island_Frame/M_Always_Visible_Mountain_Backdrop" unique_id=1222731332]
+transform = Transform3D(80, 0, 0, 0, 38, 0, 0, 0, 16, -164, 19, -220)
+mesh = SubResource("BoxMesh_Unit")
+surface_material_override/0 = SubResource("Mat_Cliff")
+
+[node name="Backdrop_East_Wing_Ridge" type="MeshInstance3D" parent="Whitebox_Level/Expanded_Whitebox_Areas/H_Island_Frame/M_Always_Visible_Mountain_Backdrop" unique_id=1888516219]
+transform = Transform3D(86, 0, 0, 0, 40, 0, 0, 0, 16, 170, 20, -220)
+mesh = SubResource("BoxMesh_Unit")
+surface_material_override/0 = SubResource("Mat_Cliff")
+
+[node name="Backdrop_Foothill_Band_West" type="MeshInstance3D" parent="Whitebox_Level/Expanded_Whitebox_Areas/H_Island_Frame/M_Always_Visible_Mountain_Backdrop" unique_id=1975342178]
+transform = Transform3D(110, 0, 0, 0, 14, 0, 0, 0, 18, -104, 9, -194)
+mesh = SubResource("BoxMesh_Unit")
+surface_material_override/0 = SubResource("Mat_Foliage")
+
+[node name="Backdrop_Foothill_Band_Center" type="MeshInstance3D" parent="Whitebox_Level/Expanded_Whitebox_Areas/H_Island_Frame/M_Always_Visible_Mountain_Backdrop" unique_id=774970204]
+transform = Transform3D(112, 0, 0, 0, 15, 0, 0, 0, 18, 0, 9.5, -190)
+mesh = SubResource("BoxMesh_Unit")
+surface_material_override/0 = SubResource("Mat_Foliage")
+
+[node name="Backdrop_Foothill_Band_East" type="MeshInstance3D" parent="Whitebox_Level/Expanded_Whitebox_Areas/H_Island_Frame/M_Always_Visible_Mountain_Backdrop" unique_id=425345578]
+transform = Transform3D(112, 0, 0, 0, 14, 0, 0, 0, 18, 108, 9, -194)
+mesh = SubResource("BoxMesh_Unit")
+surface_material_override/0 = SubResource("Mat_Foliage")
+
+[node name="Backdrop_Visibility_Test_Pillar_West" type="MeshInstance3D" parent="Whitebox_Level/Expanded_Whitebox_Areas/H_Island_Frame/M_Always_Visible_Mountain_Backdrop" unique_id=966588865]
+transform = Transform3D(5, 0, 0, 0, 36, 0, 0, 0, 5, -210, 17, -205)
+mesh = SubResource("BoxMesh_Unit")
+surface_material_override/0 = SubResource("Mat_Mountain")
+
+[node name="Backdrop_Visibility_Test_Pillar_East" type="MeshInstance3D" parent="Whitebox_Level/Expanded_Whitebox_Areas/H_Island_Frame/M_Always_Visible_Mountain_Backdrop" unique_id=1039262548]
+transform = Transform3D(5, 0, 0, 0, 36, 0, 0, 0, 5, 214, 17, -205)
+mesh = SubResource("BoxMesh_Unit")
+surface_material_override/0 = SubResource("Mat_Mountain")
+
+[node name="A_South_Fishing_Yard" type="Node3D" parent="Whitebox_Level/Expanded_Whitebox_Areas" unique_id=934538540]
+
+[node name="Fishing_Yard_Ground" type="StaticBody3D" parent="Whitebox_Level/Expanded_Whitebox_Areas/A_South_Fishing_Yard" unique_id=920523665]
+transform = Transform3D(22, 0, 0, 0, 0.32, 0, 0, 0, 14, -3, 0.34, 17)
+
+[node name="Mesh" type="MeshInstance3D" parent="Whitebox_Level/Expanded_Whitebox_Areas/A_South_Fishing_Yard/Fishing_Yard_Ground" unique_id=1404054589]
+mesh = SubResource("BoxMesh_Unit")
+surface_material_override/0 = SubResource("Mat_Shore")
+
+[node name="Collision" type="CollisionShape3D" parent="Whitebox_Level/Expanded_Whitebox_Areas/A_South_Fishing_Yard/Fishing_Yard_Ground" unique_id=877770959]
+shape = SubResource("BoxShape_Unit")
+
+[node name="Fish_Drying_Rack_01" type="MeshInstance3D" parent="Whitebox_Level/Expanded_Whitebox_Areas/A_South_Fishing_Yard" unique_id=391983658]
+transform = Transform3D(5.8, 0, 0, 0, 0.22, 0, 0, 0, 0.35, -9, 1.45, 15.2)
+mesh = SubResource("BoxMesh_Unit")
+surface_material_override/0 = SubResource("Mat_Wood")
+
+[node name="Fish_Drying_Rack_02" type="MeshInstance3D" parent="Whitebox_Level/Expanded_Whitebox_Areas/A_South_Fishing_Yard" unique_id=1901751377]
+transform = Transform3D(5.4, 0, 0, 0, 0.22, 0, 0, 0, 0.35, -4, 1.45, 20.2)
+mesh = SubResource("BoxMesh_Unit")
+surface_material_override/0 = SubResource("Mat_Wood")
+
+[node name="Net_Frame_Left_Post" type="MeshInstance3D" parent="Whitebox_Level/Expanded_Whitebox_Areas/A_South_Fishing_Yard" unique_id=1763936825]
+transform = Transform3D(0.28, 0, 0, 0, 3.8, 0, 0, 0, 0.28, -13.5, 2.1, 19.5)
+mesh = SubResource("CylinderMesh_Unit")
+surface_material_override/0 = SubResource("Mat_Wood")
+
+[node name="Net_Frame_Right_Post" type="MeshInstance3D" parent="Whitebox_Level/Expanded_Whitebox_Areas/A_South_Fishing_Yard" unique_id=2145801877]
+transform = Transform3D(0.28, 0, 0, 0, 3.8, 0, 0, 0, 0.28, -9, 2.1, 19.5)
+mesh = SubResource("CylinderMesh_Unit")
+surface_material_override/0 = SubResource("Mat_Wood")
+
+[node name="Net_Frame_Crossbar" type="MeshInstance3D" parent="Whitebox_Level/Expanded_Whitebox_Areas/A_South_Fishing_Yard" unique_id=486848437]
+transform = Transform3D(4.8, 0, 0, 0, 0.22, 0, 0, 0, 0.22, -11.25, 3.9, 19.5)
+mesh = SubResource("BoxMesh_Unit")
+surface_material_override/0 = SubResource("Mat_Wood")
+
+[node name="Practice_Ring_Floor" type="MeshInstance3D" parent="Whitebox_Level/Expanded_Whitebox_Areas/A_South_Fishing_Yard" unique_id=140165318]
+transform = Transform3D(4.8, 0, 0, 0, 0.06, 0, 0, 0, 4.8, 3, 0.62, 16.4)
+mesh = SubResource("CylinderMesh_Unit")
+surface_material_override/0 = SubResource("Mat_DebugBlue")
+
+[node name="Fish_Spear_Target_01" type="MeshInstance3D" parent="Whitebox_Level/Expanded_Whitebox_Areas/A_South_Fishing_Yard" unique_id=1729886069]
+transform = Transform3D(0.45, 0, 0, 0, 2.6, 0, 0, 0, 0.45, 7.3, 1.85, 14.1)
+mesh = SubResource("CylinderMesh_Unit")
+surface_material_override/0 = SubResource("Mat_Combat")
+
+[node name="Fish_Spear_Target_02" type="MeshInstance3D" parent="Whitebox_Level/Expanded_Whitebox_Areas/A_South_Fishing_Yard" unique_id=1262194883]
+transform = Transform3D(0.45, 0, 0, 0, 2.2, 0, 0, 0, 0.45, 6.1, 1.65, 19.2)
+mesh = SubResource("CylinderMesh_Unit")
+surface_material_override/0 = SubResource("Mat_Combat")
+
+[node name="Soup_Stall_Blockout" type="Node3D" parent="Whitebox_Level/Expanded_Whitebox_Areas/A_South_Fishing_Yard" unique_id=1495709569]
+
+[node name="Stall_Base" type="MeshInstance3D" parent="Whitebox_Level/Expanded_Whitebox_Areas/A_South_Fishing_Yard/Soup_Stall_Blockout" unique_id=2095952923]
+transform = Transform3D(3.4, 0, 0, 0, 1.5, 0, 0, 0, 2.2, -1.5, 1.28, 22.2)
+mesh = SubResource("BoxMesh_Unit")
+surface_material_override/0 = SubResource("Mat_Building")
+
+[node name="Stall_Roof" type="MeshInstance3D" parent="Whitebox_Level/Expanded_Whitebox_Areas/A_South_Fishing_Yard/Soup_Stall_Blockout" unique_id=272831396]
+transform = Transform3D(4.4, 0, 0, 0, 0.35, 0, 0, 0, 3, -1.5, 2.28, 22.2)
+mesh = SubResource("BoxMesh_Unit")
+surface_material_override/0 = SubResource("Mat_Roof")
+
+[node name="B_East_Pirate_Landing" type="Node3D" parent="Whitebox_Level/Expanded_Whitebox_Areas" unique_id=353546664]
+
+[node name="East_Landing_Shore" type="StaticBody3D" parent="Whitebox_Level/Expanded_Whitebox_Areas/B_East_Pirate_Landing" unique_id=590568064]
+transform = Transform3D(17, 0, 0, 0, 0.42, 0, 0, 0, 11, 34, 0.25, 8)
+
+[node name="Mesh" type="MeshInstance3D" parent="Whitebox_Level/Expanded_Whitebox_Areas/B_East_Pirate_Landing/East_Landing_Shore" unique_id=435013267]
+mesh = SubResource("BoxMesh_Unit")
+surface_material_override/0 = SubResource("Mat_Shore")
+
+[node name="Collision" type="CollisionShape3D" parent="Whitebox_Level/Expanded_Whitebox_Areas/B_East_Pirate_Landing/East_Landing_Shore" unique_id=1883542838]
+shape = SubResource("BoxShape_Unit")
+
+[node name="Pirate_Longboat_01" type="MeshInstance3D" parent="Whitebox_Level/Expanded_Whitebox_Areas/B_East_Pirate_Landing" unique_id=841624938]
+transform = Transform3D(7, 0, 0, 0, 0.7, 0, 0, 0, 2.4, 42, 0.35, 13)
+mesh = SubResource("BoxMesh_Unit")
+surface_material_override/0 = SubResource("Mat_Wood")
+
+[node name="Pirate_Longboat_02" type="MeshInstance3D" parent="Whitebox_Level/Expanded_Whitebox_Areas/B_East_Pirate_Landing" unique_id=1101399757]
+transform = Transform3D(6, 0, 0, 0, 0.65, 0, 0, 0, 2.1, 39, 0.3, 6.5)
+mesh = SubResource("BoxMesh_Unit")
+surface_material_override/0 = SubResource("Mat_Wood")
+
+[node name="Pirate_Longboat_03_Back" type="MeshInstance3D" parent="Whitebox_Level/Expanded_Whitebox_Areas/B_East_Pirate_Landing" unique_id=1741236634]
+transform = Transform3D(5.5, 0, 0, 0, 0.55, 0, 0, 0, 2, 43.5, 0.28, 1.2)
+mesh = SubResource("BoxMesh_Unit")
+surface_material_override/0 = SubResource("Mat_Wood")
+
+[node name="Landing_Combat_Marker_A" type="MeshInstance3D" parent="Whitebox_Level/Expanded_Whitebox_Areas/B_East_Pirate_Landing" unique_id=295350800]
+transform = Transform3D(0.8, 0, 0, 0, 1.7, 0, 0, 0, 0.8, 29.5, 1.25, 7.5)
+mesh = SubResource("CylinderMesh_Unit")
+surface_material_override/0 = SubResource("Mat_Combat")
+
+[node name="Landing_Combat_Marker_B" type="MeshInstance3D" parent="Whitebox_Level/Expanded_Whitebox_Areas/B_East_Pirate_Landing" unique_id=1984248872]
+transform = Transform3D(0.8, 0, 0, 0, 1.7, 0, 0, 0, 0.8, 34.5, 1.25, 11)
+mesh = SubResource("CylinderMesh_Unit")
+surface_material_override/0 = SubResource("Mat_Combat")
+
+[node name="Landing_Barricade_01" type="MeshInstance3D" parent="Whitebox_Level/Expanded_Whitebox_Areas/B_East_Pirate_Landing" unique_id=2071025178]
+transform = Transform3D(4.5, 0, 0, 0, 1.2, 0, 0, 0, 0.55, 27.5, 1, 12.4)
+mesh = SubResource("BoxMesh_Unit")
+surface_material_override/0 = SubResource("Mat_Wood")
+
+[node name="Landing_Barricade_02" type="MeshInstance3D" parent="Whitebox_Level/Expanded_Whitebox_Areas/B_East_Pirate_Landing" unique_id=867863864]
+transform = Transform3D(3.5, 0, 0, 0, 1, 0, 0, 0, 0.55, 37.5, 0.9, 4)
+mesh = SubResource("BoxMesh_Unit")
+surface_material_override/0 = SubResource("Mat_Wood")
+
+[node name="C_Village_Extension" type="Node3D" parent="Whitebox_Level/Expanded_Whitebox_Areas" unique_id=961520467]
+
+[node name="Village_Side_Lane" type="StaticBody3D" parent="Whitebox_Level/Expanded_Whitebox_Areas/C_Village_Extension" unique_id=680846660]
+transform = Transform3D(11, 0, 0, 0, 0.28, 0, 0, 0, 18, -13, 0.92, -4)
+
+[node name="Mesh" type="MeshInstance3D" parent="Whitebox_Level/Expanded_Whitebox_Areas/C_Village_Extension/Village_Side_Lane" unique_id=282024886]
+mesh = SubResource("BoxMesh_Unit")
+surface_material_override/0 = SubResource("Mat_Path")
+
+[node name="Collision" type="CollisionShape3D" parent="Whitebox_Level/Expanded_Whitebox_Areas/C_Village_Extension/Village_Side_Lane" unique_id=1014003364]
+shape = SubResource("BoxShape_Unit")
+
+[node name="Net_House_01_Body" type="MeshInstance3D" parent="Whitebox_Level/Expanded_Whitebox_Areas/C_Village_Extension" unique_id=1884665482]
+transform = Transform3D(5.6, 0, 0, 0, 3.3, 0, 0, 0, 4.2, -18, 2.7, -6)
+mesh = SubResource("BoxMesh_Unit")
+surface_material_override/0 = SubResource("Mat_Building")
+
+[node name="Net_House_01_Roof_Main" type="MeshInstance3D" parent="Whitebox_Level/Expanded_Whitebox_Areas/C_Village_Extension" unique_id=880739891]
+transform = Transform3D(6.8, 0, 0, 0, 0.55, 0, 0, 0, 5.2, -18, 4.65, -6)
+mesh = SubResource("BoxMesh_Unit")
+surface_material_override/0 = SubResource("Mat_Roof")
+
+[node name="Net_House_01_Roof_Ridge" type="MeshInstance3D" parent="Whitebox_Level/Expanded_Whitebox_Areas/C_Village_Extension" unique_id=23386273]
+transform = Transform3D(3.8, 0, 0, 0, 0.45, 0, 0, 0, 5.7, -18, 5.25, -6)
+mesh = SubResource("BoxMesh_Unit")
+surface_material_override/0 = SubResource("Mat_Roof")
+
+[node name="Net_House_01_Door" type="MeshInstance3D" parent="Whitebox_Level/Expanded_Whitebox_Areas/C_Village_Extension" unique_id=2132513839]
+transform = Transform3D(1.2, 0, 0, 0, 1.9, 0, 0, 0, 0.18, -18, 2, -3.85)
+mesh = SubResource("BoxMesh_Unit")
+surface_material_override/0 = SubResource("Mat_Wood")
+
+[node name="Village_Occluder_Tall_Roof" type="MeshInstance3D" parent="Whitebox_Level/Expanded_Whitebox_Areas/C_Village_Extension" unique_id=202290526]
+transform = Transform3D(8, 0, 0, 0, 0.9, 0, 0, 0, 6, 0, 6.85, -20.5)
+mesh = SubResource("BoxMesh_Unit")
+surface_material_override/0 = SubResource("Mat_Roof")
+
+[node name="Village_Lantern_01" type="MeshInstance3D" parent="Whitebox_Level/Expanded_Whitebox_Areas/C_Village_Extension" unique_id=1307354680]
+transform = Transform3D(0.65, 0, 0, 0, 0.65, 0, 0, 0, 0.65, -9.8, 3, -8.6)
+mesh = SubResource("BoxMesh_Unit")
+surface_material_override/0 = SubResource("Mat_Lantern")
+
+[node name="Village_Lantern_01_Light" type="OmniLight3D" parent="Whitebox_Level/Expanded_Whitebox_Areas/C_Village_Extension" unique_id=1472809537]
+transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, -9.8, 3, -8.6)
+light_color = Color(1, 0.45, 0.12, 1)
+light_energy = 1.4
+omni_range = 7.0
+
+[node name="Layered_House_02_Body" type="MeshInstance3D" parent="Whitebox_Level/Expanded_Whitebox_Areas/C_Village_Extension" unique_id=1977673280]
+transform = Transform3D(5, 0, 0, 0, 3, 0, 0, 0, 4.4, -6.5, 2.45, -2)
+mesh = SubResource("BoxMesh_Unit")
+surface_material_override/0 = SubResource("Mat_Building")
+
+[node name="Layered_House_02_Roof_Lower" type="MeshInstance3D" parent="Whitebox_Level/Expanded_Whitebox_Areas/C_Village_Extension" unique_id=217103581]
+transform = Transform3D(6.3, 0, 0, 0, 0.45, 0, 0, 0, 5.5, -6.5, 4.18, -2)
+mesh = SubResource("BoxMesh_Unit")
+surface_material_override/0 = SubResource("Mat_Roof")
+
+[node name="Layered_House_02_Roof_Upper" type="MeshInstance3D" parent="Whitebox_Level/Expanded_Whitebox_Areas/C_Village_Extension" unique_id=233434854]
+transform = Transform3D(3.5, 0, 0, 0, 0.4, 0, 0, 0, 4.6, -6.5, 4.75, -2)
+mesh = SubResource("BoxMesh_Unit")
+surface_material_override/0 = SubResource("Mat_Roof")
+
+[node name="Layered_House_02_Window_A" type="MeshInstance3D" parent="Whitebox_Level/Expanded_Whitebox_Areas/C_Village_Extension" unique_id=1887378648]
+transform = Transform3D(0.8, 0, 0, 0, 0.8, 0, 0, 0, 0.16, -8, 2.9, 0.25)
+mesh = SubResource("BoxMesh_Unit")
+surface_material_override/0 = SubResource("Mat_Lantern")
+
+[node name="Layered_House_02_Window_B" type="MeshInstance3D" parent="Whitebox_Level/Expanded_Whitebox_Areas/C_Village_Extension" unique_id=1623194678]
+transform = Transform3D(0.8, 0, 0, 0, 0.8, 0, 0, 0, 0.16, -5, 2.9, 0.25)
+mesh = SubResource("BoxMesh_Unit")
+surface_material_override/0 = SubResource("Mat_Lantern")
+
+[node name="Storehouse_03_Body" type="MeshInstance3D" parent="Whitebox_Level/Expanded_Whitebox_Areas/C_Village_Extension" unique_id=1973084595]
+transform = Transform3D(4.2, 0, 0, 0, 2.7, 0, 0, 0, 3.8, 2.2, 2.35, -5)
+mesh = SubResource("BoxMesh_Unit")
+surface_material_override/0 = SubResource("Mat_Building")
+
+[node name="Storehouse_03_Roof" type="MeshInstance3D" parent="Whitebox_Level/Expanded_Whitebox_Areas/C_Village_Extension" unique_id=511110920]
+transform = Transform3D(5.4, 0, 0, 0, 0.45, 0, 0, 0, 4.8, 2.2, 3.95, -5)
+mesh = SubResource("BoxMesh_Unit")
+surface_material_override/0 = SubResource("Mat_Roof")
+
+[node name="Storehouse_03_Side_Shed" type="MeshInstance3D" parent="Whitebox_Level/Expanded_Whitebox_Areas/C_Village_Extension" unique_id=923330554]
+transform = Transform3D(2.5, 0, 0, 0, 1.7, 0, 0, 0, 3.2, 5.4, 1.85, -4.2)
+mesh = SubResource("BoxMesh_Unit")
+surface_material_override/0 = SubResource("Mat_Wood")
+
+[node name="Village_Wall_Line_01" type="MeshInstance3D" parent="Whitebox_Level/Expanded_Whitebox_Areas/C_Village_Extension" unique_id=185758495]
+transform = Transform3D(12, 0, 0, 0, 1.25, 0, 0, 0, 0.5, -9, 1.55, -11.8)
+mesh = SubResource("BoxMesh_Unit")
+surface_material_override/0 = SubResource("Mat_Stone")
+
+[node name="Village_Wall_Line_02" type="MeshInstance3D" parent="Whitebox_Level/Expanded_Whitebox_Areas/C_Village_Extension" unique_id=485466362]
+transform = Transform3D(0.5, 0, 0, 0, 1.2, 0, 0, 0, 7.8, -3.2, 1.5, -8.2)
+mesh = SubResource("BoxMesh_Unit")
+surface_material_override/0 = SubResource("Mat_Stone")
+
+[node name="Narrow_Alley_Shadow_Blocker" type="MeshInstance3D" parent="Whitebox_Level/Expanded_Whitebox_Areas/C_Village_Extension" unique_id=2104343353]
+transform = Transform3D(2, 0, 0, 0, 4.8, 0, 0, 0, 10, -12.2, 3.25, -8.5)
+mesh = SubResource("BoxMesh_Unit")
+surface_material_override/0 = SubResource("Mat_Cliff")
+
+[node name="Raised_Rope_Bridge_Stub" type="MeshInstance3D" parent="Whitebox_Level/Expanded_Whitebox_Areas/C_Village_Extension" unique_id=1623289562]
+transform = Transform3D(9.5, 0, 0, 0, 0.18, 0, 0, 0, 1, -1, 4.15, -13.8)
+mesh = SubResource("BoxMesh_Unit")
+surface_material_override/0 = SubResource("Mat_Wood")
+
+[node name="D_Mountain_Pass_Combat" type="Node3D" parent="Whitebox_Level/Expanded_Whitebox_Areas" unique_id=1444713022]
+
+[node name="Pass_Lower_Choke" type="StaticBody3D" parent="Whitebox_Level/Expanded_Whitebox_Areas/D_Mountain_Pass_Combat" unique_id=1341782567]
+transform = Transform3D(9, 0, 0, 0, 0.45, 0, 0, 0, 17, -8, 1.15, -27)
+
+[node name="Mesh" type="MeshInstance3D" parent="Whitebox_Level/Expanded_Whitebox_Areas/D_Mountain_Pass_Combat/Pass_Lower_Choke" unique_id=1575986914]
+mesh = SubResource("BoxMesh_Unit")
+surface_material_override/0 = SubResource("Mat_Stone")
+
+[node name="Collision" type="CollisionShape3D" parent="Whitebox_Level/Expanded_Whitebox_Areas/D_Mountain_Pass_Combat/Pass_Lower_Choke" unique_id=1853922186]
+shape = SubResource("BoxShape_Unit")
+
+[node name="Pass_Upper_Ramp" type="StaticBody3D" parent="Whitebox_Level/Expanded_Whitebox_Areas/D_Mountain_Pass_Combat" unique_id=710194439]
+transform = Transform3D(10, 0, 0, 0, 0.42, 0, 0, 0, 16, 1.5, 2, -35.5)
+
+[node name="Mesh" type="MeshInstance3D" parent="Whitebox_Level/Expanded_Whitebox_Areas/D_Mountain_Pass_Combat/Pass_Upper_Ramp" unique_id=1670036660]
+mesh = SubResource("BoxMesh_Unit")
+surface_material_override/0 = SubResource("Mat_Stone")
+
+[node name="Collision" type="CollisionShape3D" parent="Whitebox_Level/Expanded_Whitebox_Areas/D_Mountain_Pass_Combat/Pass_Upper_Ramp" unique_id=951271732]
+shape = SubResource("BoxShape_Unit")
+
+[node name="Pass_Left_Ledge" type="StaticBody3D" parent="Whitebox_Level/Expanded_Whitebox_Areas/D_Mountain_Pass_Combat" unique_id=62143792]
+transform = Transform3D(5.5, 0, 0, 0, 0.4, 0, 0, 0, 9, -17, 2, -31)
+
+[node name="Mesh" type="MeshInstance3D" parent="Whitebox_Level/Expanded_Whitebox_Areas/D_Mountain_Pass_Combat/Pass_Left_Ledge" unique_id=1291081174]
+mesh = SubResource("BoxMesh_Unit")
+surface_material_override/0 = SubResource("Mat_Stone")
+
+[node name="Collision" type="CollisionShape3D" parent="Whitebox_Level/Expanded_Whitebox_Areas/D_Mountain_Pass_Combat/Pass_Left_Ledge" unique_id=1510971945]
+shape = SubResource("BoxShape_Unit")
+
+[node name="Combat_Cover_Rock_01" type="MeshInstance3D" parent="Whitebox_Level/Expanded_Whitebox_Areas/D_Mountain_Pass_Combat" unique_id=976752831]
+transform = Transform3D(2, 0, 0, 0, 1.6, 0, 0, 0, 2, -11.5, 2.15, -25.2)
+mesh = SubResource("BoxMesh_Unit")
+surface_material_override/0 = SubResource("Mat_Mountain")
+
+[node name="Combat_Cover_Rock_02" type="MeshInstance3D" parent="Whitebox_Level/Expanded_Whitebox_Areas/D_Mountain_Pass_Combat" unique_id=1771789472]
+transform = Transform3D(1.8, 0, 0, 0, 1.4, 0, 0, 0, 2.4, -3, 2.1, -30.8)
+mesh = SubResource("BoxMesh_Unit")
+surface_material_override/0 = SubResource("Mat_Mountain")
+
+[node name="Combat_Marker_Choke_01" type="MeshInstance3D" parent="Whitebox_Level/Expanded_Whitebox_Areas/D_Mountain_Pass_Combat" unique_id=367812273]
+transform = Transform3D(0.8, 0, 0, 0, 1.8, 0, 0, 0, 0.8, -7.5, 2.3, -24)
+mesh = SubResource("CylinderMesh_Unit")
+surface_material_override/0 = SubResource("Mat_Combat")
+
+[node name="Combat_Marker_Choke_02" type="MeshInstance3D" parent="Whitebox_Level/Expanded_Whitebox_Areas/D_Mountain_Pass_Combat" unique_id=251880464]
+transform = Transform3D(0.8, 0, 0, 0, 1.8, 0, 0, 0, 0.8, -9.5, 2.3, -30)
+mesh = SubResource("CylinderMesh_Unit")
+surface_material_override/0 = SubResource("Mat_Combat")
+
+[node name="E_Heritage_Stone_Altar" type="Node3D" parent="Whitebox_Level/Expanded_Whitebox_Areas" unique_id=1444778805]
+
+[node name="Altar_Main_Platform" type="StaticBody3D" parent="Whitebox_Level/Expanded_Whitebox_Areas/E_Heritage_Stone_Altar" unique_id=466404477]
+transform = Transform3D(18, 0, 0, 0, 0.65, 0, 0, 0, 15, 12, 2.95, -46)
+
+[node name="Mesh" type="MeshInstance3D" parent="Whitebox_Level/Expanded_Whitebox_Areas/E_Heritage_Stone_Altar/Altar_Main_Platform" unique_id=1234893613]
+mesh = SubResource("BoxMesh_Unit")
+surface_material_override/0 = SubResource("Mat_Stone")
+
+[node name="Collision" type="CollisionShape3D" parent="Whitebox_Level/Expanded_Whitebox_Areas/E_Heritage_Stone_Altar/Altar_Main_Platform" unique_id=885760223]
+shape = SubResource("BoxShape_Unit")
+
+[node name="Altar_Center_Ring" type="MeshInstance3D" parent="Whitebox_Level/Expanded_Whitebox_Areas/E_Heritage_Stone_Altar" unique_id=1510882180]
+transform = Transform3D(5.2, 0, 0, 0, 0.08, 0, 0, 0, 5.2, 12, 3.32, -46)
+mesh = SubResource("CylinderMesh_Unit")
+surface_material_override/0 = SubResource("Mat_DebugBlue")
+
+[node name="Qian_Platform_North" type="MeshInstance3D" parent="Whitebox_Level/Expanded_Whitebox_Areas/E_Heritage_Stone_Altar" unique_id=132394386]
+transform = Transform3D(2.2, 0, 0, 0, 0.55, 0, 0, 0, 2.2, 12, 3.72, -52)
+mesh = SubResource("BoxMesh_Unit")
+surface_material_override/0 = SubResource("Mat_Stone")
+
+[node name="Kun_Platform_South" type="MeshInstance3D" parent="Whitebox_Level/Expanded_Whitebox_Areas/E_Heritage_Stone_Altar" unique_id=2012239230]
+transform = Transform3D(2.2, 0, 0, 0, 0.55, 0, 0, 0, 2.2, 12, 3.72, -40)
+mesh = SubResource("BoxMesh_Unit")
+surface_material_override/0 = SubResource("Mat_Stone")
+
+[node name="Zhen_Platform_East" type="MeshInstance3D" parent="Whitebox_Level/Expanded_Whitebox_Areas/E_Heritage_Stone_Altar" unique_id=1560851522]
+transform = Transform3D(2.2, 0, 0, 0, 0.55, 0, 0, 0, 2.2, 18, 3.72, -46)
+mesh = SubResource("BoxMesh_Unit")
+surface_material_override/0 = SubResource("Mat_Stone")
+
+[node name="Dui_Platform_West" type="MeshInstance3D" parent="Whitebox_Level/Expanded_Whitebox_Areas/E_Heritage_Stone_Altar" unique_id=169673687]
+transform = Transform3D(2.2, 0, 0, 0, 0.55, 0, 0, 0, 2.2, 6, 3.72, -46)
+mesh = SubResource("BoxMesh_Unit")
+surface_material_override/0 = SubResource("Mat_Stone")
+
+[node name="Central_Stele_Intact_Blockout" type="MeshInstance3D" parent="Whitebox_Level/Expanded_Whitebox_Areas/E_Heritage_Stone_Altar" unique_id=1368342734]
+transform = Transform3D(1.4, 0, 0, 0, 5.2, 0, 0, 0, 0.55, 12, 5.85, -46)
+mesh = SubResource("BoxMesh_Unit")
+surface_material_override/0 = SubResource("Mat_Mountain")
+
+[node name="Broken_Stele_Fragment_A" type="MeshInstance3D" parent="Whitebox_Level/Expanded_Whitebox_Areas/E_Heritage_Stone_Altar" unique_id=133463016]
+transform = Transform3D(1.8, 0, 0, 0, 0.55, 0, 0, 0, 1.2, 9.2, 3.75, -43.6)
+mesh = SubResource("BoxMesh_Unit")
+surface_material_override/0 = SubResource("Mat_Mountain")
+
+[node name="Broken_Stele_Fragment_B" type="MeshInstance3D" parent="Whitebox_Level/Expanded_Whitebox_Areas/E_Heritage_Stone_Altar" unique_id=1123056835]
+transform = Transform3D(1.3, 0, 0, 0, 0.45, 0, 0, 0, 1.4, 14.8, 3.7, -42.4)
+mesh = SubResource("BoxMesh_Unit")
+surface_material_override/0 = SubResource("Mat_Mountain")
+
+[node name="Boss_Marker_Missing_Ear" type="MeshInstance3D" parent="Whitebox_Level/Expanded_Whitebox_Areas/E_Heritage_Stone_Altar" unique_id=1340974482]
+transform = Transform3D(0.85, 0, 0, 0, 2, 0, 0, 0, 0.85, 16.2, 4.25, -47.8)
+mesh = SubResource("CylinderMesh_Unit")
+surface_material_override/0 = SubResource("Mat_Combat")
+
+[node name="White_Sister_Down_Marker" type="MeshInstance3D" parent="Whitebox_Level/Expanded_Whitebox_Areas/E_Heritage_Stone_Altar" unique_id=802578965]
+transform = Transform3D(1.1, 0, 0, 0, 0.18, 0, 0, 0, 2.8, 10, 3.7, -43.5)
+mesh = SubResource("BoxMesh_Unit")
+surface_material_override/0 = SubResource("Mat_WhiteHair")
+
+[node name="Altar_Glow_Light" type="OmniLight3D" parent="Whitebox_Level/Expanded_Whitebox_Areas/E_Heritage_Stone_Altar" unique_id=633753376]
+transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 12, 5.1, -46)
+light_color = Color(0.55, 0.72, 1, 1)
+light_energy = 1.6
+omni_range = 13.0
+
+[node name="F_West_Lookout_Departure" type="Node3D" parent="Whitebox_Level/Expanded_Whitebox_Areas" unique_id=1119530986]
+
+[node name="West_Lookout_Platform" type="StaticBody3D" parent="Whitebox_Level/Expanded_Whitebox_Areas/F_West_Lookout_Departure" unique_id=1218417396]
+transform = Transform3D(16, 0, 0, 0, 0.55, 0, 0, 0, 10, -32, 2.2, 0)
+
+[node name="Mesh" type="MeshInstance3D" parent="Whitebox_Level/Expanded_Whitebox_Areas/F_West_Lookout_Departure/West_Lookout_Platform" unique_id=220567273]
+mesh = SubResource("BoxMesh_Unit")
+surface_material_override/0 = SubResource("Mat_Stone")
+
+[node name="Collision" type="CollisionShape3D" parent="Whitebox_Level/Expanded_Whitebox_Areas/F_West_Lookout_Departure/West_Lookout_Platform" unique_id=452235816]
+shape = SubResource("BoxShape_Unit")
+
+[node name="West_Path_Bridge" type="StaticBody3D" parent="Whitebox_Level/Expanded_Whitebox_Areas/F_West_Lookout_Departure" unique_id=1223552833]
+transform = Transform3D(15, 0, 0, 0, 0.35, 0, 0, 0, 3, -20.5, 1.6, 1.5)
+
+[node name="Mesh" type="MeshInstance3D" parent="Whitebox_Level/Expanded_Whitebox_Areas/F_West_Lookout_Departure/West_Path_Bridge" unique_id=1696971157]
+mesh = SubResource("BoxMesh_Unit")
+surface_material_override/0 = SubResource("Mat_Path")
+
+[node name="Collision" type="CollisionShape3D" parent="Whitebox_Level/Expanded_Whitebox_Areas/F_West_Lookout_Departure/West_Path_Bridge" unique_id=989026053]
+shape = SubResource("BoxShape_Unit")
+
+[node name="Departure_Boat_NoAsk" type="MeshInstance3D" parent="Whitebox_Level/Expanded_Whitebox_Areas/F_West_Lookout_Departure" unique_id=756715260]
+transform = Transform3D(8.5, 0, 0, 0, 0.9, 0, 0, 0, 2.6, -39, 0.45, 6.8)
+mesh = SubResource("BoxMesh_Unit")
+surface_material_override/0 = SubResource("Mat_Wood")
+
+[node name="Departure_Boat_Mast" type="MeshInstance3D" parent="Whitebox_Level/Expanded_Whitebox_Areas/F_West_Lookout_Departure" unique_id=813634858]
+transform = Transform3D(0.3, 0, 0, 0, 5.2, 0, 0, 0, 0.3, -39, 3.1, 6.8)
+mesh = SubResource("CylinderMesh_Unit")
+surface_material_override/0 = SubResource("Mat_Wood")
+
+[node name="Departure_White_Hair_Silhouette" type="MeshInstance3D" parent="Whitebox_Level/Expanded_Whitebox_Areas/F_West_Lookout_Departure" unique_id=629381128]
+transform = Transform3D(0.9, 0, 0, 0, 1.4, 0, 0, 0, 0.9, -34.5, 3, -1.5)
+mesh = SubResource("CylinderMesh_Unit")
+surface_material_override/0 = SubResource("Mat_WhiteHair")
+
+[node name="G_Camera_Render_Testing" type="Node3D" parent="Whitebox_Level/Expanded_Whitebox_Areas" unique_id=1045210932]
+
+[node name="Foreground_Occluder_Pier_Post_A" type="MeshInstance3D" parent="Whitebox_Level/Expanded_Whitebox_Areas/G_Camera_Render_Testing" unique_id=1201374596]
+transform = Transform3D(0.75, 0, 0, 0, 7.5, 0, 0, 0, 0.75, -24, 3.5, 12.5)
+mesh = SubResource("CylinderMesh_Unit")
+surface_material_override/0 = SubResource("Mat_Wood")
+
+[node name="Foreground_Occluder_Pier_Post_B" type="MeshInstance3D" parent="Whitebox_Level/Expanded_Whitebox_Areas/G_Camera_Render_Testing" unique_id=491660459]
+transform = Transform3D(0.75, 0, 0, 0, 6.8, 0, 0, 0, 0.75, 16, 3.2, 15.2)
+mesh = SubResource("CylinderMesh_Unit")
+surface_material_override/0 = SubResource("Mat_Wood")
+
+[node name="Midground_Roof_Overhang_Test" type="MeshInstance3D" parent="Whitebox_Level/Expanded_Whitebox_Areas/G_Camera_Render_Testing" unique_id=628147552]
+transform = Transform3D(14, 0, 0, 0, 0.5, 0, 0, 0, 4, 21, 7.2, -10.5)
+mesh = SubResource("BoxMesh_Unit")
+surface_material_override/0 = SubResource("Mat_Roof")
+
+[node name="Player" type="WhiteboxPlayer" parent="." unique_id=792310277]
+transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 0, 1.5, 5)
+
+[node name="PlayerMesh" type="MeshInstance3D" parent="Player" unique_id=67451139]
+transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 0, 1, 0)
+mesh = SubResource("CapsuleMesh_Player")
+surface_material_override/0 = SubResource("Mat_Player")
+
+[node name="CollisionShape3D" type="CollisionShape3D" parent="Player" unique_id=201650550]
+transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 0, 1, 0)
+shape = SubResource("CapsuleShape_Player")
+
+[node name="CameraRig" type="Node3D" parent="Player" unique_id=1704326680]
+transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 0, 1.5, 0)
+
+[node name="YawPivot" type="Node3D" parent="Player/CameraRig" unique_id=585801058]
+
+[node name="PitchPivot" type="Node3D" parent="Player/CameraRig/YawPivot" unique_id=1111532287]
+
+[node name="SpringArm3D" type="SpringArm3D" parent="Player/CameraRig/YawPivot/PitchPivot" unique_id=1353433338]
+spring_length = 12.0
+margin = 0.2
+
+[node name="Camera3D" type="Camera3D" parent="Player/CameraRig/YawPivot/PitchPivot/SpringArm3D" unique_id=1548370521]
+current = true
+fov = 60.0
+near = 0.1
+far = 520.0
+
+[node name="CameraRigController" type="CameraRigController" parent="Player" unique_id=1857137221]
+yaw_pivot_path = NodePath("../CameraRig/YawPivot")
+pitch_pivot_path = NodePath("../CameraRig/YawPivot/PitchPivot")
+spring_arm_path = NodePath("../CameraRig/YawPivot/PitchPivot/SpringArm3D")
