@@ -1,5 +1,16 @@
 [gd_scene format=3 uid="uid://c7l1e6a2hd2d"]
+
 [ext_resource type="Shader" uid="uid://clpdpt7bnvxpa" path="res://Assets/Shaders/InkPainting/ink_surface.gdshader" id="1_ink_surface"]
+[ext_resource type="ArrayMesh" uid="uid://bkyy6fkl0xd5e" path="res://Assets/Buildings/House01.res" id="2_4ffh8"]
+[ext_resource type="ArrayMesh" uid="uid://do510c1tveapq" path="res://Assets/Buildings/House03.res" id="3_house03"]
+[ext_resource type="ArrayMesh" uid="uid://bd8mpkqlprics" path="res://Assets/Misc/WoodenPort01.res" id="4_port01"]
+[ext_resource type="ArrayMesh" uid="uid://c7ovkenhht2am" path="res://Assets/Misc/WoodenPort02.res" id="5_port02"]
+[ext_resource type="ArrayMesh" uid="uid://byh0bnnluf6bs" path="res://Assets/Misc/WoodenBoat.res" id="6_boat01"]
+[ext_resource type="ArrayMesh" uid="uid://daegfwl1swywm" path="res://Assets/Misc/WoodenBoat02.res" id="7_boat02"]
+[ext_resource type="ArrayMesh" path="res://Assets/Stones/SM_stone_02.res" id="9_stone02"]
+[ext_resource type="ArrayMesh" path="res://Assets/Stones/SM_stone_03.res" id="10_stone03"]
+[ext_resource type="ArrayMesh" path="res://Assets/Stones/SM_stone_04.res" id="11_stone04"]
+[ext_resource type="ArrayMesh" path="res://Assets/Stones/SM_stone_steps_b2.res" id="12_stone_steps"]
 
 [sub_resource type="Sky" id="Sky_Dusk"]
 
@@ -15,83 +26,389 @@ fog_density = 0.006
 [sub_resource type="BoxMesh" id="BoxMesh_Unit"]
 
 [sub_resource type="ShaderMaterial" id="Mat_Water"]
+render_priority = 0
 shader = ExtResource("1_ink_surface")
 shader_parameter/base_color = Color(0.08, 0.36, 0.86, 0.72)
+shader_parameter/outline_color = Color(0.05, 0.05, 0.05, 1)
+shader_parameter/ran_close = 1.0
+shader_parameter/ran_far = 0.5
+shader_parameter/rim_rate = 2.0
+shader_parameter/rim_rate_close = 2.5
+shader_parameter/rim_rate_range = 8.0
+shader_parameter/rim_offset = 0.0
+shader_parameter/max_distance = 256.0
+shader_parameter/stroke_ctrl = Vector4(2, 0.6, 0.25, 1)
+shader_parameter/noise_ctrl = Vector4(2, 0.6, 1, 1)
+shader_parameter/inline_ctrl = Vector4(1, 1, 10, 10)
+shader_parameter/lambert_rim_blend = 0.0
+shader_parameter/shadow_influence = 0.5
+shader_parameter/light_cun_power = 1.0
+shader_parameter/light_ran_power = 1.25
+shader_parameter/light_inline_strength = 0.35
 
 [sub_resource type="ShaderMaterial" id="Mat_Shore"]
+render_priority = 0
 shader = ExtResource("1_ink_surface")
 shader_parameter/base_color = Color(0.46, 0.36, 0.25, 1)
+shader_parameter/outline_color = Color(0.05, 0.05, 0.05, 1)
+shader_parameter/ran_close = 1.0
+shader_parameter/ran_far = 0.5
+shader_parameter/rim_rate = 2.0
+shader_parameter/rim_rate_close = 2.5
+shader_parameter/rim_rate_range = 8.0
+shader_parameter/rim_offset = 0.0
+shader_parameter/max_distance = 256.0
+shader_parameter/stroke_ctrl = Vector4(2, 0.6, 0.25, 1)
+shader_parameter/noise_ctrl = Vector4(2, 0.6, 1, 1)
+shader_parameter/inline_ctrl = Vector4(1, 1, 10, 10)
+shader_parameter/lambert_rim_blend = 0.0
+shader_parameter/shadow_influence = 0.5
+shader_parameter/light_cun_power = 1.0
+shader_parameter/light_ran_power = 1.25
+shader_parameter/light_inline_strength = 0.35
 
 [sub_resource type="BoxShape3D" id="BoxShape_Unit"]
 
 [sub_resource type="ShaderMaterial" id="Mat_Path"]
+render_priority = 0
 shader = ExtResource("1_ink_surface")
 shader_parameter/base_color = Color(0.5, 0.47, 0.4, 1)
+shader_parameter/outline_color = Color(0.05, 0.05, 0.05, 1)
+shader_parameter/ran_close = 1.0
+shader_parameter/ran_far = 0.5
+shader_parameter/rim_rate = 2.0
+shader_parameter/rim_rate_close = 2.5
+shader_parameter/rim_rate_range = 8.0
+shader_parameter/rim_offset = 0.0
+shader_parameter/max_distance = 256.0
+shader_parameter/stroke_ctrl = Vector4(2, 0.6, 0.25, 1)
+shader_parameter/noise_ctrl = Vector4(2, 0.6, 1, 1)
+shader_parameter/inline_ctrl = Vector4(1, 1, 10, 10)
+shader_parameter/lambert_rim_blend = 0.0
+shader_parameter/shadow_influence = 0.5
+shader_parameter/light_cun_power = 1.0
+shader_parameter/light_ran_power = 1.25
+shader_parameter/light_inline_strength = 0.35
 
 [sub_resource type="ShaderMaterial" id="Mat_Stone"]
+render_priority = 0
 shader = ExtResource("1_ink_surface")
 shader_parameter/base_color = Color(0.34, 0.34, 0.32, 1)
+shader_parameter/outline_color = Color(0.05, 0.05, 0.05, 1)
+shader_parameter/ran_close = 1.0
+shader_parameter/ran_far = 0.5
+shader_parameter/rim_rate = 2.0
+shader_parameter/rim_rate_close = 2.5
+shader_parameter/rim_rate_range = 8.0
+shader_parameter/rim_offset = 0.0
+shader_parameter/max_distance = 256.0
+shader_parameter/stroke_ctrl = Vector4(2, 0.6, 0.25, 1)
+shader_parameter/noise_ctrl = Vector4(2, 0.6, 1, 1)
+shader_parameter/inline_ctrl = Vector4(1, 1, 10, 10)
+shader_parameter/lambert_rim_blend = 0.0
+shader_parameter/shadow_influence = 0.5
+shader_parameter/light_cun_power = 1.0
+shader_parameter/light_ran_power = 1.25
+shader_parameter/light_inline_strength = 0.35
 
 [sub_resource type="ShaderMaterial" id="Mat_Wood"]
+render_priority = 0
 shader = ExtResource("1_ink_surface")
 shader_parameter/base_color = Color(0.34, 0.21, 0.13, 1)
+shader_parameter/outline_color = Color(0.05, 0.05, 0.05, 1)
+shader_parameter/ran_close = 1.0
+shader_parameter/ran_far = 0.5
+shader_parameter/rim_rate = 2.0
+shader_parameter/rim_rate_close = 2.5
+shader_parameter/rim_rate_range = 8.0
+shader_parameter/rim_offset = 0.0
+shader_parameter/max_distance = 256.0
+shader_parameter/stroke_ctrl = Vector4(2, 0.6, 0.25, 1)
+shader_parameter/noise_ctrl = Vector4(2, 0.6, 1, 1)
+shader_parameter/inline_ctrl = Vector4(1, 1, 10, 10)
+shader_parameter/lambert_rim_blend = 0.0
+shader_parameter/shadow_influence = 0.5
+shader_parameter/light_cun_power = 1.0
+shader_parameter/light_ran_power = 1.25
+shader_parameter/light_inline_strength = 0.35
 
 [sub_resource type="ShaderMaterial" id="Mat_Building"]
+render_priority = 0
 shader = ExtResource("1_ink_surface")
 shader_parameter/base_color = Color(0.54, 0.39, 0.29, 1)
+shader_parameter/outline_color = Color(0.05, 0.05, 0.05, 1)
+shader_parameter/ran_close = 1.0
+shader_parameter/ran_far = 0.5
+shader_parameter/rim_rate = 2.0
+shader_parameter/rim_rate_close = 2.5
+shader_parameter/rim_rate_range = 8.0
+shader_parameter/rim_offset = 0.0
+shader_parameter/max_distance = 256.0
+shader_parameter/stroke_ctrl = Vector4(2, 0.6, 0.25, 1)
+shader_parameter/noise_ctrl = Vector4(2, 0.6, 1, 1)
+shader_parameter/inline_ctrl = Vector4(1, 1, 10, 10)
+shader_parameter/lambert_rim_blend = 0.0
+shader_parameter/shadow_influence = 0.5
+shader_parameter/light_cun_power = 1.0
+shader_parameter/light_ran_power = 1.25
+shader_parameter/light_inline_strength = 0.35
 
 [sub_resource type="ShaderMaterial" id="Mat_Roof"]
+render_priority = 0
 shader = ExtResource("1_ink_surface")
 shader_parameter/base_color = Color(0.18, 0.19, 0.2, 1)
+shader_parameter/outline_color = Color(0.05, 0.05, 0.05, 1)
+shader_parameter/ran_close = 1.0
+shader_parameter/ran_far = 0.5
+shader_parameter/rim_rate = 2.0
+shader_parameter/rim_rate_close = 2.5
+shader_parameter/rim_rate_range = 8.0
+shader_parameter/rim_offset = 0.0
+shader_parameter/max_distance = 256.0
+shader_parameter/stroke_ctrl = Vector4(2, 0.6, 0.25, 1)
+shader_parameter/noise_ctrl = Vector4(2, 0.6, 1, 1)
+shader_parameter/inline_ctrl = Vector4(1, 1, 10, 10)
+shader_parameter/lambert_rim_blend = 0.0
+shader_parameter/shadow_influence = 0.5
+shader_parameter/light_cun_power = 1.0
+shader_parameter/light_ran_power = 1.25
+shader_parameter/light_inline_strength = 0.35
 
 [sub_resource type="CylinderMesh" id="CylinderMesh_Unit"]
 height = 1.0
 
 [sub_resource type="ShaderMaterial" id="Mat_Lantern"]
+render_priority = 0
 shader = ExtResource("1_ink_surface")
 shader_parameter/base_color = Color(1, 0.42, 0.08, 1)
+shader_parameter/outline_color = Color(0.05, 0.05, 0.05, 1)
+shader_parameter/ran_close = 1.0
+shader_parameter/ran_far = 0.5
+shader_parameter/rim_rate = 2.0
+shader_parameter/rim_rate_close = 2.5
+shader_parameter/rim_rate_range = 8.0
+shader_parameter/rim_offset = 0.0
+shader_parameter/max_distance = 256.0
+shader_parameter/stroke_ctrl = Vector4(2, 0.6, 0.25, 1)
+shader_parameter/noise_ctrl = Vector4(2, 0.6, 1, 1)
+shader_parameter/inline_ctrl = Vector4(1, 1, 10, 10)
+shader_parameter/lambert_rim_blend = 0.0
+shader_parameter/shadow_influence = 0.5
+shader_parameter/light_cun_power = 1.0
+shader_parameter/light_ran_power = 1.25
+shader_parameter/light_inline_strength = 0.35
 
 [sub_resource type="ShaderMaterial" id="Mat_SeaFoam"]
+render_priority = 0
 shader = ExtResource("1_ink_surface")
 shader_parameter/base_color = Color(0.72, 0.84, 0.82, 1)
+shader_parameter/outline_color = Color(0.05, 0.05, 0.05, 1)
+shader_parameter/ran_close = 1.0
+shader_parameter/ran_far = 0.5
+shader_parameter/rim_rate = 2.0
+shader_parameter/rim_rate_close = 2.5
+shader_parameter/rim_rate_range = 8.0
+shader_parameter/rim_offset = 0.0
+shader_parameter/max_distance = 256.0
+shader_parameter/stroke_ctrl = Vector4(2, 0.6, 0.25, 1)
+shader_parameter/noise_ctrl = Vector4(2, 0.6, 1, 1)
+shader_parameter/inline_ctrl = Vector4(1, 1, 10, 10)
+shader_parameter/lambert_rim_blend = 0.0
+shader_parameter/shadow_influence = 0.5
+shader_parameter/light_cun_power = 1.0
+shader_parameter/light_ran_power = 1.25
+shader_parameter/light_inline_strength = 0.35
 
 [sub_resource type="ShaderMaterial" id="Mat_Fire"]
+render_priority = 0
 shader = ExtResource("1_ink_surface")
 shader_parameter/base_color = Color(1, 0.25, 0.02, 1)
+shader_parameter/outline_color = Color(0.05, 0.05, 0.05, 1)
+shader_parameter/ran_close = 1.0
+shader_parameter/ran_far = 0.5
+shader_parameter/rim_rate = 2.0
+shader_parameter/rim_rate_close = 2.5
+shader_parameter/rim_rate_range = 8.0
+shader_parameter/rim_offset = 0.0
+shader_parameter/max_distance = 256.0
+shader_parameter/stroke_ctrl = Vector4(2, 0.6, 0.25, 1)
+shader_parameter/noise_ctrl = Vector4(2, 0.6, 1, 1)
+shader_parameter/inline_ctrl = Vector4(1, 1, 10, 10)
+shader_parameter/lambert_rim_blend = 0.0
+shader_parameter/shadow_influence = 0.5
+shader_parameter/light_cun_power = 1.0
+shader_parameter/light_ran_power = 1.25
+shader_parameter/light_inline_strength = 0.35
 
 [sub_resource type="ShaderMaterial" id="Mat_Foliage"]
+render_priority = 0
 shader = ExtResource("1_ink_surface")
 shader_parameter/base_color = Color(0.17, 0.28, 0.16, 1)
+shader_parameter/outline_color = Color(0.05, 0.05, 0.05, 1)
+shader_parameter/ran_close = 1.0
+shader_parameter/ran_far = 0.5
+shader_parameter/rim_rate = 2.0
+shader_parameter/rim_rate_close = 2.5
+shader_parameter/rim_rate_range = 8.0
+shader_parameter/rim_offset = 0.0
+shader_parameter/max_distance = 256.0
+shader_parameter/stroke_ctrl = Vector4(2, 0.6, 0.25, 1)
+shader_parameter/noise_ctrl = Vector4(2, 0.6, 1, 1)
+shader_parameter/inline_ctrl = Vector4(1, 1, 10, 10)
+shader_parameter/lambert_rim_blend = 0.0
+shader_parameter/shadow_influence = 0.5
+shader_parameter/light_cun_power = 1.0
+shader_parameter/light_ran_power = 1.25
+shader_parameter/light_inline_strength = 0.35
 
 [sub_resource type="ShaderMaterial" id="Mat_Mountain"]
+render_priority = 0
 shader = ExtResource("1_ink_surface")
 shader_parameter/base_color = Color(0.3, 0.27, 0.25, 1)
+shader_parameter/outline_color = Color(0.05, 0.05, 0.05, 1)
+shader_parameter/ran_close = 1.0
+shader_parameter/ran_far = 0.5
+shader_parameter/rim_rate = 2.0
+shader_parameter/rim_rate_close = 2.5
+shader_parameter/rim_rate_range = 8.0
+shader_parameter/rim_offset = 0.0
+shader_parameter/max_distance = 256.0
+shader_parameter/stroke_ctrl = Vector4(2, 0.6, 0.25, 1)
+shader_parameter/noise_ctrl = Vector4(2, 0.6, 1, 1)
+shader_parameter/inline_ctrl = Vector4(1, 1, 10, 10)
+shader_parameter/lambert_rim_blend = 0.0
+shader_parameter/shadow_influence = 0.5
+shader_parameter/light_cun_power = 1.0
+shader_parameter/light_ran_power = 1.25
+shader_parameter/light_inline_strength = 0.35
 
 [sub_resource type="ShaderMaterial" id="Mat_Sand"]
+render_priority = 0
 shader = ExtResource("1_ink_surface")
 shader_parameter/base_color = Color(0.58, 0.5, 0.38, 1)
+shader_parameter/outline_color = Color(0.05, 0.05, 0.05, 1)
+shader_parameter/ran_close = 1.0
+shader_parameter/ran_far = 0.5
+shader_parameter/rim_rate = 2.0
+shader_parameter/rim_rate_close = 2.5
+shader_parameter/rim_rate_range = 8.0
+shader_parameter/rim_offset = 0.0
+shader_parameter/max_distance = 256.0
+shader_parameter/stroke_ctrl = Vector4(2, 0.6, 0.25, 1)
+shader_parameter/noise_ctrl = Vector4(2, 0.6, 1, 1)
+shader_parameter/inline_ctrl = Vector4(1, 1, 10, 10)
+shader_parameter/lambert_rim_blend = 0.0
+shader_parameter/shadow_influence = 0.5
+shader_parameter/light_cun_power = 1.0
+shader_parameter/light_ran_power = 1.25
+shader_parameter/light_inline_strength = 0.35
 
 [sub_resource type="ShaderMaterial" id="Mat_Cliff"]
+render_priority = 0
 shader = ExtResource("1_ink_surface")
 shader_parameter/base_color = Color(0.24, 0.23, 0.21, 1)
+shader_parameter/outline_color = Color(0.05, 0.05, 0.05, 1)
+shader_parameter/ran_close = 1.0
+shader_parameter/ran_far = 0.5
+shader_parameter/rim_rate = 2.0
+shader_parameter/rim_rate_close = 2.5
+shader_parameter/rim_rate_range = 8.0
+shader_parameter/rim_offset = 0.0
+shader_parameter/max_distance = 256.0
+shader_parameter/stroke_ctrl = Vector4(2, 0.6, 0.25, 1)
+shader_parameter/noise_ctrl = Vector4(2, 0.6, 1, 1)
+shader_parameter/inline_ctrl = Vector4(1, 1, 10, 10)
+shader_parameter/lambert_rim_blend = 0.0
+shader_parameter/shadow_influence = 0.5
+shader_parameter/light_cun_power = 1.0
+shader_parameter/light_ran_power = 1.25
+shader_parameter/light_inline_strength = 0.35
 
 [sub_resource type="ShaderMaterial" id="Mat_Combat"]
+render_priority = 0
 shader = ExtResource("1_ink_surface")
 shader_parameter/base_color = Color(0.62, 0.18, 0.12, 1)
+shader_parameter/outline_color = Color(0.05, 0.05, 0.05, 1)
+shader_parameter/ran_close = 1.0
+shader_parameter/ran_far = 0.5
+shader_parameter/rim_rate = 2.0
+shader_parameter/rim_rate_close = 2.5
+shader_parameter/rim_rate_range = 8.0
+shader_parameter/rim_offset = 0.0
+shader_parameter/max_distance = 256.0
+shader_parameter/stroke_ctrl = Vector4(2, 0.6, 0.25, 1)
+shader_parameter/noise_ctrl = Vector4(2, 0.6, 1, 1)
+shader_parameter/inline_ctrl = Vector4(1, 1, 10, 10)
+shader_parameter/lambert_rim_blend = 0.0
+shader_parameter/shadow_influence = 0.5
+shader_parameter/light_cun_power = 1.0
+shader_parameter/light_ran_power = 1.25
+shader_parameter/light_inline_strength = 0.35
 
 [sub_resource type="ShaderMaterial" id="Mat_DebugBlue"]
+render_priority = 0
 shader = ExtResource("1_ink_surface")
 shader_parameter/base_color = Color(0.15, 0.31, 0.62, 1)
+shader_parameter/outline_color = Color(0.05, 0.05, 0.05, 1)
+shader_parameter/ran_close = 1.0
+shader_parameter/ran_far = 0.5
+shader_parameter/rim_rate = 2.0
+shader_parameter/rim_rate_close = 2.5
+shader_parameter/rim_rate_range = 8.0
+shader_parameter/rim_offset = 0.0
+shader_parameter/max_distance = 256.0
+shader_parameter/stroke_ctrl = Vector4(2, 0.6, 0.25, 1)
+shader_parameter/noise_ctrl = Vector4(2, 0.6, 1, 1)
+shader_parameter/inline_ctrl = Vector4(1, 1, 10, 10)
+shader_parameter/lambert_rim_blend = 0.0
+shader_parameter/shadow_influence = 0.5
+shader_parameter/light_cun_power = 1.0
+shader_parameter/light_ran_power = 1.25
+shader_parameter/light_inline_strength = 0.35
 
 [sub_resource type="ShaderMaterial" id="Mat_WhiteHair"]
+render_priority = 0
 shader = ExtResource("1_ink_surface")
 shader_parameter/base_color = Color(0.82, 0.78, 0.68, 1)
+shader_parameter/outline_color = Color(0.05, 0.05, 0.05, 1)
+shader_parameter/ran_close = 1.0
+shader_parameter/ran_far = 0.5
+shader_parameter/rim_rate = 2.0
+shader_parameter/rim_rate_close = 2.5
+shader_parameter/rim_rate_range = 8.0
+shader_parameter/rim_offset = 0.0
+shader_parameter/max_distance = 256.0
+shader_parameter/stroke_ctrl = Vector4(2, 0.6, 0.25, 1)
+shader_parameter/noise_ctrl = Vector4(2, 0.6, 1, 1)
+shader_parameter/inline_ctrl = Vector4(1, 1, 10, 10)
+shader_parameter/lambert_rim_blend = 0.0
+shader_parameter/shadow_influence = 0.5
+shader_parameter/light_cun_power = 1.0
+shader_parameter/light_ran_power = 1.25
+shader_parameter/light_inline_strength = 0.35
 
 [sub_resource type="CapsuleMesh" id="CapsuleMesh_Player"]
 
 [sub_resource type="ShaderMaterial" id="Mat_Player"]
+render_priority = 0
 shader = ExtResource("1_ink_surface")
 shader_parameter/base_color = Color(0.22, 0.48, 0.82, 1)
+shader_parameter/outline_color = Color(0.05, 0.05, 0.05, 1)
+shader_parameter/ran_close = 1.0
+shader_parameter/ran_far = 0.5
+shader_parameter/rim_rate = 2.0
+shader_parameter/rim_rate_close = 2.5
+shader_parameter/rim_rate_range = 8.0
+shader_parameter/rim_offset = 0.0
+shader_parameter/max_distance = 256.0
+shader_parameter/stroke_ctrl = Vector4(2, 0.6, 0.25, 1)
+shader_parameter/noise_ctrl = Vector4(2, 0.6, 1, 1)
+shader_parameter/inline_ctrl = Vector4(1, 1, 10, 10)
+shader_parameter/lambert_rim_blend = 0.0
+shader_parameter/shadow_influence = 0.5
+shader_parameter/light_cun_power = 1.0
+shader_parameter/light_ran_power = 1.25
+shader_parameter/light_inline_strength = 0.35
 
 [sub_resource type="CapsuleShape3D" id="CapsuleShape_Player"]
 
@@ -145,6 +462,7 @@ surface_material_override/0 = SubResource("Mat_Water")
 transform = Transform3D(22, 0, 0, 0, 0.55, 0, 0, 0, 15, 11, 0.1, 5)
 
 [node name="Mesh" type="MeshInstance3D" parent="Whitebox_Level/Walkable_Shore/Main_Right_Shore" unique_id=284619205]
+visible = false
 mesh = SubResource("BoxMesh_Unit")
 surface_material_override/0 = SubResource("Mat_Shore")
 
@@ -155,6 +473,7 @@ shape = SubResource("BoxShape_Unit")
 transform = Transform3D(8, 0, 0, 0, 0.18, 0, 0, 0, 6, 4, 0.48, 5.6)
 
 [node name="Mesh" type="MeshInstance3D" parent="Whitebox_Level/Walkable_Shore/Campfire_Flat" unique_id=1084200123]
+visible = false
 mesh = SubResource("BoxMesh_Unit")
 surface_material_override/0 = SubResource("Mat_Path")
 
@@ -165,6 +484,7 @@ shape = SubResource("BoxShape_Unit")
 transform = Transform3D(30, 0, 0, 0, 0.85, 0, 0, 0, 18, 6, 0.55, -13)
 
 [node name="Mesh" type="MeshInstance3D" parent="Whitebox_Level/Walkable_Shore/Upper_Village_Terrace" unique_id=779428961]
+visible = false
 mesh = SubResource("BoxMesh_Unit")
 surface_material_override/0 = SubResource("Mat_Shore")
 
@@ -175,6 +495,7 @@ shape = SubResource("BoxShape_Unit")
 transform = Transform3D(6, 0, 0, 0, 0.16, 0, 0, 0, 23, 4, 1.04, -3.5)
 
 [node name="Mesh" type="MeshInstance3D" parent="Whitebox_Level/Walkable_Shore/Central_Stone_Path" unique_id=277523321]
+visible = false
 mesh = SubResource("BoxMesh_Unit")
 surface_material_override/0 = SubResource("Mat_Path")
 
@@ -185,6 +506,7 @@ shape = SubResource("BoxShape_Unit")
 transform = Transform3D(14, 0, 0, 0, 1.25, 0, 0, 0, 10, 20, 0.82, -1)
 
 [node name="Mesh" type="MeshInstance3D" parent="Whitebox_Level/Walkable_Shore/Right_High_Bank" unique_id=1858813339]
+visible = false
 mesh = SubResource("BoxMesh_Unit")
 surface_material_override/0 = SubResource("Mat_Shore")
 
@@ -197,6 +519,7 @@ shape = SubResource("BoxShape_Unit")
 transform = Transform3D(8, 0, 0, 0, 0.25, 0, 0, 0, 1.6, 18, 0.05, 13.4)
 
 [node name="Mesh" type="MeshInstance3D" parent="Whitebox_Level/Walkable_Shore/Downstage_Stairs/Step_01_Waterline" unique_id=753710457]
+visible = false
 mesh = SubResource("BoxMesh_Unit")
 surface_material_override/0 = SubResource("Mat_Stone")
 
@@ -207,6 +530,7 @@ shape = SubResource("BoxShape_Unit")
 transform = Transform3D(8, 0, 0, 0, 0.25, 0, 0, 0, 1.6, 18.5, 0.25, 12)
 
 [node name="Mesh" type="MeshInstance3D" parent="Whitebox_Level/Walkable_Shore/Downstage_Stairs/Step_02" unique_id=561905303]
+visible = false
 mesh = SubResource("BoxMesh_Unit")
 surface_material_override/0 = SubResource("Mat_Stone")
 
@@ -217,6 +541,7 @@ shape = SubResource("BoxShape_Unit")
 transform = Transform3D(8, 0, 0, 0, 0.25, 0, 0, 0, 1.6, 19, 0.45, 10.6)
 
 [node name="Mesh" type="MeshInstance3D" parent="Whitebox_Level/Walkable_Shore/Downstage_Stairs/Step_03" unique_id=1684802924]
+visible = false
 mesh = SubResource("BoxMesh_Unit")
 surface_material_override/0 = SubResource("Mat_Stone")
 
@@ -227,11 +552,86 @@ shape = SubResource("BoxShape_Unit")
 transform = Transform3D(8, 0, 0, 0, 0.25, 0, 0, 0, 1.6, 19.5, 0.65, 9.2)
 
 [node name="Mesh" type="MeshInstance3D" parent="Whitebox_Level/Walkable_Shore/Downstage_Stairs/Step_04_Top" unique_id=1139407542]
+visible = false
 mesh = SubResource("BoxMesh_Unit")
 surface_material_override/0 = SubResource("Mat_Stone")
 
 [node name="Collision" type="CollisionShape3D" parent="Whitebox_Level/Walkable_Shore/Downstage_Stairs/Step_04_Top" unique_id=2050913670]
 shape = SubResource("BoxShape_Unit")
+
+[node name="Stone_Ground_Replacements" type="Node3D" parent="Whitebox_Level/Walkable_Shore" unique_id=1254494757]
+
+[node name="Main_Right_Shore_Stone_01" type="MeshInstance3D" parent="Whitebox_Level/Walkable_Shore/Stone_Ground_Replacements" unique_id=613173253]
+transform = Transform3D(7.2, 0, 0, 0, 0.55, 0, 0, 0, 5.2, 5, 0.48, 3.2)
+mesh = ExtResource("10_stone03")
+
+[node name="Main_Right_Shore_Stone_02" type="MeshInstance3D" parent="Whitebox_Level/Walkable_Shore/Stone_Ground_Replacements" unique_id=1629678353]
+transform = Transform3D(6.4, 0, 0, 0, 0.5, 0, 0, 0, 4.8, 14, 0.46, 5.8)
+mesh = ExtResource("11_stone04")
+
+[node name="Main_Right_Shore_Stone_03" type="MeshInstance3D" parent="Whitebox_Level/Walkable_Shore/Stone_Ground_Replacements" unique_id=1360369291]
+transform = Transform3D(5.4, 0, 0, 0, 0.45, 0, 0, 0, 4.2, 19.8, 0.55, 1.6)
+mesh = ExtResource("9_stone02")
+
+[node name="Campfire_Flat_Stone_01" type="MeshInstance3D" parent="Whitebox_Level/Walkable_Shore/Stone_Ground_Replacements" unique_id=67391755]
+transform = Transform3D(3.6, 0, 0, 0, 0.35, 0, 0, 0, 2.8, 2.2, 0.58, 5.2)
+mesh = ExtResource("10_stone03")
+
+[node name="Campfire_Flat_Stone_02" type="MeshInstance3D" parent="Whitebox_Level/Walkable_Shore/Stone_Ground_Replacements" unique_id=1098705502]
+transform = Transform3D(2.4, 0, 0, 0, 0.32, 0, 0, 0, 2.2, 5.8, 0.6, 6.8)
+mesh = ExtResource("11_stone04")
+
+[node name="Upper_Terrace_Stone_01" type="MeshInstance3D" parent="Whitebox_Level/Walkable_Shore/Stone_Ground_Replacements" unique_id=1408635776]
+transform = Transform3D(8, 0, 0, 0, 0.65, 0, 0, 0, 5.8, -4, 0.95, -14.8)
+mesh = ExtResource("10_stone03")
+
+[node name="Upper_Terrace_Stone_02" type="MeshInstance3D" parent="Whitebox_Level/Walkable_Shore/Stone_Ground_Replacements" unique_id=380080371]
+transform = Transform3D(7.2, 0, 0, 0, 0.62, 0, 0, 0, 5.2, 8, 0.92, -12.2)
+mesh = ExtResource("9_stone02")
+
+[node name="Upper_Terrace_Stone_03" type="MeshInstance3D" parent="Whitebox_Level/Walkable_Shore/Stone_Ground_Replacements" unique_id=1443355833]
+transform = Transform3D(6.6, 0, 0, 0, 0.58, 0, 0, 0, 4.4, 18, 0.98, -15.8)
+mesh = ExtResource("11_stone04")
+
+[node name="Right_Bank_Stone_01" type="MeshInstance3D" parent="Whitebox_Level/Walkable_Shore/Stone_Ground_Replacements" unique_id=331019969]
+transform = Transform3D(5.8, 0, 0, 0, 0.7, 0, 0, 0, 3.6, 19.8, 1.35, -3.6)
+mesh = ExtResource("10_stone03")
+
+[node name="Right_Bank_Stone_02" type="MeshInstance3D" parent="Whitebox_Level/Walkable_Shore/Stone_Ground_Replacements" unique_id=872211600]
+transform = Transform3D(5.2, 0, 0, 0, 0.62, 0, 0, 0, 3.8, 22.5, 1.42, 2.2)
+mesh = ExtResource("9_stone02")
+
+[node name="Central_Path_Stone_01" type="MeshInstance3D" parent="Whitebox_Level/Walkable_Shore/Stone_Ground_Replacements" unique_id=667142628]
+transform = Transform3D(2.7, 0, 0, 0, 0.36, 0, 0, 0, 2.1, 4, 1.18, -14)
+mesh = ExtResource("10_stone03")
+
+[node name="Central_Path_Stone_02" type="MeshInstance3D" parent="Whitebox_Level/Walkable_Shore/Stone_Ground_Replacements" unique_id=407890895]
+transform = Transform3D(2.5, 0, 0, 0, 0.34, 0, 0, 0, 1.9, 3.2, 1.2, -10.7)
+mesh = ExtResource("11_stone04")
+
+[node name="Central_Path_Stone_03" type="MeshInstance3D" parent="Whitebox_Level/Walkable_Shore/Stone_Ground_Replacements" unique_id=945595052]
+transform = Transform3D(2.8, 0, 0, 0, 0.34, 0, 0, 0, 2.1, 4.6, 1.21, -7.4)
+mesh = ExtResource("9_stone02")
+
+[node name="Central_Path_Stone_04" type="MeshInstance3D" parent="Whitebox_Level/Walkable_Shore/Stone_Ground_Replacements" unique_id=895586811]
+transform = Transform3D(2.5, 0, 0, 0, 0.34, 0, 0, 0, 2, 3.5, 1.22, -4)
+mesh = ExtResource("10_stone03")
+
+[node name="Central_Path_Stone_05" type="MeshInstance3D" parent="Whitebox_Level/Walkable_Shore/Stone_Ground_Replacements" unique_id=132606009]
+transform = Transform3D(2.7, 0, 0, 0, 0.34, 0, 0, 0, 2.1, 4.3, 1.23, -0.5)
+mesh = ExtResource("11_stone04")
+
+[node name="Central_Path_Stone_06" type="MeshInstance3D" parent="Whitebox_Level/Walkable_Shore/Stone_Ground_Replacements" unique_id=1180269964]
+transform = Transform3D(2.6, 0, 0, 0, 0.34, 0, 0, 0, 2, 3.6, 1.24, 3.1)
+mesh = ExtResource("9_stone02")
+
+[node name="Central_Path_Stone_07" type="MeshInstance3D" parent="Whitebox_Level/Walkable_Shore/Stone_Ground_Replacements" unique_id=1896126310]
+transform = Transform3D(2.4, 0, 0, 0, 0.32, 0, 0, 0, 1.8, 4.5, 1.25, 6.5)
+mesh = ExtResource("10_stone03")
+
+[node name="Downstage_Stone_Steps" type="MeshInstance3D" parent="Whitebox_Level/Walkable_Shore/Stone_Ground_Replacements" unique_id=2070239103]
+transform = Transform3D(4.6, 0, 0, 0, 0.28, 0, 0, 0, 0.72, 18.8, 0.55, 11.25)
+mesh = ExtResource("12_stone_steps")
 
 [node name="Boat_And_Docks" type="Node3D" parent="Whitebox_Level" unique_id=1579900793]
 
@@ -239,6 +639,7 @@ shape = SubResource("BoxShape_Unit")
 transform = Transform3D(15, 0, 0, 0, 0.28, 0, 0, 0, 2.4, -6, 0.4, 7.8)
 
 [node name="Mesh" type="MeshInstance3D" parent="Whitebox_Level/Boat_And_Docks/Main_Dock_Run" unique_id=1347239466]
+visible = false
 mesh = SubResource("BoxMesh_Unit")
 surface_material_override/0 = SubResource("Mat_Wood")
 
@@ -249,6 +650,7 @@ shape = SubResource("BoxShape_Unit")
 transform = Transform3D(2.4, 0, 0, 0, 0.25, 0, 0, 0, 10, -0.5, 0.45, 4.4)
 
 [node name="Mesh" type="MeshInstance3D" parent="Whitebox_Level/Boat_And_Docks/Dock_To_Shore" unique_id=1656619558]
+visible = false
 mesh = SubResource("BoxMesh_Unit")
 surface_material_override/0 = SubResource("Mat_Wood")
 
@@ -259,6 +661,7 @@ shape = SubResource("BoxShape_Unit")
 transform = Transform3D(13, 0, 0, 0, 1.2, 0, 0, 0, 4.2, -18, 0.35, 8.4)
 
 [node name="Mesh" type="MeshInstance3D" parent="Whitebox_Level/Boat_And_Docks/Fishing_Boat" unique_id=834679229]
+visible = false
 mesh = SubResource("BoxMesh_Unit")
 surface_material_override/0 = SubResource("Mat_Wood")
 
@@ -267,21 +670,25 @@ shape = SubResource("BoxShape_Unit")
 
 [node name="Boat_Cabin" type="MeshInstance3D" parent="Whitebox_Level/Boat_And_Docks" unique_id=1963996746]
 transform = Transform3D(5, 0, 0, 0, 2.2, 0, 0, 0, 3, -19.4, 1.65, 8.3)
+visible = false
 mesh = SubResource("BoxMesh_Unit")
 surface_material_override/0 = SubResource("Mat_Building")
 
 [node name="Boat_Cabin_Roof" type="MeshInstance3D" parent="Whitebox_Level/Boat_And_Docks" unique_id=2032708008]
 transform = Transform3D(5.8, 0, 0, 0, 0.35, 0, 0, 0, 3.8, -19.4, 2.9, 8.3)
+visible = false
 mesh = SubResource("BoxMesh_Unit")
 surface_material_override/0 = SubResource("Mat_Roof")
 
 [node name="Boat_Mast" type="MeshInstance3D" parent="Whitebox_Level/Boat_And_Docks" unique_id=1104100063]
 transform = Transform3D(0.35, 0, 0, 0, 6.5, 0, 0, 0, 0.35, -15.4, 3.65, 7)
+visible = false
 mesh = SubResource("CylinderMesh_Unit")
 surface_material_override/0 = SubResource("Mat_Wood")
 
 [node name="Boat_Lantern" type="MeshInstance3D" parent="Whitebox_Level/Boat_And_Docks" unique_id=455516319]
 transform = Transform3D(0.7, 0, 0, 0, 0.7, 0, 0, 0, 0.7, -14.4, 3.5, 7.8)
+visible = false
 mesh = SubResource("BoxMesh_Unit")
 surface_material_override/0 = SubResource("Mat_Lantern")
 
@@ -295,31 +702,37 @@ omni_range = 8.0
 
 [node name="Post_01" type="MeshInstance3D" parent="Whitebox_Level/Boat_And_Docks/Dock_Posts" unique_id=286888205]
 transform = Transform3D(0.45, 0, 0, 0, 3.2, 0, 0, 0, 0.45, -12.5, 1.6, 6.3)
+visible = false
 mesh = SubResource("CylinderMesh_Unit")
 surface_material_override/0 = SubResource("Mat_Wood")
 
 [node name="Post_02" type="MeshInstance3D" parent="Whitebox_Level/Boat_And_Docks/Dock_Posts" unique_id=2113561990]
 transform = Transform3D(0.45, 0, 0, 0, 3.6, 0, 0, 0, 0.45, -8.2, 1.8, 9.2)
+visible = false
 mesh = SubResource("CylinderMesh_Unit")
 surface_material_override/0 = SubResource("Mat_Wood")
 
 [node name="Post_03" type="MeshInstance3D" parent="Whitebox_Level/Boat_And_Docks/Dock_Posts" unique_id=1493331404]
 transform = Transform3D(0.45, 0, 0, 0, 3.4, 0, 0, 0, 0.45, -2.4, 1.7, 7)
+visible = false
 mesh = SubResource("CylinderMesh_Unit")
 surface_material_override/0 = SubResource("Mat_Wood")
 
 [node name="Post_04" type="MeshInstance3D" parent="Whitebox_Level/Boat_And_Docks/Dock_Posts" unique_id=1109387588]
 transform = Transform3D(0.45, 0, 0, 0, 3.2, 0, 0, 0, 0.45, 1.8, 1.6, 4.8)
+visible = false
 mesh = SubResource("CylinderMesh_Unit")
 surface_material_override/0 = SubResource("Mat_Wood")
 
 [node name="Dock_Plank_Loose_01" type="MeshInstance3D" parent="Whitebox_Level/Boat_And_Docks" unique_id=659305565]
 transform = Transform3D(2.2, 0, 0, 0, 0.12, 0, 0, 0, 0.55, -10.5, 0.62, 8.95)
+visible = false
 mesh = SubResource("BoxMesh_Unit")
 surface_material_override/0 = SubResource("Mat_Wood")
 
 [node name="Dock_Plank_Loose_02" type="MeshInstance3D" parent="Whitebox_Level/Boat_And_Docks" unique_id=2070933240]
 transform = Transform3D(2.5, 0, 0, 0, 0.12, 0, 0, 0, 0.55, -5.2, 0.62, 6.65)
+visible = false
 mesh = SubResource("BoxMesh_Unit")
 surface_material_override/0 = SubResource("Mat_Wood")
 
@@ -347,6 +760,18 @@ surface_material_override/0 = SubResource("Mat_Wood")
 transform = Transform3D(1, 0, 0, 0, 0.85, 0, 0, 0, 1, 1.5, 0.95, 7.2)
 mesh = SubResource("CylinderMesh_Unit")
 surface_material_override/0 = SubResource("Mat_Wood")
+
+[node name="Main_Dock_Run_Port01" type="MeshInstance3D" parent="Whitebox_Level/Boat_And_Docks" unique_id=220141457]
+transform = Transform3D(5.2576914, 0, 0, 0, 0, 1, 0, -2.75, 0, -4.1876307, 0.45, 7.8)
+mesh = ExtResource("4_port01")
+
+[node name="Dock_To_Shore_Port02" type="MeshInstance3D" parent="Whitebox_Level/Boat_And_Docks" unique_id=812954718]
+transform = Transform3D(3.8, 0, 0, 0, 0, 1, 0, -10, 0, -0.5, 0.48, 4.4)
+mesh = ExtResource("5_port02")
+
+[node name="Fishing_Boat_WoodenBoat" type="MeshInstance3D" parent="Whitebox_Level/Boat_And_Docks" unique_id=345967595]
+transform = Transform3D(0, 13, 0, 0, 0, 2.2, 4.2, 0, 0, -18, 0.35, 8.4)
+mesh = ExtResource("6_boat01")
 
 [node name="Fire_And_Interaction_Markers" type="Node3D" parent="Whitebox_Level" unique_id=1683123501]
 
@@ -383,6 +808,7 @@ omni_range = 9.0
 transform = Transform3D(10, 0, 0, 0, 5.2, 0, 0, 0, 6.5, 9.5, 3.45, -19)
 
 [node name="Mesh" type="MeshInstance3D" parent="Whitebox_Level/Buildings_And_Village/Main_Hall_Blockout" unique_id=1151795123]
+visible = false
 mesh = SubResource("BoxMesh_Unit")
 surface_material_override/0 = SubResource("Mat_Building")
 
@@ -391,11 +817,13 @@ shape = SubResource("BoxShape_Unit")
 
 [node name="Main_Hall_Large_Roof" type="MeshInstance3D" parent="Whitebox_Level/Buildings_And_Village" unique_id=1385734581]
 transform = Transform3D(12.4, 0, 0, 0, 1, 0, 0, 0, 8.3, 9.5, 6.55, -19)
+visible = false
 mesh = SubResource("BoxMesh_Unit")
 surface_material_override/0 = SubResource("Mat_Roof")
 
 [node name="Main_Hall_Upper_Roof" type="MeshInstance3D" parent="Whitebox_Level/Buildings_And_Village" unique_id=2062849256]
 transform = Transform3D(8.2, 0, 0, 0, 0.75, 0, 0, 0, 5.2, 9.5, 7.55, -19)
+visible = false
 mesh = SubResource("BoxMesh_Unit")
 surface_material_override/0 = SubResource("Mat_Roof")
 
@@ -403,6 +831,7 @@ surface_material_override/0 = SubResource("Mat_Roof")
 transform = Transform3D(5.8, 0, 0, 0, 3, 0, 0, 0, 5.2, -0.5, 2.4, -11.8)
 
 [node name="Mesh" type="MeshInstance3D" parent="Whitebox_Level/Buildings_And_Village/Center_Pavilion_Base" unique_id=1147040024]
+visible = false
 mesh = SubResource("BoxMesh_Unit")
 surface_material_override/0 = SubResource("Mat_Building")
 
@@ -411,6 +840,7 @@ shape = SubResource("BoxShape_Unit")
 
 [node name="Center_Pavilion_Roof" type="MeshInstance3D" parent="Whitebox_Level/Buildings_And_Village" unique_id=577288159]
 transform = Transform3D(7.4, 0, 0, 0, 0.75, 0, 0, 0, 6.6, -0.5, 4.35, -11.8)
+visible = false
 mesh = SubResource("BoxMesh_Unit")
 surface_material_override/0 = SubResource("Mat_Roof")
 
@@ -418,6 +848,7 @@ surface_material_override/0 = SubResource("Mat_Roof")
 transform = Transform3D(7.4, 0, 0, 0, 4, 0, 0, 0, 5.4, -8.5, 3, -18.5)
 
 [node name="Mesh" type="MeshInstance3D" parent="Whitebox_Level/Buildings_And_Village/Left_Back_House" unique_id=272279089]
+visible = false
 mesh = SubResource("BoxMesh_Unit")
 surface_material_override/0 = SubResource("Mat_Building")
 
@@ -426,6 +857,7 @@ shape = SubResource("BoxShape_Unit")
 
 [node name="Left_Back_House_Roof" type="MeshInstance3D" parent="Whitebox_Level/Buildings_And_Village" unique_id=1863857439]
 transform = Transform3D(8.8, 0, 0, 0, 0.8, 0, 0, 0, 6.8, -8.5, 5.4, -18.5)
+visible = false
 mesh = SubResource("BoxMesh_Unit")
 surface_material_override/0 = SubResource("Mat_Roof")
 
@@ -433,6 +865,7 @@ surface_material_override/0 = SubResource("Mat_Roof")
 transform = Transform3D(7.2, 0, 0, 0, 3.6, 0, 0, 0, 5, 21, 3, -7.5)
 
 [node name="Mesh" type="MeshInstance3D" parent="Whitebox_Level/Buildings_And_Village/Right_Hut_Blockout" unique_id=1675032424]
+visible = false
 mesh = SubResource("BoxMesh_Unit")
 surface_material_override/0 = SubResource("Mat_Building")
 
@@ -441,8 +874,25 @@ shape = SubResource("BoxShape_Unit")
 
 [node name="Right_Hut_Roof" type="MeshInstance3D" parent="Whitebox_Level/Buildings_And_Village" unique_id=1286204000]
 transform = Transform3D(8.5, 0, 0, 0, 0.8, 0, 0, 0, 6.1, 21, 5.2, -7.5)
+visible = false
 mesh = SubResource("BoxMesh_Unit")
 surface_material_override/0 = SubResource("Mat_Roof")
+
+[node name="Main_Hall_House01" type="MeshInstance3D" parent="Whitebox_Level/Buildings_And_Village" unique_id=870264132]
+transform = Transform3D(10.6, 0, 0, 0, 0, 10.6, 0, -10.6, 0, 9.5, 0.85, -19)
+mesh = ExtResource("2_4ffh8")
+
+[node name="Center_Pavilion_House03" type="MeshInstance3D" parent="Whitebox_Level/Buildings_And_Village" unique_id=1351281331]
+transform = Transform3D(0, -7.4, 0, 0, 0, 7.4, -7.4, 0, 0, -0.5, 0.9, -11.8)
+mesh = ExtResource("3_house03")
+
+[node name="Left_Back_House01" type="MeshInstance3D" parent="Whitebox_Level/Buildings_And_Village" unique_id=1700237574]
+transform = Transform3D(8.5, 0, 0, 0, 0, 8.5, 0, -8.5, 0, -8.5, 1, -18.5)
+mesh = ExtResource("2_4ffh8")
+
+[node name="Right_Hut_House03" type="MeshInstance3D" parent="Whitebox_Level/Buildings_And_Village" unique_id=1285207219]
+transform = Transform3D(0, -8.4, 0, 0, 0, 8.4, -8.4, 0, 0, 21, 1.2, -7.5)
+mesh = ExtResource("3_house03")
 
 [node name="Foliage_Masses" type="Node3D" parent="Whitebox_Level/Buildings_And_Village" unique_id=102322960]
 
@@ -606,13 +1056,19 @@ surface_material_override/0 = SubResource("Mat_Cliff")
 
 [node name="Outer_Boat_Silhouette_East" type="MeshInstance3D" parent="Whitebox_Level/Expanded_Whitebox_Areas/H_Island_Frame" unique_id=530133183]
 transform = Transform3D(9, 0, 0, 0, 0.55, 0, 0, 0, 2.2, 59, 0.18, -18)
+visible = false
 mesh = SubResource("BoxMesh_Unit")
 surface_material_override/0 = SubResource("Mat_Wood")
 
 [node name="Outer_Boat_Mast_East" type="MeshInstance3D" parent="Whitebox_Level/Expanded_Whitebox_Areas/H_Island_Frame" unique_id=1259466025]
 transform = Transform3D(0.25, 0, 0, 0, 4.6, 0, 0, 0, 0.25, 59, 2.5, -18)
+visible = false
 mesh = SubResource("CylinderMesh_Unit")
 surface_material_override/0 = SubResource("Mat_Wood")
+
+[node name="Outer_Boat_East_WoodenBoat02" type="MeshInstance3D" parent="Whitebox_Level/Expanded_Whitebox_Areas/H_Island_Frame" unique_id=353483923]
+transform = Transform3D(0, 9, 0, 0, 0, 2.8, 5.2, 0, 0, 59, 0.2, -18)
+mesh = ExtResource("7_boat02")
 
 [node name="I_Outer_Island_Reserve" type="Node3D" parent="Whitebox_Level/Expanded_Whitebox_Areas/H_Island_Frame" unique_id=1978299466]
 
@@ -797,11 +1253,16 @@ surface_material_override/0 = SubResource("Mat_Foliage")
 transform = Transform3D(18, 0, 0, 0, 0.25, 0, 0, 0, 3.2, -119, 0.72, 22)
 
 [node name="Mesh" type="MeshInstance3D" parent="Whitebox_Level/Expanded_Whitebox_Areas/H_Island_Frame/I_Outer_Island_Reserve/Outer_Terrain_Detail/West_Cove_Lower_Dock" unique_id=971605267]
+visible = false
 mesh = SubResource("BoxMesh_Unit")
 surface_material_override/0 = SubResource("Mat_Wood")
 
 [node name="Collision" type="CollisionShape3D" parent="Whitebox_Level/Expanded_Whitebox_Areas/H_Island_Frame/I_Outer_Island_Reserve/Outer_Terrain_Detail/West_Cove_Lower_Dock" unique_id=532267508]
 shape = SubResource("BoxShape_Unit")
+
+[node name="West_Cove_Lower_Dock_Port01" type="MeshInstance3D" parent="Whitebox_Level/Expanded_Whitebox_Areas/H_Island_Frame/I_Outer_Island_Reserve/Outer_Terrain_Detail" unique_id=1297540017]
+transform = Transform3D(18, 0, 0, 0, 0, 0.95, 0, -3.7, 0, -119, 0.78, 22)
+mesh = ExtResource("4_port01")
 
 [node name="West_Cove_Upper_Ledge" type="StaticBody3D" parent="Whitebox_Level/Expanded_Whitebox_Areas/H_Island_Frame/I_Outer_Island_Reserve/Outer_Terrain_Detail" unique_id=1655764620]
 transform = Transform3D(22, 0, 0, 0, 0.85, 0, 0, 0, 18, -96, 1.15, -32)
@@ -977,13 +1438,23 @@ surface_material_override/0 = SubResource("Mat_Wood")
 
 [node name="West_Cove_Boat_A" type="MeshInstance3D" parent="Whitebox_Level/Expanded_Whitebox_Areas/H_Island_Frame/I_Outer_Island_Reserve/L_Outer_Region_Fill" unique_id=448901135]
 transform = Transform3D(7.5, 0, 0, 0, 0.65, 0, 0, 0, 2.4, -125, 0.32, 11)
+visible = false
 mesh = SubResource("BoxMesh_Unit")
 surface_material_override/0 = SubResource("Mat_Wood")
 
 [node name="West_Cove_Boat_B" type="MeshInstance3D" parent="Whitebox_Level/Expanded_Whitebox_Areas/H_Island_Frame/I_Outer_Island_Reserve/L_Outer_Region_Fill" unique_id=522037636]
 transform = Transform3D(6.8, 0, 0, 0, 0.6, 0, 0, 0, 2.2, -121, 0.3, 33)
+visible = false
 mesh = SubResource("BoxMesh_Unit")
 surface_material_override/0 = SubResource("Mat_Wood")
+
+[node name="West_Cove_Boat_A_WoodenBoat02" type="MeshInstance3D" parent="Whitebox_Level/Expanded_Whitebox_Areas/H_Island_Frame/I_Outer_Island_Reserve/L_Outer_Region_Fill" unique_id=1005250888]
+transform = Transform3D(0, 7.5, 0, 0, 0, 3.2, 5.8, 0, 0, -125, 0.34, 11)
+mesh = ExtResource("7_boat02")
+
+[node name="West_Cove_Boat_B_WoodenBoat02" type="MeshInstance3D" parent="Whitebox_Level/Expanded_Whitebox_Areas/H_Island_Frame/I_Outer_Island_Reserve/L_Outer_Region_Fill" unique_id=929781007]
+transform = Transform3D(0, 6.8, 0, 0, 0, 3, 5.2, 0, 0, -121, 0.32, 33)
+mesh = ExtResource("7_boat02")
 
 [node name="West_Cove_Net_Drying_Frame" type="MeshInstance3D" parent="Whitebox_Level/Expanded_Whitebox_Areas/H_Island_Frame/I_Outer_Island_Reserve/L_Outer_Region_Fill" unique_id=1423176559]
 transform = Transform3D(8.5, 0, 0, 0, 0.25, 0, 0, 0, 0.35, -105, 2.6, 14)
@@ -1394,18 +1865,33 @@ shape = SubResource("BoxShape_Unit")
 
 [node name="Pirate_Longboat_01" type="MeshInstance3D" parent="Whitebox_Level/Expanded_Whitebox_Areas/B_East_Pirate_Landing" unique_id=841624938]
 transform = Transform3D(7, 0, 0, 0, 0.7, 0, 0, 0, 2.4, 42, 0.35, 13)
+visible = false
 mesh = SubResource("BoxMesh_Unit")
 surface_material_override/0 = SubResource("Mat_Wood")
 
 [node name="Pirate_Longboat_02" type="MeshInstance3D" parent="Whitebox_Level/Expanded_Whitebox_Areas/B_East_Pirate_Landing" unique_id=1101399757]
 transform = Transform3D(6, 0, 0, 0, 0.65, 0, 0, 0, 2.1, 39, 0.3, 6.5)
+visible = false
 mesh = SubResource("BoxMesh_Unit")
 surface_material_override/0 = SubResource("Mat_Wood")
 
 [node name="Pirate_Longboat_03_Back" type="MeshInstance3D" parent="Whitebox_Level/Expanded_Whitebox_Areas/B_East_Pirate_Landing" unique_id=1741236634]
 transform = Transform3D(5.5, 0, 0, 0, 0.55, 0, 0, 0, 2, 43.5, 0.28, 1.2)
+visible = false
 mesh = SubResource("BoxMesh_Unit")
 surface_material_override/0 = SubResource("Mat_Wood")
+
+[node name="Pirate_Longboat_01_WoodenBoat02" type="MeshInstance3D" parent="Whitebox_Level/Expanded_Whitebox_Areas/B_East_Pirate_Landing" unique_id=1804472490]
+transform = Transform3D(0, 7, 0, 0, 0, 3.2, 5.7, 0, 0, 42, 0.36, 13)
+mesh = ExtResource("7_boat02")
+
+[node name="Pirate_Longboat_02_WoodenBoat02" type="MeshInstance3D" parent="Whitebox_Level/Expanded_Whitebox_Areas/B_East_Pirate_Landing" unique_id=2026586835]
+transform = Transform3D(0, 6, 0, 0, 0, 2.8, 5, 0, 0, 39, 0.32, 6.5)
+mesh = ExtResource("7_boat02")
+
+[node name="Pirate_Longboat_03_WoodenBoat02" type="MeshInstance3D" parent="Whitebox_Level/Expanded_Whitebox_Areas/B_East_Pirate_Landing" unique_id=479979072]
+transform = Transform3D(0, 5.5, 0, 0, 0, 2.6, 4.8, 0, 0, 43.5, 0.3, 1.2)
+mesh = ExtResource("7_boat02")
 
 [node name="Landing_Combat_Marker_A" type="MeshInstance3D" parent="Whitebox_Level/Expanded_Whitebox_Areas/B_East_Pirate_Landing" unique_id=295350800]
 transform = Transform3D(0.8, 0, 0, 0, 1.7, 0, 0, 0, 0.8, 29.5, 1.25, 7.5)
@@ -1441,26 +1927,31 @@ shape = SubResource("BoxShape_Unit")
 
 [node name="Net_House_01_Body" type="MeshInstance3D" parent="Whitebox_Level/Expanded_Whitebox_Areas/C_Village_Extension" unique_id=1884665482]
 transform = Transform3D(5.6, 0, 0, 0, 3.3, 0, 0, 0, 4.2, -18, 2.7, -6)
+visible = false
 mesh = SubResource("BoxMesh_Unit")
 surface_material_override/0 = SubResource("Mat_Building")
 
 [node name="Net_House_01_Roof_Main" type="MeshInstance3D" parent="Whitebox_Level/Expanded_Whitebox_Areas/C_Village_Extension" unique_id=880739891]
 transform = Transform3D(6.8, 0, 0, 0, 0.55, 0, 0, 0, 5.2, -18, 4.65, -6)
+visible = false
 mesh = SubResource("BoxMesh_Unit")
 surface_material_override/0 = SubResource("Mat_Roof")
 
 [node name="Net_House_01_Roof_Ridge" type="MeshInstance3D" parent="Whitebox_Level/Expanded_Whitebox_Areas/C_Village_Extension" unique_id=23386273]
 transform = Transform3D(3.8, 0, 0, 0, 0.45, 0, 0, 0, 5.7, -18, 5.25, -6)
+visible = false
 mesh = SubResource("BoxMesh_Unit")
 surface_material_override/0 = SubResource("Mat_Roof")
 
 [node name="Net_House_01_Door" type="MeshInstance3D" parent="Whitebox_Level/Expanded_Whitebox_Areas/C_Village_Extension" unique_id=2132513839]
 transform = Transform3D(1.2, 0, 0, 0, 1.9, 0, 0, 0, 0.18, -18, 2, -3.85)
+visible = false
 mesh = SubResource("BoxMesh_Unit")
 surface_material_override/0 = SubResource("Mat_Wood")
 
 [node name="Village_Occluder_Tall_Roof" type="MeshInstance3D" parent="Whitebox_Level/Expanded_Whitebox_Areas/C_Village_Extension" unique_id=202290526]
 transform = Transform3D(8, 0, 0, 0, 0.9, 0, 0, 0, 6, 0, 6.85, -20.5)
+visible = false
 mesh = SubResource("BoxMesh_Unit")
 surface_material_override/0 = SubResource("Mat_Roof")
 
@@ -1477,43 +1968,63 @@ omni_range = 7.0
 
 [node name="Layered_House_02_Body" type="MeshInstance3D" parent="Whitebox_Level/Expanded_Whitebox_Areas/C_Village_Extension" unique_id=1977673280]
 transform = Transform3D(5, 0, 0, 0, 3, 0, 0, 0, 4.4, -6.5, 2.45, -2)
+visible = false
 mesh = SubResource("BoxMesh_Unit")
 surface_material_override/0 = SubResource("Mat_Building")
 
 [node name="Layered_House_02_Roof_Lower" type="MeshInstance3D" parent="Whitebox_Level/Expanded_Whitebox_Areas/C_Village_Extension" unique_id=217103581]
 transform = Transform3D(6.3, 0, 0, 0, 0.45, 0, 0, 0, 5.5, -6.5, 4.18, -2)
+visible = false
 mesh = SubResource("BoxMesh_Unit")
 surface_material_override/0 = SubResource("Mat_Roof")
 
 [node name="Layered_House_02_Roof_Upper" type="MeshInstance3D" parent="Whitebox_Level/Expanded_Whitebox_Areas/C_Village_Extension" unique_id=233434854]
 transform = Transform3D(3.5, 0, 0, 0, 0.4, 0, 0, 0, 4.6, -6.5, 4.75, -2)
+visible = false
 mesh = SubResource("BoxMesh_Unit")
 surface_material_override/0 = SubResource("Mat_Roof")
 
 [node name="Layered_House_02_Window_A" type="MeshInstance3D" parent="Whitebox_Level/Expanded_Whitebox_Areas/C_Village_Extension" unique_id=1887378648]
 transform = Transform3D(0.8, 0, 0, 0, 0.8, 0, 0, 0, 0.16, -8, 2.9, 0.25)
+visible = false
 mesh = SubResource("BoxMesh_Unit")
 surface_material_override/0 = SubResource("Mat_Lantern")
 
 [node name="Layered_House_02_Window_B" type="MeshInstance3D" parent="Whitebox_Level/Expanded_Whitebox_Areas/C_Village_Extension" unique_id=1623194678]
 transform = Transform3D(0.8, 0, 0, 0, 0.8, 0, 0, 0, 0.16, -5, 2.9, 0.25)
+visible = false
 mesh = SubResource("BoxMesh_Unit")
 surface_material_override/0 = SubResource("Mat_Lantern")
 
 [node name="Storehouse_03_Body" type="MeshInstance3D" parent="Whitebox_Level/Expanded_Whitebox_Areas/C_Village_Extension" unique_id=1973084595]
 transform = Transform3D(4.2, 0, 0, 0, 2.7, 0, 0, 0, 3.8, 2.2, 2.35, -5)
+visible = false
 mesh = SubResource("BoxMesh_Unit")
 surface_material_override/0 = SubResource("Mat_Building")
 
 [node name="Storehouse_03_Roof" type="MeshInstance3D" parent="Whitebox_Level/Expanded_Whitebox_Areas/C_Village_Extension" unique_id=511110920]
 transform = Transform3D(5.4, 0, 0, 0, 0.45, 0, 0, 0, 4.8, 2.2, 3.95, -5)
+visible = false
 mesh = SubResource("BoxMesh_Unit")
 surface_material_override/0 = SubResource("Mat_Roof")
 
 [node name="Storehouse_03_Side_Shed" type="MeshInstance3D" parent="Whitebox_Level/Expanded_Whitebox_Areas/C_Village_Extension" unique_id=923330554]
 transform = Transform3D(2.5, 0, 0, 0, 1.7, 0, 0, 0, 3.2, 5.4, 1.85, -4.2)
+visible = false
 mesh = SubResource("BoxMesh_Unit")
 surface_material_override/0 = SubResource("Mat_Wood")
+
+[node name="Net_House_01_House01" type="MeshInstance3D" parent="Whitebox_Level/Expanded_Whitebox_Areas/C_Village_Extension" unique_id=1853474301]
+transform = Transform3D(6.8, 0, 0, 0, 0, 6.8, 0, -6.8, 0, -18, 1.05, -6)
+mesh = ExtResource("2_4ffh8")
+
+[node name="Layered_House_02_House03" type="MeshInstance3D" parent="Whitebox_Level/Expanded_Whitebox_Areas/C_Village_Extension" unique_id=1763112626]
+transform = Transform3D(0, -7, 0, 0, 0, 7, -7, 0, 0, -6.5, 0.95, -2)
+mesh = ExtResource("3_house03")
+
+[node name="Storehouse_03_House01" type="MeshInstance3D" parent="Whitebox_Level/Expanded_Whitebox_Areas/C_Village_Extension" unique_id=257542968]
+transform = Transform3D(5.8, 0, 0, 0, 0, 5.8, 0, -5.8, 0, 3.2, 1, -4.7)
+mesh = ExtResource("2_4ffh8")
 
 [node name="Village_Wall_Line_01" type="MeshInstance3D" parent="Whitebox_Level/Expanded_Whitebox_Areas/C_Village_Extension" unique_id=185758495]
 transform = Transform3D(12, 0, 0, 0, 1.25, 0, 0, 0, 0.5, -9, 1.55, -11.8)
@@ -1534,6 +2045,11 @@ surface_material_override/0 = SubResource("Mat_Cliff")
 transform = Transform3D(9.5, 0, 0, 0, 0.18, 0, 0, 0, 1, -1, 4.15, -13.8)
 mesh = SubResource("BoxMesh_Unit")
 surface_material_override/0 = SubResource("Mat_Wood")
+
+[node name="House01" type="MeshInstance3D" parent="Whitebox_Level/Expanded_Whitebox_Areas/C_Village_Extension" unique_id=1618290299]
+transform = Transform3D(10, 0, 0, 0, -4.371139e-07, 10, 0, -10, -4.371139e-07, 1.4792724, 1.5116014, -0.7347021)
+visible = false
+mesh = ExtResource("2_4ffh8")
 
 [node name="D_Mountain_Pass_Combat" type="Node3D" parent="Whitebox_Level/Expanded_Whitebox_Areas" unique_id=1444713022]
 
@@ -1671,21 +2187,32 @@ shape = SubResource("BoxShape_Unit")
 transform = Transform3D(15, 0, 0, 0, 0.35, 0, 0, 0, 3, -20.5, 1.6, 1.5)
 
 [node name="Mesh" type="MeshInstance3D" parent="Whitebox_Level/Expanded_Whitebox_Areas/F_West_Lookout_Departure/West_Path_Bridge" unique_id=1696971157]
+visible = false
 mesh = SubResource("BoxMesh_Unit")
 surface_material_override/0 = SubResource("Mat_Path")
 
 [node name="Collision" type="CollisionShape3D" parent="Whitebox_Level/Expanded_Whitebox_Areas/F_West_Lookout_Departure/West_Path_Bridge" unique_id=989026053]
 shape = SubResource("BoxShape_Unit")
 
+[node name="West_Path_Bridge_Port01" type="MeshInstance3D" parent="Whitebox_Level/Expanded_Whitebox_Areas/F_West_Lookout_Departure" unique_id=1210414998]
+transform = Transform3D(15, 0, 0, 0, 0, 1.1, 0, -3.4, 0, -20.5, 1.65, 1.5)
+mesh = ExtResource("4_port01")
+
 [node name="Departure_Boat_NoAsk" type="MeshInstance3D" parent="Whitebox_Level/Expanded_Whitebox_Areas/F_West_Lookout_Departure" unique_id=756715260]
 transform = Transform3D(8.5, 0, 0, 0, 0.9, 0, 0, 0, 2.6, -39, 0.45, 6.8)
+visible = false
 mesh = SubResource("BoxMesh_Unit")
 surface_material_override/0 = SubResource("Mat_Wood")
 
 [node name="Departure_Boat_Mast" type="MeshInstance3D" parent="Whitebox_Level/Expanded_Whitebox_Areas/F_West_Lookout_Departure" unique_id=813634858]
 transform = Transform3D(0.3, 0, 0, 0, 5.2, 0, 0, 0, 0.3, -39, 3.1, 6.8)
+visible = false
 mesh = SubResource("CylinderMesh_Unit")
 surface_material_override/0 = SubResource("Mat_Wood")
+
+[node name="Departure_Boat_WoodenBoat" type="MeshInstance3D" parent="Whitebox_Level/Expanded_Whitebox_Areas/F_West_Lookout_Departure" unique_id=891508212]
+transform = Transform3D(0, 8.5, 0, 0, 0, 2.2, 4.8, 0, 0, -39, 0.45, 6.8)
+mesh = ExtResource("6_boat01")
 
 [node name="Departure_White_Hair_Silhouette" type="MeshInstance3D" parent="Whitebox_Level/Expanded_Whitebox_Areas/F_West_Lookout_Departure" unique_id=629381128]
 transform = Transform3D(0.9, 0, 0, 0, 1.4, 0, 0, 0, 0.9, -34.5, 3, -1.5)
