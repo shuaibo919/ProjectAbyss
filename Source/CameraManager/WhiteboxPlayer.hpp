@@ -8,13 +8,16 @@ namespace godot {
 class WhiteboxPlayer : public CharacterBody3D {
 	GDCLASS(WhiteboxPlayer, CharacterBody3D)
 
-	float MoveSpeed = 5.0f;
-	float Acceleration = 20.0f;
+	float MoveSpeed = 10.0f;
+	float Acceleration = 60.0f;
+	float Gravity = 28.0f;
+	float JumpVelocity = 12.0f;
 
 	StringName MoveForwardAction = "move_forward";
 	StringName MoveBackAction = "move_back";
 	StringName MoveLeftAction = "move_left";
 	StringName MoveRightAction = "move_right";
+	StringName JumpAction = "jump";
 
 protected:
 	static void _bind_methods();
@@ -29,6 +32,10 @@ public:
 	float GetMoveSpeed() const;
 	void SetAcceleration(float p_accel);
 	float GetAcceleration() const;
+	void SetGravity(float p_gravity);
+	float GetGravity() const;
+	void SetJumpVelocity(float p_velocity);
+	float GetJumpVelocity() const;
 
 	void SetMoveForwardAction(const StringName& p_name);
 	StringName GetMoveForwardAction() const;
@@ -38,6 +45,8 @@ public:
 	StringName GetMoveLeftAction() const;
 	void SetMoveRightAction(const StringName& p_name);
 	StringName GetMoveRightAction() const;
+	void SetJumpAction(const StringName& p_name);
+	StringName GetJumpAction() const;
 };
 
 } // namespace godot

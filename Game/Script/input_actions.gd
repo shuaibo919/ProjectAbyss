@@ -14,6 +14,8 @@ func setup_defaults() -> void:
 	_add_key_action("move_left", [KEY_A, KEY_LEFT])
 	_add_key_action("move_right", [KEY_D, KEY_RIGHT])
 
+	_add_key_action("jump", [KEY_SPACE])
+
 	_add_mouse_action("camera_orbit", [MOUSE_BUTTON_RIGHT])
 	_add_mouse_action("camera_zoom_in", [MOUSE_BUTTON_WHEEL_UP])
 	_add_mouse_action("camera_zoom_out", [MOUSE_BUTTON_WHEEL_DOWN])
