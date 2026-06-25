@@ -1,0 +1,75 @@
+[gd_resource type="Resource" script_class="FlowGraphResource" format=3]
+
+[ext_resource type="Script" path="res://addons/flow_nodes_editor/graph_input_parameter.gd" id="1_rr0dy"]
+[ext_resource type="Script" path="res://addons/flow_nodes_editor/flow_graph_resource.gd" id="2_ehih5"]
+
+[resource]
+script = ExtResource("2_ehih5")
+data = {
+"frames": [],
+"links": Array[Dictionary]([{
+"from_node": &"id_0000_grid",
+"from_port": 0,
+"keep_alive": false,
+"to_node": &"id_0001_transform",
+"to_port": 0
+}, {
+"from_node": &"id_0001_transform",
+"from_port": 0,
+"keep_alive": false,
+"to_node": &"id_0002_spawn_meshes",
+"to_port": 0
+}]),
+"min_pos": Vector2(0, 0),
+"nodes": Array[Dictionary]([{
+"args_port": {},
+"name": &"id_0000_grid",
+"position": Vector2(0, 0),
+"settings": {
+"origin": Vector3(0, 0, 0),
+"random_seed": 1337,
+"step": Vector3(2, 0, 2),
+"x": 5,
+"y": 1,
+"z": 5
+},
+"show_disconnected_inputs": false,
+"template": "grid"
+}, {
+"args_port": {
+"In": {
+"connected": true,
+"port": 0
+}
+},
+"name": &"id_0001_transform",
+"position": Vector2(200, 0),
+"settings": {
+"random_seed": 4242,
+"rotation_max": Vector3(0, 360, 0),
+"rotation_min": Vector3(0, 0, 0),
+"scale_max": Vector3(1.2, 1.2, 1.2),
+"scale_min": Vector3(0.8, 0.8, 0.8),
+"uniform_scale": true
+},
+"show_disconnected_inputs": false,
+"template": "transform"
+}, {
+"args_port": {
+"In": {
+"connected": true,
+"port": 0
+}
+},
+"name": &"id_0002_spawn_meshes",
+"position": Vector2(400, 0),
+"settings": {
+"clear_previous_instances": true,
+"random_seed": 9001
+},
+"show_disconnected_inputs": false,
+"template": "spawn_meshes"
+}]),
+"type": "flow_graph_nodes",
+"version": 1
+}
