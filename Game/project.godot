@@ -26,7 +26,7 @@ window/stretch/aspect="expand"
 
 [editor_plugins]
 
-enabled=PackedStringArray("res://addons/ResourceConverter/plugin.cfg", "res://addons/Tripo3d_Godot_Bridge/plugin.cfg", "res://addons/flow_nodes_editor/plugin.cfg")
+enabled=PackedStringArray("res://addons/ResourceConverter/plugin.cfg", "res://addons/Tripo3d_Godot_Bridge/plugin.cfg", "res://addons/flow_nodes_editor/plugin.cfg", "res://addons/zylann.hterrain/plugin.cfg")
 
 [physics]
 
