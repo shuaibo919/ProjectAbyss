@@ -1,0 +1,285 @@
+[gd_resource type="Resource" script_class="FlowGraphResource" format=4 uid="uid://nbxqg457lc01"]
+
+[ext_resource type="Script" uid="uid://co0f3ugd2wj1y" path="res://addons/flow_nodes_editor/graph_input_parameter.gd" id="1_wjsm5"]
+[ext_resource type="Script" uid="uid://j6vjeb5cjjoy" path="res://addons/flow_nodes_editor/flow_graph_resource.gd" id="2_uioon"]
+
+[sub_resource type="StandardMaterial3D" id="StandardMaterial3D_grwci"]
+vertex_color_use_as_albedo = true
+roughness = 0.92
+
+[sub_resource type="ArrayMesh" id="ArrayMesh_ap35a"]
+_surfaces = [{
+"aabb": AABB(-0.14, 0, -0.14, 0.28, 1.5, 2.14),
+"attribute_data": PackedByteArray("a0ww/2tMMP9rTDD/a0ww/2tMMP9rTDD/a0ww/2tMMP9rTDD/a0ww/2tMMP9rTDD/a0ww/2tMMP9rTDD/a0ww/2tMMP9rTDD/a0ww/2tMMP9rTDD/a0ww/2tMMP9rTDD/a0ww/2tMMP9rTDD/a0ww/2tMMP9rTDD/a0ww/2tMMP9rTDD/a0ww/2tMMP9rTDD/W0Qz/1tEM/9bRDP/W0Qz/1tEM/9bRDP/W0Qz/1tEM/9bRDP/W0Qz/1tEM/9bRDP/W0Qz/1tEM/9bRDP/W0Qz/1tEM/9bRDP/W0Qz/1tEM/9bRDP/W0Qz/1tEM/9bRDP/W0Qz/1tEM/9bRDP/W0Qz/1tEM/9bRDP/W0Qz/1tEM/9bRDP/W0Qz/1tEM/9bRDP/W0Qz/1tEM/9bRDP/W0Qz/1tEM/9bRDP/W0Qz/1tEM/9bRDP/W0Qz/1tEM/9bRDP/W0Qz/1tEM/9bRDP/W0Qz/1tEM/9bRDP/W0Qz/1tEM/9bRDP/W0Qz/1tEM/9bRDP/W0Qz/1tEM/9bRDP/W0Qz/1tEM/9bRDP/W0Qz/1tEM/9bRDP/W0Qz/1tEM/9bRDP/"),
+"format": 34359738383,
+"material": SubResource("StandardMaterial3D_grwci"),
+"primitive": 3,
+"uv_scale": Vector4(0, 0, 0, 0),
+"vertex_count": 108,
+"vertex_data": PackedByteArray("KVwPvgAAAAApXA8+KVwPPgAAAAApXA8+KVwPPgAAwD8pXA8+KVwPvgAAAAApXA8+KVwPPgAAwD8pXA8+KVwPvgAAwD8pXA8+KVwPPgAAAAApXA++KVwPvgAAAAApXA++KVwPvgAAwD8pXA++KVwPPgAAAAApXA++KVwPvgAAwD8pXA++KVwPPgAAwD8pXA++KVwPPgAAAAApXA8+KVwPPgAAAAApXA++KVwPPgAAwD8pXA++KVwPPgAAAAApXA8+KVwPPgAAwD8pXA++KVwPPgAAwD8pXA8+KVwPvgAAAAApXA++KVwPvgAAAAApXA8+KVwPvgAAwD8pXA8+KVwPvgAAAAApXA++KVwPvgAAwD8pXA8+KVwPvgAAwD8pXA++KVwPvgAAwD8pXA8+KVwPPgAAwD8pXA8+KVwPPgAAwD8pXA++KVwPvgAAwD8pXA8+KVwPPgAAwD8pXA++KVwPvgAAwD8pXA++KVwPvgAAAAApXA++KVwPPgAAAAApXA++KVwPPgAAAAApXA8+KVwPvgAAAAApXA++KVwPPgAAAAApXA8+KVwPvgAAAAApXA8+CtejvbgeBT8AAABACtejPbgeBT8AAABACtejPXsULj8AAABACtejvbgeBT8AAABACtejPXsULj8AAABACtejvXsULj8AAABACtejPbgeBT8AAAAACtejvbgeBT8AAAAACtejvXsULj8AAAAACtejPbgeBT8AAAAACtejvXsULj8AAAAACtejPXsULj8AAAAACtejPbgeBT8AAABACtejPbgeBT8AAAAACtejPXsULj8AAAAACtejPbgeBT8AAABACtejPXsULj8AAAAACtejPXsULj8AAABACtejvbgeBT8AAAAACtejvbgeBT8AAABACtejvXsULj8AAABACtejvbgeBT8AAAAACtejvXsULj8AAABACtejvXsULj8AAAAACtejvXsULj8AAABACtejPXsULj8AAABACtejPXsULj8AAAAACtejvXsULj8AAABACtejPXsULj8AAAAACtejvXsULj8AAAAACtejvbgeBT8AAAAACtejPbgeBT8AAAAACtejPbgeBT8AAABACtejvbgeBT8AAAAACtejPbgeBT8AAABACtejvbgeBT8AAABACtejvTMzkz8AAABACtejPTMzkz8AAABACtejPRSupz8AAABACtejvTMzkz8AAABACtejPRSupz8AAABACtejvRSupz8AAABACtejPTMzkz8AAAAACtejvTMzkz8AAAAACtejvRSupz8AAAAACtejPTMzkz8AAAAACtejvRSupz8AAAAACtejPRSupz8AAAAACtejPTMzkz8AAABACtejPTMzkz8AAAAACtejPRSupz8AAAAACtejPTMzkz8AAABACtejPRSupz8AAAAACtejPRSupz8AAABACtejvTMzkz8AAAAACtejvTMzkz8AAABACtejvRSupz8AAABACtejvTMzkz8AAAAACtejvRSupz8AAABACtejvRSupz8AAAAACtejvRSupz8AAABACtejPRSupz8AAABACtejPRSupz8AAAAACtejvRSupz8AAABACtejPRSupz8AAAAACtejvRSupz8AAAAACtejvTMzkz8AAAAACtejPTMzkz8AAAAACtejPTMzkz8AAABACtejvTMzkz8AAAAACtejPTMzkz8AAABACtejvTMzkz8AAABA/9//3zKzzIwyM8zM7ERhp/8f/x9UVamq/9//3zKzzIz/H/8fVFWpqszMMjNObGGn/1//nziOcZwyszKzzEzMzP+f/18cR1SV/1//nziOcZz/n/9fHEdUlcxMzExtW2zbMjPMzOxEYaf/X/+fOI5xnMxMzExtW2zbMjPMzOxEYafMTMxMbVts2/8f/x9UVamqMrMys8xMzMz/3//fMrPMjMzMMjNObGGnMrMys8xMzMzMzDIzTmxhp/+f/18cR1SVzMwyM05sYaf/H/8fVFWpqsxMzExtW2zbzMwyM05sYafMTMxMbVts2/+f/18cR1SVMrMys8xMzMz/X/+fOI5xnDIzzMzsRGGnMrMys8xMzMwyM8zM7ERhp//f/98ys8yM/9//3zKzzIwyM8zM7ERhp/8f/x9UVamq/9//3zKzzIz/H/8fVFWpqszMMjNObGGn/1//nziOcZwyszKzzEzMzP+f/18cR1SV/1//nziOcZz/n/9fHEdUlcxMzExtW2zbMjPMzOxEYaf/X/+fOI5xnMxMzExtW2zbMjPMzOxEYafMTMxMbVts2/8f/x9UVamqMrMys8xMzMz/3//fMrPMjMzMMjNObGGnMrMys8xMzMzMzDIzTmxhp/+f/18cR1SVzMwyM05sYaf/H/8fVFWpqsxMzExtW2zbzMwyM05sYafMTMxMbVts2/+f/18cR1SVMrMys8xMzMz/X/+fOI5xnDIzzMzsRGGnMrMys8xMzMwyM8zM7ERhp//f/98ys8yM/9//3zKzzIwyM8zM7ERhp/8f/x9UVamq/9//3zKzzIz/H/8fVFWpqszMMjNObGGn/1//nziOcZwyszKzzEzMzP+f/18cR1SV/1//nziOcZz/n/9fHEdUlcxMzExtW2zbMjPMzOxEYaf/X/+fOI5xnMxMzExtW2zbMjPMzOxEYafMTMxMbVts2/8f/x9UVamqMrMys8xMzMz/3//fMrPMjMzMMjNObGGnMrMys8xMzMzMzDIzTmxhp/+f/18cR1SVzMwyM05sYaf/H/8fVFWpqsxMzExtW2zbzMwyM05sYafMTMxMbVts2/+f/18cR1SVMrMys8xMzMz/X/+fOI5xnDIzzMzsRGGnMrMys8xMzMwyM8zM7ERhp//f/98ys8yM")
+}]
+
+[sub_resource type="ArrayMesh" id="ArrayMesh_35v3w"]
+_surfaces = [{
+"aabb": AABB(-0.24, 0, -0.24, 0.48, 1.3, 2.24),
+"attribute_data": PackedByteArray("npmM/56ZjP+emYz/npmM/56ZjP+emYz/npmM/56ZjP+emYz/npmM/56ZjP+emYz/npmM/56ZjP+emYz/npmM/56ZjP+emYz/npmM/56ZjP+emYz/npmM/56ZjP+emYz/npmM/56ZjP+emYz/npmM/56ZjP+emYz/npmM/56ZjP+emYz/npmM/56ZjP+emYz/cG1o/3BtaP9wbWj/cG1o/3BtaP9wbWj/cG1o/3BtaP9wbWj/cG1o/3BtaP9wbWj/cG1o/3BtaP9wbWj/cG1o/3BtaP9wbWj/cG1o/3BtaP9wbWj/cG1o/3BtaP9wbWj/cG1o/3BtaP9wbWj/cG1o/3BtaP9wbWj/cG1o/3BtaP9wbWj/cG1o/3BtaP9wbWj/"),
+"format": 34359738383,
+"material": SubResource("StandardMaterial3D_grwci"),
+"primitive": 3,
+"uv_scale": Vector4(0, 0, 0, 0),
+"vertex_count": 72,
+"vertex_data": PackedByteArray("j8J1vgAAAACPwnU+j8J1PgAAAACPwnU+j8J1PmZmpj+PwnU+j8J1vgAAAACPwnU+j8J1PmZmpj+PwnU+j8J1vmZmpj+PwnU+j8J1PgAAAACPwnW+j8J1vgAAAACPwnW+j8J1vmZmpj+PwnW+j8J1PgAAAACPwnW+j8J1vmZmpj+PwnW+j8J1PmZmpj+PwnW+j8J1PgAAAACPwnU+j8J1PgAAAACPwnW+j8J1PmZmpj+PwnW+j8J1PgAAAACPwnU+j8J1PmZmpj+PwnW+j8J1PmZmpj+PwnU+j8J1vgAAAACPwnW+j8J1vgAAAACPwnU+j8J1vmZmpj+PwnU+j8J1vgAAAACPwnW+j8J1vmZmpj+PwnU+j8J1vmZmpj+PwnW+j8J1vmZmpj+PwnU+j8J1PmZmpj+PwnU+j8J1PmZmpj+PwnW+j8J1vmZmpj+PwnU+j8J1PmZmpj+PwnW+j8J1vmZmpj+PwnW+j8J1vgAAAACPwnW+j8J1PgAAAACPwnW+j8J1PgAAAACPwnU+j8J1vgAAAACPwnW+j8J1PgAAAACPwnU+j8J1vgAAAACPwnU+KVwPvgAAAAAAAABAKVwPPgAAAAAAAABAKVwPPhSuRz8AAABAKVwPvgAAAAAAAABAKVwPPhSuRz8AAABAKVwPvhSuRz8AAABAKVwPPgAAAAAAAAAAKVwPvgAAAAAAAAAAKVwPvhSuRz8AAAAAKVwPPgAAAAAAAAAAKVwPvhSuRz8AAAAAKVwPPhSuRz8AAAAAKVwPPgAAAAAAAABAKVwPPgAAAAAAAAAAKVwPPhSuRz8AAAAAKVwPPgAAAAAAAABAKVwPPhSuRz8AAAAAKVwPPhSuRz8AAABAKVwPvgAAAAAAAAAAKVwPvgAAAAAAAABAKVwPvhSuRz8AAABAKVwPvgAAAAAAAAAAKVwPvhSuRz8AAABAKVwPvhSuRz8AAAAAKVwPvhSuRz8AAABAKVwPPhSuRz8AAABAKVwPPhSuRz8AAAAAKVwPvhSuRz8AAABAKVwPPhSuRz8AAAAAKVwPvhSuRz8AAAAAKVwPvgAAAAAAAAAAKVwPPgAAAAAAAAAAKVwPPgAAAAAAAABAKVwPvgAAAAAAAAAAKVwPPgAAAAAAAABAKVwPvgAAAAAAAABA/9//3zKzzIwyM8zM7ERhp/8f/x9UVamq/9//3zKzzIz/H/8fVFWpqszMMjNObGGn/1//nziOcZwyszKzzEzMzP+f/18cR1SV/1//nziOcZz/n/9fHEdUlcxMzExtW2zbMjPMzOxEYaf/X/+fOI5xnMxMzExtW2zbMjPMzOxEYafMTMxMbVts2/8f/x9UVamqMrMys8xMzMz/3//fMrPMjMzMMjNObGGnMrMys8xMzMzMzDIzTmxhp/+f/18cR1SVzMwyM05sYaf/H/8fVFWpqsxMzExtW2zbzMwyM05sYafMTMxMbVts2/+f/18cR1SVMrMys8xMzMz/X/+fOI5xnDIzzMzsRGGnMrMys8xMzMwyM8zM7ERhp//f/98ys8yM/9//3zKzzIwyM8zM7ERhp/8f/x9UVamq/9//3zKzzIz/H/8fVFWpqszMMjNObGGn/1//nziOcZwyszKzzEzMzP+f/18cR1SV/1//nziOcZz/n/9fHEdUlcxMzExtW2zbMjPMzOxEYaf/X/+fOI5xnMxMzExtW2zbMjPMzOxEYafMTMxMbVts2/8f/x9UVamqMrMys8xMzMz/3//fMrPMjMzMMjNObGGnMrMys8xMzMzMzDIzTmxhp/+f/18cR1SVzMwyM05sYaf/H/8fVFWpqsxMzExtW2zbzMwyM05sYafMTMxMbVts2/+f/18cR1SVMrMys8xMzMz/X/+fOI5xnDIzzMzsRGGnMrMys8xMzMwyM8zM7ERhp//f/98ys8yM")
+}]
+
+[sub_resource type="ArrayMesh" id="ArrayMesh_erhp5"]
+_surfaces = [{
+"aabb": AABB(-0.13, 0, -0.13, 0.61, 0.8, 0.26),
+"attribute_data": PackedByteArray("TEdC/0xHQv9MR0L/TEdC/0xHQv9MR0L/TEdC/0xHQv9MR0L/TEdC/0xHQv9MR0L/TEdC/0xHQv9MR0L/TEdC/0xHQv9MR0L/TEdC/0xHQv9MR0L/TEdC/0xHQv9MR0L/TEdC/0xHQv9MR0L/TEdC/0xHQv9MR0L/TEdC/0xHQv9MR0L/TEdC/0xHQv9MR0L/"),
+"format": 34359738383,
+"material": SubResource("StandardMaterial3D_grwci"),
+"primitive": 3,
+"uv_scale": Vector4(0, 0, 0, 0),
+"vertex_count": 36,
+"vertex_data": PackedByteArray("uB4FvgAAAAC4HgU+uB4FPgAAAAC4HgU+j8L1Ps3MTD+4HgU+uB4FvgAAAAC4HgU+j8L1Ps3MTD+4HgU+rkdhPs3MTD+4HgU+uB4FPgAAAAC4HgW+uB4FvgAAAAC4HgW+rkdhPs3MTD+4HgW+uB4FPgAAAAC4HgW+rkdhPs3MTD+4HgW+j8L1Ps3MTD+4HgW+uB4FPgAAAAC4HgU+uB4FPgAAAAC4HgW+j8L1Ps3MTD+4HgW+uB4FPgAAAAC4HgU+j8L1Ps3MTD+4HgW+j8L1Ps3MTD+4HgU+uB4FvgAAAAC4HgW+uB4FvgAAAAC4HgU+rkdhPs3MTD+4HgU+uB4FvgAAAAC4HgW+rkdhPs3MTD+4HgU+rkdhPs3MTD+4HgW+rkdhPs3MTD+4HgU+j8L1Ps3MTD+4HgU+j8L1Ps3MTD+4HgW+rkdhPs3MTD+4HgU+j8L1Ps3MTD+4HgW+rkdhPs3MTD+4HgW+uB4FvgAAAAC4HgW+uB4FPgAAAAC4HgW+uB4FPgAAAAC4HgU+uB4FvgAAAAC4HgW+uB4FPgAAAAC4HgU+uB4FvgAAAAC4HgU+Leqj3mOs2JGmP17WTTQEqNEVWyF6Wz2jLeqj3mOs2JHRFVshels9o1jAoCnvVY6q1WSIqSl+p5ovug2mnlF7yCmbdlZBPf6V1WSIqSl+p5opm3ZWQT3+lc9F8VmEjWbUpj9e1k00BKjVZIipKX6nms9F8VmEjWbUpj9e1k00BKjPRfFZhI1m1NEVWyF6Wz2jL7oNpp5Re8gt6qPeY6zYkVjAoCnvVY6qL7oNpp5Re8hYwKAp71WOqimbdlZBPf6VWMCgKe9VjqrRFVshels9o89F8VmEjWbUWMCgKe9VjqrPRfFZhI1m1CmbdlZBPf6VL7oNpp5Re8jVZIipKX6nmqY/XtZNNASoL7oNpp5Re8imP17WTTQEqC3qo95jrNiR")
+}]
+
+[resource]
+script = ExtResource("2_uioon")
+data = {
+"frames": [],
+"links": [{
+"from_node": &"id_0000_scan_splines",
+"from_port": 0,
+"keep_alive": false,
+"to_node": &"id_0001_sample_spline",
+"to_port": 0
+}, {
+"from_node": &"id_0001_sample_spline",
+"from_port": 0,
+"keep_alive": false,
+"to_node": &"id_0002_ray_cast",
+"to_port": 0
+}, {
+"from_node": &"id_0002_ray_cast",
+"from_port": 0,
+"keep_alive": false,
+"to_node": &"id_0003_filter",
+"to_port": 0
+}, {
+"from_node": &"id_0003_filter",
+"from_port": 0,
+"keep_alive": false,
+"to_node": &"id_0004_transform",
+"to_port": 0
+}, {
+"from_node": &"id_0004_transform",
+"from_port": 0,
+"keep_alive": false,
+"to_node": &"id_0005_spawn_meshes",
+"to_port": 0
+}],
+"min_pos": Vector2(0, 0),
+"nodes": [{
+"args_port": {},
+"name": &"id_0000_scan_splines",
+"position": Vector2(0, 0),
+"settings": {
+"debug_bulk": 0,
+"debug_color": Color(1, 1, 1, 1),
+"debug_enabled": false,
+"debug_mode": 0,
+"debug_modulate_by": "",
+"debug_output": 0,
+"debug_scale": 1.0,
+"disabled": false,
+"group_name": "pcg_spline_fence",
+"inspect_enabled": false,
+"random_seed": 12345,
+"recursive": true,
+"required_meta_bool": &"",
+"title": "Scan Splines",
+"trace": false
+},
+"show_disconnected_inputs": false,
+"template": "scan_splines"
+}, {
+"args_port": {
+"Splines": {
+"connected": true,
+"port": 0
+}
+},
+"name": &"id_0001_sample_spline",
+"position": Vector2(260, 0),
+"settings": {
+"adjust_to_borders": true,
+"debug_bulk": 0,
+"debug_color": Color(1, 1, 1, 1),
+"debug_enabled": false,
+"debug_mode": 0,
+"debug_modulate_by": "",
+"debug_output": 0,
+"debug_scale": 1.0,
+"disabled": false,
+"distance_attribute": "distance",
+"fill_curve": false,
+"fill_mode": 0,
+"inspect_enabled": false,
+"num_random_samples": 10,
+"random_seed": 12345,
+"sample_segments_centers": false,
+"sampling_mode": 0,
+"title": "Sample Spline",
+"trace": false,
+"uniform_interval": 2.0
+},
+"show_disconnected_inputs": false,
+"template": "sample_spline"
+}, {
+"args_port": {
+"In": {
+"connected": true,
+"port": 0
+}
+},
+"name": &"id_0002_ray_cast",
+"position": Vector2(520, 0),
+"settings": {
+"collide_with_areas": false,
+"collide_with_bodies": true,
+"collision_mask": 1,
+"debug_bulk": 0,
+"debug_color": Color(1, 1, 1, 1),
+"debug_enabled": false,
+"debug_mode": 0,
+"debug_modulate_by": "",
+"debug_output": 0,
+"debug_scale": 1.0,
+"dir": Vector3(0, -1, 0),
+"direction_attribute": "direction",
+"direction_mode": 0,
+"disabled": false,
+"distance_attribute": "",
+"exclude_nodes_group": "",
+"from_attribute": "position",
+"hit_from_inside": false,
+"inspect_enabled": false,
+"max_distance": 200.0,
+"normalize_direction": true,
+"out_collider_attribute": "",
+"out_distance_attribute": "",
+"out_normal_attribute": "",
+"out_position_attribute": "position",
+"out_result_attribute": "hit",
+"out_rotation_attribute": "",
+"random_seed": 12345,
+"title": "Ray Cast",
+"trace": false
+},
+"show_disconnected_inputs": false,
+"template": "ray_cast"
+}, {
+"args_port": {
+"In A": {
+"connected": true,
+"port": 0
+},
+"In B": {
+"connected": false,
+"port": 1
+}
+},
+"name": &"id_0003_filter",
+"position": Vector2(780, 0),
+"settings": {
+"condition": 0,
+"debug_bulk": 0,
+"debug_color": Color(1, 1, 1, 1),
+"debug_enabled": false,
+"debug_mode": 0,
+"debug_modulate_by": "",
+"debug_output": 0,
+"debug_scale": 1.0,
+"disabled": false,
+"in_nameA": "hit",
+"in_nameB": "True",
+"inspect_enabled": false,
+"random_seed": 12345,
+"threshold": 0.1,
+"title": "Filter",
+"trace": false
+},
+"show_disconnected_inputs": false,
+"template": "filter"
+}, {
+"args_port": {
+"In": {
+"connected": true,
+"port": 0
+}
+},
+"name": &"id_0004_transform",
+"position": Vector2(1040, 0),
+"settings": {
+"debug_bulk": 0,
+"debug_color": Color(1, 1, 1, 1),
+"debug_enabled": false,
+"debug_mode": 0,
+"debug_modulate_by": "",
+"debug_output": 0,
+"debug_scale": 1.0,
+"disabled": false,
+"inspect_enabled": false,
+"offset_max": Vector3(0, 0, 0),
+"offset_min": Vector3(0, 0, 0),
+"random_seed": 5,
+"rotation_local_space": false,
+"rotation_max": Vector3(0, 3, 0),
+"rotation_min": Vector3(0, -3, 0),
+"scale_max": Vector3(1, 1, 1),
+"scale_min": Vector3(1, 1, 1),
+"title": "Transform",
+"trace": false,
+"uniform_scale": false
+},
+"show_disconnected_inputs": false,
+"template": "transform"
+}, {
+"args_port": {
+"In": {
+"connected": true,
+"port": 0
+}
+},
+"name": &"id_0005_spawn_meshes",
+"position": Vector2(1300, 0),
+"settings": {
+"clear_previous_instances": true,
+"color_attribute": "color",
+"debug_bulk": 0,
+"debug_color": Color(1, 1, 1, 1),
+"debug_enabled": false,
+"debug_mode": 0,
+"debug_modulate_by": "",
+"debug_output": 0,
+"debug_scale": 1.0,
+"disabled": false,
+"inspect_enabled": false,
+"mesh": SubResource("ArrayMesh_ap35a"),
+"mesh_attribute": "",
+"mesh_selector_attribute": "",
+"mesh_variant_weights": Array[float]([0.7, 0.2, 0.1]),
+"mesh_variants": Array[Mesh]([SubResource("ArrayMesh_ap35a"), SubResource("ArrayMesh_35v3w"), SubResource("ArrayMesh_erhp5")]),
+"random_seed": 5,
+"randomize_mesh_variants": true,
+"spawn_parent_path": "",
+"title": "Spawn Meshes",
+"trace": false,
+"use_vertex_colors": false
+},
+"show_disconnected_inputs": false,
+"template": "spawn_meshes"
+}],
+"type": "flow_graph_nodes",
+"version": 1
+}
