@@ -149,6 +149,36 @@ static func dock_railing( span: float = 1.0, post_h: float = 1.0 ) -> ArrayMesh:
 	return st.commit()
 
 
+## A cliff-walk support unit, anchored at the CLIFF-side deck edge (y=0 is the
+## deck surface, +X points INTO the rock face). One bearer beam runs back under
+## the full deck width (-[deck_w]..0) and a diagonal knee strut drops from the
+## outer bearer end down-inward to a rock pad at (+[reach], -[drop]) — the
+## classic plank-road bracket (栈道). Symmetric in Z so a 180° yaw mirrors it
+## for a left-hand cliff.
+static func cliff_brace( deck_w: float = 2.4, drop: float = 1.8, reach: float = 1.1 ) -> ArrayMesh:
+	var st := SurfaceTool.new()
+	st.begin( Mesh.PRIMITIVE_TRIANGLES )
+	var t := 0.11
+	# Bearer beam carrying the planks, tucked under the deck.
+	_box( st, Vector3( -deck_w, -0.24, -t ), Vector3( 0.15, -0.02, t ), BRACE_COL )
+	# Diagonal strut: outer bearer end → rock anchor pad. Built as a sheared box.
+	var strut_top := Vector3( -deck_w * 0.92, -0.24, 0 )
+	var strut_bot := Vector3( reach, -drop, 0 )
+	var dir := strut_bot - strut_top
+	var steps := 4
+	for k in range( steps ):
+		var f0 := float( k ) / float( steps )
+		var f1 := float( k + 1 ) / float( steps )
+		var p0 := strut_top + dir * f0
+		var p1 := strut_top + dir * f1
+		_box( st, Vector3( minf( p0.x, p1.x ) - t, minf( p0.y, p1.y ) - t, -t ), Vector3( maxf( p0.x, p1.x ) + t, maxf( p0.y, p1.y ) + t, t ), BRACE_COL )
+	# Rock anchor pad.
+	_box( st, Vector3( reach - 0.16, -drop - 0.16, -0.18 ), Vector3( reach + 0.2, -drop + 0.2, 0.18 ), METAL_COL )
+	st.generate_normals()
+	st.set_material( _material() )
+	return st.commit()
+
+
 # --- structural richness under / around the deck -------------------------
 
 const LAMP_POST_COL := Color( 0.20, 0.19, 0.18 )   # dark iron lamp column

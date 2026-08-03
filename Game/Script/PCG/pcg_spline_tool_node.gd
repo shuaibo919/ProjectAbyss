@@ -25,7 +25,7 @@ const PcgSplineTools := preload( "res://Script/PCG/pcg_spline_tools.gd" )
 const PcgSplineMeshes := preload( "res://Script/PCG/pcg_spline_meshes.gd" )
 const PcgSplineConnectors := preload( "res://Script/PCG/pcg_spline_connectors.gd" )
 
-enum ToolType { DOCK, FENCE, ROAD }
+enum ToolType { DOCK, FENCE, ROAD, CLIFFWALK }
 
 
 # --- Which tool + which curve -------------------------------------------
@@ -255,6 +255,60 @@ enum ToolType { DOCK, FENCE, ROAD }
 		_mark_dirty()
 
 
+# --- CLIFF WALK slots ------------------------------------------------------
+@export_group( "Cliff Walk", "cliffwalk_" )
+## Which side of the travel direction the rock face is on — braces anchor
+## there; the railing guards the opposite (void) edge.
+enum CliffSide { RIGHT, LEFT }
+@export var cliffwalk_cliff_side : CliffSide = CliffSide.RIGHT:
+	set( v ):
+		cliffwalk_cliff_side = v
+		_mark_dirty()
+## Walking-plank meshes (weighted pick per plank).
+@export var cliffwalk_plank_meshes : Array[Mesh] = []:
+	set( v ):
+		cliffwalk_plank_meshes = v
+		_mark_dirty()
+@export var cliffwalk_plank_spacing : float = 0.9:
+	set( v ):
+		cliffwalk_plank_spacing = maxf( 0.2, v )
+		_mark_dirty()
+## Knee-brace meshes anchored into the cliff (weighted pick).
+@export var cliffwalk_brace_meshes : Array[Mesh] = []:
+	set( v ):
+		cliffwalk_brace_meshes = v
+		_mark_dirty()
+@export var cliffwalk_brace_spacing : float = 2.4:
+	set( v ):
+		cliffwalk_brace_spacing = maxf( 0.4, v )
+		_mark_dirty()
+## Railing units on the outer/void edge (empty = none).
+@export var cliffwalk_railing_meshes : Array[Mesh] = []:
+	set( v ):
+		cliffwalk_railing_meshes = v
+		_mark_dirty()
+@export var cliffwalk_railing_spacing : float = 1.0:
+	set( v ):
+		cliffwalk_railing_spacing = maxf( 0.2, v )
+		_mark_dirty()
+## Half the walkway width (narrow: a plank road, not a pier).
+@export var cliffwalk_half_width : float = 1.2:
+	set( v ):
+		cliffwalk_half_width = maxf( 0.3, v )
+		_mark_dirty()
+## true = boardwalk mode:每个采样点向下贴地并抬升 clearance(适合起伏山坡);
+## false = 严格按手绘曲线高度(适合真正垂直的崖壁栈道)。
+@export var cliffwalk_drape : bool = true:
+	set( v ):
+		cliffwalk_drape = v
+		_mark_dirty()
+## Deck height above the ground when draping.
+@export var cliffwalk_ground_clearance : float = 1.1:
+	set( v ):
+		cliffwalk_ground_clearance = maxf( 0.1, v )
+		_mark_dirty()
+
+
 # --- Shared -------------------------------------------------------------
 @export_group( "" )
 @export var variant_seed : int = 11:
@@ -337,14 +391,18 @@ func _spline_fingerprint() -> int:
 # Inspector only shows the relevant mesh slots.
 func _validate_property( property : Dictionary ) -> void:
 	var n : String = property.name
-	var is_dock : bool = n.begins_with( "dock_" )
+	# NOTE: check "cliffwalk_" BEFORE the other prefixes — none collide today,
+	# but the guard order documents that longest-prefix wins.
+	var is_cliffwalk : bool = n.begins_with( "cliffwalk_" )
+	var is_dock : bool = n.begins_with( "dock_" ) and not is_cliffwalk
 	var is_fence : bool = n.begins_with( "fence_" )
 	var is_road : bool = n.begins_with( "road_" )
-	if not ( is_dock or is_fence or is_road ):
+	if not ( is_dock or is_fence or is_road or is_cliffwalk ):
 		return
 	var show := ( is_dock and tool_type == ToolType.DOCK ) \
 		or ( is_fence and tool_type == ToolType.FENCE ) \
-		or ( is_road and tool_type == ToolType.ROAD )
+		or ( is_road and tool_type == ToolType.ROAD ) \
+		or ( is_cliffwalk and tool_type == ToolType.CLIFFWALK )
 	if not show:
 		property.usage &= ~PROPERTY_USAGE_EDITOR
 
@@ -520,6 +578,22 @@ func _build_graph( group : String ) -> FlowGraphResource:
 			] )
 			return PcgSplineTools.build_fence(
 				units, fence_post_spacing, fence_unit_weights, variant_seed, group )
+		ToolType.CLIFFWALK:
+			var planks := _meshes_or( cliffwalk_plank_meshes, [
+				PcgSplineMeshes.deck_plank( cliffwalk_half_width * 2.0, cliffwalk_plank_spacing, 0.14, PcgSplineMeshes.WOOD_GREY ),
+				PcgSplineMeshes.deck_plank( cliffwalk_half_width * 2.0, cliffwalk_plank_spacing, 0.14, PcgSplineMeshes.WOOD_COOL ),
+			] )
+			var braces := _meshes_or( cliffwalk_brace_meshes, [
+				PcgSplineMeshes.cliff_brace( cliffwalk_half_width * 2.0, 1.8, 1.1 ),
+			] )
+			var rails := _meshes_or( cliffwalk_railing_meshes, [
+				PcgSplineMeshes.dock_railing( cliffwalk_railing_spacing, 0.95 ),
+			] )
+			return PcgSplineTools.build_cliffwalk(
+				planks, braces, rails,
+				cliffwalk_plank_spacing, cliffwalk_brace_spacing, cliffwalk_railing_spacing,
+				cliffwalk_half_width, cliffwalk_cliff_side == CliffSide.RIGHT,
+				variant_seed, group, cliffwalk_drape, cliffwalk_ground_clearance )
 		_:  # ROAD
 			var slabs := _meshes_or( road_slab_meshes, [
 				PcgSplineMeshes.road_slab( 5.0, road_slab_spacing, PcgSplineMeshes.PAVED_COL ),

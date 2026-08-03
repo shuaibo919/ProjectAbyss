@@ -640,6 +640,146 @@ static func build_road(
 	return b.Build()
 
 
+# =========================================================================
+# CLIFF WALK (栈道) — a narrow plank road hugging a rock face: deck follows the
+# drawn curve at its height (NO drape — cliffs are exactly where you author
+# height by hand), knee braces anchor into the cliff side, railing guards the
+# outer edge only.
+# =========================================================================
+
+## @param plank_variants   walking planks (weighted pick per plank)
+## @param brace_variants   knee-brace units anchored at the CLIFF-side edge
+## @param railing_variants railing units on the OUTER edge (empty = none)
+## @param plank_spacing    deck sampling step
+## @param brace_spacing    brace step (sparser than planks)
+## @param railing_spacing  railing unit step (match mesh span)
+## @param half_width       half the walkway width
+## @param cliff_on_right   true = rock face lies on local +X of travel; the
+##                         braces mirror 180° when false
+## @param drape            true = raycast each sample down onto the ground and
+##                         lift by [ground_clearance] (a boardwalk following a
+##                         rugged slope); false = follow the drawn curve height
+##                         exactly (a true vertical-cliff gallery road)
+static func build_cliffwalk(
+		plank_variants: Array[Mesh],
+		brace_variants: Array[Mesh],
+		railing_variants: Array[Mesh],
+		plank_spacing: float = 0.9,
+		brace_spacing: float = 2.4,
+		railing_spacing: float = 1.0,
+		half_width: float = 1.2,
+		cliff_on_right: bool = true,
+		variant_seed: int = 17,
+		scan_group: String = "pcg_spline_cliffwalk",
+		drape: bool = false,
+		ground_clearance: float = 1.1 ) -> FlowGraphResource:
+	var b := FlowGraphBuilder.new()
+	var side := 1.0 if cliff_on_right else -1.0
+
+	var scan := b.AddNode( "scan_splines", {
+		"group_name": scan_group,
+		"recursive": true,
+	}, Vector2( 0, 0 ) )
+
+	# Shared drape chain builder: sample → (ray → hit filter → lift) — keeps the
+	# path yaw (out_rotation="") and raises every survivor by the clearance so
+	# the deck floats on struts above the slope.
+	var make_samples := func( interval: float, row: float ) -> StringName:
+		var samples := b.AddNode( "sample_spline", {
+			"sampling_mode": 0,
+			"uniform_interval": interval,
+			"fill_curve": false,
+			"adjust_to_borders": true,
+		}, Vector2( 260, row ), { "Splines": 0 } )
+		b.Connect( scan, 0, samples, 0 )
+		if not drape:
+			return samples
+		var ray := b.AddNode( "ray_cast", {
+			"dir": Vector3( 0, -1, 0 ),
+			"max_distance": 300.0,
+			"collision_mask": GROUND_MASK,
+			"from_attribute": "position",
+			"out_result_attribute": "hit",
+			"out_position_attribute": "position",
+			"out_rotation_attribute": "",
+			"out_normal_attribute": "",
+		}, Vector2( 430, row ), { "In": 0 } )
+		var hit := b.AddNode( "filter", {
+			"in_nameA": "hit", "in_nameB": "True", "condition": 0,
+		}, Vector2( 600, row ), { "In A": 0 } )
+		var lift := b.AddNode( "transform", {
+			"offset_min": Vector3( 0, ground_clearance, 0 ),
+			"offset_max": Vector3( 0, ground_clearance, 0 ),
+			"rotation_min": Vector3.ZERO, "rotation_max": Vector3.ZERO,
+			"scale_min": Vector3.ONE, "scale_max": Vector3.ONE,
+			"rotation_local_space": false,
+		}, Vector2( 770, row ), { "In": 0 } )
+		b.Connect( samples, 0, ray, 0 )
+		b.Connect( ray, 0, hit, 0 )
+		b.Connect( hit, 0, lift, 0 )
+		return lift
+
+	# --- Deck planks -------------------------------------------------------
+	var deck_src: StringName = make_samples.call( plank_spacing, -100.0 )
+	var deck_spawn := b.AddNode( "spawn_meshes", {
+		"mesh": plank_variants[0],
+		"mesh_variants": plank_variants,
+		"mesh_variant_weights": _even_weights( plank_variants.size() ),
+		"randomize_mesh_variants": true,
+		"random_seed": variant_seed,
+		"use_vertex_colors": false,
+		"clear_previous_instances": true,
+	}, Vector2( 1000, -100 ), { "In": 0 } )
+	b.Connect( deck_src, 0, deck_spawn, 0 )
+
+	# --- Knee braces into the rock ------------------------------------------
+	var brace_src: StringName = make_samples.call( brace_spacing, 60.0 )
+	# Anchor at the cliff-side edge; the brace mesh is authored with +X into the
+	# rock, so a 180° yaw mirrors it when the cliff is on the left instead.
+	var brace_edge := b.AddNode( "point_offsets", {
+		"offsets": [ Vector3( side * half_width * 0.95, 0, 0 ) ],
+		"rotations": [ Vector3( 0, 0.0 if cliff_on_right else 180.0, 0 ) ],
+		"sizes": [ Vector3.ONE ],
+		"local_space": true,
+		"combine_rotation": true,
+	}, Vector2( 1000, 60 ), { "Anchors": 0 } )
+	var brace_spawn := b.AddNode( "spawn_meshes", {
+		"mesh": brace_variants[0],
+		"mesh_variants": brace_variants,
+		"mesh_variant_weights": _even_weights( brace_variants.size() ),
+		"randomize_mesh_variants": true,
+		"random_seed": variant_seed + 2,
+		"use_vertex_colors": false,
+		"clear_previous_instances": true,
+	}, Vector2( 1240, 60 ), { "In": 0 } )
+	b.Connect( brace_src, 0, brace_edge, 0 )
+	b.Connect( brace_edge, 0, brace_spawn, 0 )
+
+	# --- Outer railing (the void side) ---------------------------------------
+	if not railing_variants.is_empty():
+		var rail_src: StringName = make_samples.call( railing_spacing, 220.0 )
+		var rail_edge := b.AddNode( "point_offsets", {
+			"offsets": [ Vector3( -side * half_width, 0, 0 ) ],
+			"rotations": [ Vector3.ZERO ],
+			"sizes": [ Vector3.ONE ],
+			"local_space": true,
+			"combine_rotation": true,
+		}, Vector2( 1000, 220 ), { "Anchors": 0 } )
+		var rail_spawn := b.AddNode( "spawn_meshes", {
+			"mesh": railing_variants[0],
+			"mesh_variants": railing_variants,
+			"mesh_variant_weights": _even_weights( railing_variants.size() ),
+			"randomize_mesh_variants": true,
+			"random_seed": variant_seed + 4,
+			"use_vertex_colors": false,
+			"clear_previous_instances": true,
+		}, Vector2( 1240, 220 ), { "In": 0 } )
+		b.Connect( rail_src, 0, rail_edge, 0 )
+		b.Connect( rail_edge, 0, rail_spawn, 0 )
+
+	return b.Build()
+
+
 # --- helpers -------------------------------------------------------------
 
 static func _even_weights( count: int ) -> Array[float]:
