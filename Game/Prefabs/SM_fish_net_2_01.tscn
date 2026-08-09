@@ -1,0 +1,12 @@
+[gd_scene load_steps=3 format=3 uid="uid://clh52iwp5gqnl"]
+
+[ext_resource type="PackedScene" uid="uid://dgnattr5jdbtl" path="res://JapaneseVilliage/Meshes/SM_fish_net_2_01.glb" id="1_cvl3i"]
+[ext_resource type="Material" uid="uid://76qmt1e8ym3" path="res://JapaneseVilliage/Materials/Materials_Instances/MI_Fish_net.tres" id="2_c4pvi"]
+
+[node name = "SM_fish_net_2_01" instance = ExtResource("1_cvl3i")]
+
+[node name="Mesh" parent="." index="0"]
+
+
+
+

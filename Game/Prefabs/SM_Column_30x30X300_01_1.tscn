@@ -1,0 +1,12 @@
+[gd_scene load_steps=3 format=3 uid="uid://da7het0ffc7nc"]
+
+[ext_resource type="PackedScene" uid="uid://c4lfwrkpu8nak" path="res://JapaneseVilliage/Meshes/SM_Column_30x30X300_01.glb" id="1_bcug5"]
+[ext_resource type="Material" uid="uid://cjbocchvcsf7g" path="res://JapaneseVilliage/Materials/Materials_Instances/MI_Wood_trim_GroundGradient.tres" id="2_b72xu"]
+
+[node name = "SM_Column_30x30X300_01_1" instance = ExtResource("1_bcug5")]
+
+[node name="Mesh" parent="." index="0"]
+
+
+
+

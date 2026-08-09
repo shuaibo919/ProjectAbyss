@@ -1,0 +1,14 @@
+[gd_resource type = "StandardMaterial3D" load_steps=3 format=3 uid="uid://bx7l6mee6m24r"]
+
+[ext_resource type="Texture2D" uid="uid://b11hy6m8g5ea2" path="res:///Engine/EngineMaterials/T_Default_Material_Grid_N.png" id="1_bnvs4"]
+[ext_resource type="Texture2D" uid="uid://dlp8xw4k1pg0m" path="res:///Engine/EngineMaterials/T_Default_Material_Grid_M.png" id="2_mu74o"]
+
+[resource]
+resource_name = "WorldGridMaterial"
+cull_mode = 2
+albedo_color = Color(1.000000, 1.000000, 1.000000, 1.000000)
+metallic = 0.000000
+roughness = 0.500000
+normal_enabled = true
+normal_texture = ExtResource("1_bnvs4")
+albedo_texture = ExtResource("2_mu74o")

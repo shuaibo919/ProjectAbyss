@@ -1,0 +1,12 @@
+[gd_scene load_steps=3 format=3 uid="uid://1grg53o4bwgu"]
+
+[ext_resource type="PackedScene" uid="uid://b46d1xs3mcha7" path="res://JapaneseVilliage/Meshes/SM_Box_4_01.glb" id="1_bie55"]
+[ext_resource type="Material" uid="uid://cap6wjt7gspvv" path="res://JapaneseVilliage/Materials/Materials_Instances/MI_Props_set4.tres" id="2_ek7p7"]
+
+[node name = "SM_Box_4_01" instance = ExtResource("1_bie55")]
+
+[node name="Mesh" parent="." index="0"]
+
+
+
+

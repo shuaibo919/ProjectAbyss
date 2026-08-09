@@ -1,0 +1,12 @@
+[gd_scene load_steps=3 format=3 uid="uid://wodfcjdy0jw"]
+
+[ext_resource type="PackedScene" uid="uid://b02iy86p11l6e" path="res://JapaneseVilliage/Meshes/SM_Roof_big_2_foliage_01.glb" id="1_cgfht"]
+[ext_resource type="Material" uid="uid://bkbmilkpwn0lj" path="res://JapaneseVilliage/Materials/Materials_Instances/MI_Foliage.tres" id="2_0i1so"]
+
+[node name = "SM_Roof_big_2_foliage_01" instance = ExtResource("1_cgfht")]
+
+[node name="Mesh" parent="." index="0"]
+
+
+
+

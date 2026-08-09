@@ -1,0 +1,13 @@
+[gd_scene load_steps=4 format=3 uid="uid://chdjxqeshsfnh"]
+
+[ext_resource type="PackedScene" uid="uid://smm1gt7m06bl" path="res://JapaneseVilliage/Meshes/SM_Floor_b_200x300x15_01.glb" id="1_dpqby"]
+[ext_resource type="Material" uid="uid://ejbkr56q5wg2" path="res://JapaneseVilliage/Materials/Materials_Instances/MI_Wooden_floor.tres" id="2_cquck"]
+[ext_resource type="Material" uid="uid://cia1kc0ej0kvd" path="res://JapaneseVilliage/Materials/Materials_Masters/MM_Wood_ends.tres" id="3_yv1o2"]
+
+[node name = "SM_Floor_b_200x300x15_01" instance = ExtResource("1_dpqby")]
+
+[node name="Mesh" parent="." index="0"]
+
+
+
+

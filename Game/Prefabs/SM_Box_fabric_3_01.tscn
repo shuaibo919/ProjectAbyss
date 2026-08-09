@@ -1,0 +1,14 @@
+[gd_scene load_steps=5 format=3 uid="uid://cr2xgblwvcid4"]
+
+[ext_resource type="PackedScene" uid="uid://v6w71p5sygf0" path="res://JapaneseVilliage/Meshes/SM_Box_fabric_3_01.glb" id="1_dfmy8"]
+[ext_resource type="Material" uid="uid://cap6wjt7gspvv" path="res://JapaneseVilliage/Materials/Materials_Instances/MI_Props_set4.tres" id="2_ek7p7"]
+[ext_resource type="Material" uid="uid://cia1kc0ej0kvd" path="res://JapaneseVilliage/Materials/Materials_Masters/MM_Wood_ends.tres" id="3_yv1o2"]
+[ext_resource type="Material" uid="uid://bhuophari5tap" path="res://JapaneseVilliage/Materials/Materials_Instances/MI_Fabric_3.tres" id="4_but31"]
+
+[node name = "SM_Box_fabric_3_01" instance = ExtResource("1_dfmy8")]
+
+[node name="Mesh" parent="." index="0"]
+
+
+
+

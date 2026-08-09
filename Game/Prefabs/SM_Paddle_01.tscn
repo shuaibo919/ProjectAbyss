@@ -1,0 +1,12 @@
+[gd_scene load_steps=3 format=3 uid="uid://dmqyovbr5froc"]
+
+[ext_resource type="PackedScene" uid="uid://tvr285th33cm" path="res://JapaneseVilliage/Meshes/SM_Paddle_01.glb" id="1_cvx02"]
+[ext_resource type="Material" uid="uid://b5jxe6370d623" path="res://JapaneseVilliage/Materials/Materials_Instances/MI_Props_set1.tres" id="2_dubnl"]
+
+[node name = "SM_Paddle_01" instance = ExtResource("1_cvx02")]
+
+[node name="Mesh" parent="." index="0"]
+
+
+
+

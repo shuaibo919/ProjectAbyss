@@ -1,0 +1,13 @@
+[gd_scene load_steps=4 format=3 uid="uid://dyh2cue8s1a3f"]
+
+[ext_resource type="PackedScene" uid="uid://dgscmeqysfh1r" path="res://JapaneseVilliage/Meshes/SM_Beam_end_15x20x300_01.glb" id="1_uq7ft"]
+[ext_resource type="Material" uid="uid://qhv8xieyoviu" path="res://JapaneseVilliage/Materials/Materials_Instances/MI_Wood_trim.tres" id="2_b80nk"]
+[ext_resource type="Material" uid="uid://cia1kc0ej0kvd" path="res://JapaneseVilliage/Materials/Materials_Masters/MM_Wood_ends.tres" id="3_yv1o2"]
+
+[node name = "SM_Beam_end_15x20x300_01" instance = ExtResource("1_uq7ft")]
+
+[node name="Mesh" parent="." index="0"]
+
+
+
+

@@ -1,0 +1,15 @@
+[gd_scene load_steps=6 format=3 uid="uid://c8fqsoavijb5x"]
+
+[ext_resource type="PackedScene" uid="uid://k1xgnnmgc5dl" path="res://JapaneseVilliage/Meshes/SM_Ladder_3m_net_01.glb" id="1_dhk1p"]
+[ext_resource type="Material" uid="uid://qhv8xieyoviu" path="res://JapaneseVilliage/Materials/Materials_Instances/MI_Wood_trim.tres" id="2_b80nk"]
+[ext_resource type="Material" uid="uid://cia1kc0ej0kvd" path="res://JapaneseVilliage/Materials/Materials_Masters/MM_Wood_ends.tres" id="3_yv1o2"]
+[ext_resource type="Material" uid="uid://cap6wjt7gspvv" path="res://JapaneseVilliage/Materials/Materials_Instances/MI_Props_set4.tres" id="4_ek7p7"]
+[ext_resource type="Material" uid="uid://76qmt1e8ym3" path="res://JapaneseVilliage/Materials/Materials_Instances/MI_Fish_net.tres" id="5_c4pvi"]
+
+[node name = "SM_Ladder_3m_net_01" instance = ExtResource("1_dhk1p")]
+
+[node name="Mesh" parent="." index="0"]
+
+
+
+

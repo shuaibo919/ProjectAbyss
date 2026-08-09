@@ -1,0 +1,22 @@
+[gd_resource type="StandardMaterial3D" format=3 uid="uid://wgg3ygxm04rp"]
+
+[ext_resource type="Texture2D" uid="uid://baaps4787f2vr" path="res://JapaneseVilliage/Meshes/SM_Construction_v1_5x9_01_MI_Wood_trim_2_BaseColor.png" id="1_ujeg2"]
+[ext_resource type="Texture2D" uid="uid://21vp25ufpm6n" path="res://JapaneseVilliage/Meshes/SM_Construction_v1_5x9_01_MI_Wood_trim_2_Occlusion.png" id="2_djet8"]
+[ext_resource type="Texture2D" uid="uid://dcqdlsfkdb0v2" path="res://JapaneseVilliage/Meshes/SM_Construction_v1_5x9_01_MI_Wood_trim_2_MetallicRoughness.png" id="3_6mgfv"]
+[ext_resource type="Texture2D" uid="uid://bakd7xwr5pos0" path="res://JapaneseVilliage/Meshes/SM_Construction_v1_5x9_01_MI_Wood_trim_2_Normal.png" id="4_elwfu"]
+
+[resource]
+resource_name = "MI_Wood_trim_2"
+transparency = 2
+alpha_scissor_threshold = 0.3333
+alpha_antialiasing_mode = 0
+albedo_texture = ExtResource("1_ujeg2")
+metallic = 1.0
+metallic_texture = ExtResource("3_6mgfv")
+metallic_texture_channel = 2
+roughness_texture = ExtResource("3_6mgfv")
+roughness_texture_channel = 1
+normal_enabled = true
+normal_texture = ExtResource("4_elwfu")
+ao_enabled = true
+ao_texture = ExtResource("2_djet8")

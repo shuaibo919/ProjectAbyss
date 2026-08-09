@@ -1,0 +1,16 @@
+[gd_scene load_steps=7 format=3 uid="uid://debl45frf02mr"]
+
+[ext_resource type="PackedScene" uid="uid://drkqy037nwef4" path="res://JapaneseVilliage/Meshes/SM_Roof_hay_12_01.glb" id="1_q30mp"]
+[ext_resource type="Material" uid="uid://csxpc0brc011d" path="res://JapaneseVilliage/Materials/Materials_Instances/MI_Wooden_wall.tres" id="2_cmv77"]
+[ext_resource type="Material" uid="uid://qhv8xieyoviu" path="res://JapaneseVilliage/Materials/Materials_Instances/MI_Wood_trim.tres" id="3_b80nk"]
+[ext_resource type="Material" uid="uid://cia1kc0ej0kvd" path="res://JapaneseVilliage/Materials/Materials_Masters/MM_Wood_ends.tres" id="4_yv1o2"]
+[ext_resource type="Material" uid="uid://i4aivmpkhhgr" path="res://JapaneseVilliage/Materials/Materials_Instances/MI_Roof_grass_base.tres" id="5_dwixu"]
+[ext_resource type="Material" uid="uid://dsqity32cqstn" path="res://JapaneseVilliage/Materials/Materials_Instances/MI_Roof_grass.tres" id="6_cn227"]
+
+[node name = "SM_Roof_hay_12_01" instance = ExtResource("1_q30mp")]
+
+[node name="Mesh" parent="." index="0"]
+
+
+
+

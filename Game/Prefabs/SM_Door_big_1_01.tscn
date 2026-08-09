@@ -1,0 +1,12 @@
+[gd_scene load_steps=3 format=3 uid="uid://divena5hwtngp"]
+
+[ext_resource type="PackedScene" uid="uid://n7bjxdax7s0b" path="res://JapaneseVilliage/Meshes/SM_Door_big_1_01.glb" id="1_dkoo8"]
+[ext_resource type="Material" uid="uid://lrlgulqyqq0u" path="res://JapaneseVilliage/Materials/Materials_Instances/MI_Door_1.tres" id="2_bauhy"]
+
+[node name = "SM_Door_big_1_01" instance = ExtResource("1_dkoo8")]
+
+[node name="Mesh" parent="." index="0"]
+
+
+
+

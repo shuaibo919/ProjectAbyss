@@ -1,0 +1,14 @@
+[gd_scene load_steps=5 format=3 uid="uid://dbiaxh2k3wc53"]
+
+[ext_resource type="PackedScene" uid="uid://yevrkoi00s6n" path="res://JapaneseVilliage/Meshes/SM_Barrel_2_01.glb" id="1_dddpa"]
+[ext_resource type="Material" uid="uid://c10d04ocqttth" path="res://JapaneseVilliage/Materials/Materials_Instances/MI_Props_set2.tres" id="2_qwfmr"]
+[ext_resource type="Material" uid="uid://b4hxtpl8kmlnw" path="res://JapaneseVilliage/Materials/Materials_Instances/MI_Fish.tres" id="3_ikiog"]
+[ext_resource type="Material" uid="uid://2qwrtup6mjgo" path="res://JapaneseVilliage/Materials/Materials_Instances/MI_Water_Barrel.tres" id="4_jo4sf"]
+
+[node name = "SM_Barrel_3_01" instance = ExtResource("1_dddpa")]
+
+[node name="Mesh" parent="." index="0"]
+
+
+
+

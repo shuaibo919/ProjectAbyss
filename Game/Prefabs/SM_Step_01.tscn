@@ -1,0 +1,12 @@
+[gd_scene load_steps=3 format=3 uid="uid://coj7g0is7mgfc"]
+
+[ext_resource type="PackedScene" uid="uid://djmj8fk0un6qs" path="res://JapaneseVilliage/Meshes/SM_Step_01.glb" id="1_bdvmu"]
+[ext_resource type="Material" uid="uid://qhv8xieyoviu" path="res://JapaneseVilliage/Materials/Materials_Instances/MI_Wood_trim.tres" id="2_b80nk"]
+
+[node name = "SM_Step_01" instance = ExtResource("1_bdvmu")]
+
+[node name="Mesh" parent="." index="0"]
+
+
+
+

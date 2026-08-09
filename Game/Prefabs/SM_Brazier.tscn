@@ -1,0 +1,12 @@
+[gd_scene load_steps=3 format=3 uid="uid://duw6fobubifit"]
+
+[ext_resource type="PackedScene" uid="uid://dkr5gpnp7j23x" path="res://JapaneseVilliage/Meshes/SM_Brazier.glb" id="1_d3ttk"]
+[ext_resource type="Material" uid="uid://cph3sgl4yjerw" path="res://JapaneseVilliage/Materials/Materials_Instances/MI_Braziers.tres" id="2_dsamx"]
+
+[node name = "SM_Brazier" instance = ExtResource("1_d3ttk")]
+
+[node name="Mesh" parent="." index="0"]
+
+
+
+

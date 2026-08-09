@@ -1,0 +1,14 @@
+[gd_scene load_steps=5 format=3 uid="uid://n5pqa4som7je"]
+
+[ext_resource type="PackedScene" uid="uid://cjpyhu5frs87s" path="res://JapaneseVilliage/Meshes/SM_Wood_column_01.glb" id="1_qyuuk"]
+[ext_resource type="Material" uid="uid://qhv8xieyoviu" path="res://JapaneseVilliage/Materials/Materials_Instances/MI_Wood_trim.tres" id="2_b80nk"]
+[ext_resource type="Material" uid="uid://cia1kc0ej0kvd" path="res://JapaneseVilliage/Materials/Materials_Masters/MM_Wood_ends.tres" id="3_yv1o2"]
+[ext_resource type="Material" uid="uid://c10d04ocqttth" path="res://JapaneseVilliage/Materials/Materials_Instances/MI_Props_set2.tres" id="4_qwfmr"]
+
+[node name = "SM_Wood_column_01" instance = ExtResource("1_qyuuk")]
+
+[node name="Mesh" parent="." index="0"]
+
+
+
+

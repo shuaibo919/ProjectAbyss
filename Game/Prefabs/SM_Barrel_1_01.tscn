@@ -1,0 +1,12 @@
+[gd_scene load_steps=3 format=3 uid="uid://br0y2mx03leak"]
+
+[ext_resource type="PackedScene" uid="uid://8ivfohvxpdc" path="res://JapaneseVilliage/Meshes/SM_Barrel_1_01.glb" id="1_bq7sw"]
+[ext_resource type="Material" uid="uid://c10d04ocqttth" path="res://JapaneseVilliage/Materials/Materials_Instances/MI_Props_set2.tres" id="2_qwfmr"]
+
+[node name = "SM_Barrel_1_01" instance = ExtResource("1_bq7sw")]
+
+[node name="Mesh" parent="." index="0"]
+
+
+
+

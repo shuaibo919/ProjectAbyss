@@ -1,0 +1,12 @@
+[gd_scene load_steps=3 format=3 uid="uid://tq11jrgaepf7"]
+
+[ext_resource type="PackedScene" uid="uid://cieqvr7tfqa6s" path="res://JapaneseVilliage/Meshes/SM_Window_1_01.glb" id="1_cvamn"]
+[ext_resource type="Material" uid="uid://cbduuq07jxvuc" path="res://JapaneseVilliage/Materials/Materials_Instances/MI_Window_1.tres" id="2_kydxa"]
+
+[node name = "SM_Window_1_01" instance = ExtResource("1_cvamn")]
+
+[node name="Mesh" parent="." index="0"]
+
+
+
+

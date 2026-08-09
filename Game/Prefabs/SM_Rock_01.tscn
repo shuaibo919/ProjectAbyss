@@ -1,0 +1,12 @@
+[gd_scene load_steps=3 format=3 uid="uid://bk6rn2bh2x0jn"]
+
+[ext_resource type="PackedScene" uid="uid://uq4fjq2c8pch" path="res://JapaneseVilliage/Meshes/SM_Rock_01.glb" id="1_bnmix"]
+[ext_resource type="Material" uid="uid://b1ou7yuk3q8tt" path="res://JapaneseVilliage/Materials/Materials_Instances/MI_Rock_01.tres" id="2_chu4r"]
+
+[node name = "SM_Rock_01" instance = ExtResource("1_bnmix")]
+
+[node name="Mesh" parent="." index="0"]
+
+
+
+

@@ -1,0 +1,13 @@
+[gd_scene load_steps=4 format=3 uid="uid://c2d1p7x61msoj"]
+
+[ext_resource type="PackedScene" uid="uid://bjhg65snlr4kh" path="res://JapaneseVilliage/Meshes/SM_Box_3_01.glb" id="1_t8myg"]
+[ext_resource type="Material" uid="uid://ddw75iipovp01" path="res://JapaneseVilliage/Materials/Materials_Instances/MI_Props_set3.tres" id="2_chmqa"]
+[ext_resource type="Material" uid="uid://b4hxtpl8kmlnw" path="res://JapaneseVilliage/Materials/Materials_Instances/MI_Fish.tres" id="3_ikiog"]
+
+[node name = "SM_Box_3_01" instance = ExtResource("1_t8myg")]
+
+[node name="Mesh" parent="." index="0"]
+
+
+
+

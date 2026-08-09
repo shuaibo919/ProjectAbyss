@@ -1,0 +1,12 @@
+[gd_scene load_steps=3 format=3 uid="uid://d33mlui61ouqo"]
+
+[ext_resource type="PackedScene" uid="uid://kgc5bvfpbtei" path="res://JapaneseVilliage/Meshes/SM_Floor_300x150x15_01.glb" id="1_bioe5"]
+[ext_resource type="Material" uid="uid://ejbkr56q5wg2" path="res://JapaneseVilliage/Materials/Materials_Instances/MI_Wooden_floor.tres" id="2_cquck"]
+
+[node name = "SM_Floor_300x150x15_01" instance = ExtResource("1_bioe5")]
+
+[node name="Mesh" parent="." index="0"]
+
+
+
+

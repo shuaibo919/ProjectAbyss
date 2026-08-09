@@ -1,0 +1,13 @@
+[gd_scene load_steps=4 format=3 uid="uid://cru3uf0yel1n7"]
+
+[ext_resource type="PackedScene" uid="uid://ixd8fwfdnjeu" path="res://JapaneseVilliage/Meshes/SM_prop2_Ladder_6m.glb" id="1_ck4rc"]
+[ext_resource type="Material" uid="uid://qhv8xieyoviu" path="res://JapaneseVilliage/Materials/Materials_Instances/MI_Wood_trim.tres" id="2_b80nk"]
+[ext_resource type="Material" uid="uid://cia1kc0ej0kvd" path="res://JapaneseVilliage/Materials/Materials_Masters/MM_Wood_ends.tres" id="3_yv1o2"]
+
+[node name = "SM_prop2_Ladder_6m" instance = ExtResource("1_ck4rc")]
+
+[node name="Mesh" parent="." index="0"]
+
+
+
+

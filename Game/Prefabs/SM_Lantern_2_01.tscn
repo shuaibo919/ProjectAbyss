@@ -1,0 +1,12 @@
+[gd_scene load_steps=3 format=3 uid="uid://c6ug25plcpo7x"]
+
+[ext_resource type="PackedScene" uid="uid://duflqlsyc0xjp" path="res://JapaneseVilliage/Meshes/SM_Lantern_2_01.glb" id="1_dhr25"]
+[ext_resource type="Material" uid="uid://cap6wjt7gspvv" path="res://JapaneseVilliage/Materials/Materials_Instances/MI_Props_set4.tres" id="2_ek7p7"]
+
+[node name = "SM_Lantern_2_01" instance = ExtResource("1_dhr25")]
+
+[node name="Mesh" parent="." index="0"]
+
+
+
+

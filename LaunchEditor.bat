@@ -61,6 +61,6 @@ echo   Executable : %GODOT_EXE%
 echo   Project    : %PROJECT_DIR%
 echo.
 
-"%GODOT_EXE%" --editor --path "%PROJECT_DIR%" %EXTRA_ARGS%
+"%GODOT_EXE%" --editor --verbose --path "%PROJECT_DIR%" %EXTRA_ARGS%
 
 endlocal

@@ -1,0 +1,16 @@
+[gd_scene load_steps=4 format=3 uid="uid://dlorslfruo4s0"]
+
+[ext_resource type="PackedScene" uid="uid://bftgehmv6v7pn" path="res:///Engine/BasicShapes/Plane.glb" id="1_bxhhv"]
+[ext_resource type="Material" uid="uid://c5t2iqo4d5kjr" path="res://JapaneseVilliage/Materials/Materials_Instances/MI_Water.tres" id="2_exm18"]
+
+[sub_resource type="BoxShape3D" id="0_c31wo"]
+size = Vector3(1.000000, 1.000000, 0.000000)
+
+[node name = "Plane" instance = ExtResource("1_bxhhv")]
+
+[node name="Mesh" parent="." index="0"]
+cast_shadow = 0
+
+
+
+

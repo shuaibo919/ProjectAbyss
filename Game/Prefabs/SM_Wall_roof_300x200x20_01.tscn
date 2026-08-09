@@ -1,0 +1,12 @@
+[gd_scene load_steps=3 format=3 uid="uid://b7nl57p2sdosr"]
+
+[ext_resource type="PackedScene" uid="uid://d0cwq3knpo2mn" path="res://JapaneseVilliage/Meshes/SM_Wall_roof_300x200x20_01.glb" id="1_cwdne"]
+[ext_resource type="Material" uid="uid://csxpc0brc011d" path="res://JapaneseVilliage/Materials/Materials_Instances/MI_Wooden_wall.tres" id="2_cmv77"]
+
+[node name = "SM_Wall_roof_300x200x20_01" instance = ExtResource("1_cwdne")]
+
+[node name="Mesh" parent="." index="0"]
+
+
+
+
