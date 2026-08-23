@@ -1,9 +1,9 @@
-[gd_scene format=4]
+[gd_scene format=4 uid="uid://d0sgipnljn7n5"]
 
-[ext_resource type="Script" path="res://Script/PCG/pcg_terrain_tool_node.gd" id="1_y5td3"]
-[ext_resource type="Script" path="res://Script/PCG/pcg_scatter_tool_node.gd" id="2_ma4mp"]
-[ext_resource type="Script" path="res://Script/PCG/pcg_spline_tool_node.gd" id="3_rp64n"]
-[ext_resource type="Script" path="res://Script/PCG/pcg_terrace_tool_node.gd" id="4_woduo"]
+[ext_resource type="Script" uid="uid://t0k7ucqbsci2" path="res://Script/PCG/pcg_terrain_tool_node.gd" id="1_y5td3"]
+[ext_resource type="Script" uid="uid://lqkhf1ptyenv" path="res://Script/PCG/pcg_scatter_tool_node.gd" id="2_ma4mp"]
+[ext_resource type="Script" uid="uid://dq3xsuwtqedxd" path="res://Script/PCG/pcg_spline_tool_node.gd" id="3_rp64n"]
+[ext_resource type="Script" uid="uid://cisdfym4rih0" path="res://Script/PCG/pcg_terrace_tool_node.gd" id="4_woduo"]
 
 [sub_resource type="StandardMaterial3D" id="StandardMaterial3D_yhmiy"]
 vertex_color_use_as_albedo = true
@@ -23,7 +23,7 @@ _surfaces = [{
 
 [sub_resource type="Curve3D" id="Curve3D_q435g"]
 _data = {
-"points": PackedVector3Array(0, 0, 0, 0, 0, 0, 2, 1.1, -36, 0, 0, 0, 0, 0, 0, 1, 1.1, -48, 0, 0, 0, 0, 0, 0, -3, 1.1, -60, 0, 0, 0, 0, 0, 0, -3, 1.1, -74),
+"points": PackedVector3Array(0, 0, 0, 0, 0, 0, 2, 1.1, -36, 0, 0, 0, 0, 0, 0, 1, 1.1, -48, 0, 0, 0, 0, 0, 0, -3, 1.1, -60, 0, 0, 0, 0, 0, 0, 8.401771, 1.1, -101.92931),
 "tilts": PackedFloat32Array(0, 0, 0, 0)
 }
 point_count = 4
@@ -61,6 +61,7 @@ fog_density = 0.0012
 [node name="Map_PCG_Example" type="Node3D" unique_id=1046119240]
 
 [node name="PCG_Island" type="Node3D" parent="." unique_id=372455206]
+transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, -6.146267, 0, 0)
 script = ExtResource("1_y5td3")
 seed = 11
 size = 150.0
@@ -71,7 +72,7 @@ island_ruggedness = 0.68
 island_stack_count = 8
 
 [node name="PCG_Seabed" type="Node3D" parent="." unique_id=1209580286]
-transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 0, -6.5, 0)
+transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 5.871277, -3.2317715, 0)
 script = ExtResource("1_y5td3")
 terrain_type = 1
 seed = 4
@@ -131,14 +132,15 @@ seed = 14
 [node name="PCG_Dock" type="Node3D" parent="." unique_id=530255478]
 script = ExtResource("3_rp64n")
 
-[node name="Spline" type="Path3D" parent="PCG_Dock" unique_id=2118118378]
+[node name="Spline" type="Path3D" parent="PCG_Dock" unique_id=2118118378 groups=["pcg_spline_2028164167370", "pcg_spline_2028466157258", "pcg_spline_2057725622297", "pcg_spline_6388847868864"]]
 curve = SubResource("Curve3D_q435g")
 
 [node name="PCG_Fence" type="Node3D" parent="." unique_id=736514551]
+transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 17.502478, 0, 0)
 script = ExtResource("3_rp64n")
 tool_type = 1
 
-[node name="Spline" type="Path3D" parent="PCG_Fence" unique_id=737752456]
+[node name="Spline" type="Path3D" parent="PCG_Fence" unique_id=737752456 groups=["pcg_spline_2028197721804", "pcg_spline_2028499711692", "pcg_spline_2057759176727", "pcg_spline_6388881423292"]]
 curve = SubResource("Curve3D_io5ph")
 
 [node name="PCG_Road" type="Node3D" parent="." unique_id=1632843413]
@@ -146,7 +148,7 @@ script = ExtResource("3_rp64n")
 tool_type = 2
 road_slab_spacing = 1.5
 
-[node name="Spline" type="Path3D" parent="PCG_Road" unique_id=404698271]
+[node name="Spline" type="Path3D" parent="PCG_Road" unique_id=404698271 groups=["pcg_spline_2028231276238", "pcg_spline_2028533266126", "pcg_spline_2057792731157", "pcg_spline_6388914977722"]]
 curve = SubResource("Curve3D_320b2")
 
 [node name="PCG_Terraces" type="Node3D" parent="." unique_id=1640695111]
@@ -164,7 +166,7 @@ tool_type = 3
 cliffwalk_cliff_side = 1
 cliffwalk_ground_clearance = 1.2
 
-[node name="Spline" type="Path3D" parent="PCG_CliffWalk" unique_id=167742346]
+[node name="Spline" type="Path3D" parent="PCG_CliffWalk" unique_id=167742346 groups=["pcg_spline_2028281607889", "pcg_spline_2028583597777", "pcg_spline_2057843062802", "pcg_spline_6388965309367"]]
 curve = SubResource("Curve3D_kn3mt")
 
 [node name="Sun" type="DirectionalLight3D" parent="." unique_id=1636570679]

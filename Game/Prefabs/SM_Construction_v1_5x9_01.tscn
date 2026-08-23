@@ -1,5 +1,0 @@
-[gd_scene format=3 uid="uid://bpfce605f87ny"]
-
-[ext_resource type="PackedScene" uid="uid://baok52tdgfe03" path="res://JapaneseVilliage/Meshes/SM_Construction_v1_5x9_01.glb" id="1_dvou0"]
-
-[node name="SM_Construction_v1_5x9_01" unique_id=1294870256 instance=ExtResource("1_dvou0")]

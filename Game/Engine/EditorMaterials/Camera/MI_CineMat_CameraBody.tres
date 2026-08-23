@@ -1,9 +1,0 @@
-[gd_resource type = "StandardMaterial3D" load_steps=1 format=3 uid="uid://b0pt2h4feytqp"]
-
-
-[resource]
-resource_name = "MI_CineMat_CameraBody"
-cull_mode = 0
-albedo_color = Color(1.000000, 1.000000, 1.000000, 1.000000)
-metallic = 0.000000
-roughness = 0.500000

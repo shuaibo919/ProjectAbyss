@@ -1287,7 +1287,7 @@ transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 0.8496041, 5.8040853, -1.3624
 transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 0.53722286, 0, 0.76472855)
 
 [node name="PortDeck01" type="MeshInstance3D" parent="Docks/Pier" unique_id=1110848465]
-transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 3.743133, -4.088421, 24.100433)
+transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 3.743133, -4.088421, 24.705011)
 mesh = ExtResource("7_4liak")
 
 [node name="MessCorner" parent="Docks/Pier/PortDeck01" unique_id=26065776 instance=ExtResource("8_8a6ey")]

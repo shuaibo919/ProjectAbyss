@@ -1,6 +1,6 @@
-[gd_scene format=4]
+[gd_scene format=4 uid="uid://bxoqp18s8nd67"]
 
-[ext_resource type="Script" path="res://Script/PCG/pcg_spline_tool_node.gd" id="1_jmf1s"]
+[ext_resource type="Script" uid="uid://dq3xsuwtqedxd" path="res://Script/PCG/pcg_spline_tool_node.gd" id="1_jmf1s"]
 
 [sub_resource type="BoxShape3D" id="BoxShape3D_ha8av"]
 size = Vector3(30, 0.5, 44)
@@ -301,10 +301,10 @@ dock_lamp_meshes = Array[Mesh]([SubResource("ArrayMesh_mt0mw")])
 dock_swag_meshes = Array[Mesh]([SubResource("ArrayMesh_632fb")])
 dock_stairs_min_angle = 20.0
 
-[node name="Spline" type="Path3D" parent="PCG_Dock" unique_id=1944191820]
+[node name="Spline" type="Path3D" parent="PCG_Dock" unique_id=1944191820 groups=["pcg_spline_2030278096659", "pcg_spline_2059839551379", "pcg_spline_26276459004248"]]
 curve = SubResource("Curve3D_8q87g")
 
-[node name="SplineBranch" type="Path3D" parent="PCG_Dock" unique_id=1424784863]
+[node name="SplineBranch" type="Path3D" parent="PCG_Dock" unique_id=1424784863 groups=["pcg_spline_2030278096659", "pcg_spline_2059839551379", "pcg_spline_26276459004248"]]
 curve = SubResource("Curve3D_4uu85")
 
 [node name="PCG_Fence" type="Node3D" parent="." unique_id=782888316]
@@ -312,14 +312,14 @@ script = ExtResource("1_jmf1s")
 tool_type = 1
 fence_unit_weights = Array[float]([0.7, 0.2, 0.1])
 
-[node name="Spline" type="Path3D" parent="PCG_Fence" unique_id=1634998256]
+[node name="Spline" type="Path3D" parent="PCG_Fence" unique_id=1634998256 groups=["pcg_spline_2030328428318", "pcg_spline_2059889882850", "pcg_spline_26276509343605"]]
 curve = SubResource("Curve3D_aju15")
 
 [node name="PCG_Road" type="Node3D" parent="." unique_id=511949134]
 script = ExtResource("1_jmf1s")
 tool_type = 2
 
-[node name="Spline" type="Path3D" parent="PCG_Road" unique_id=194451384]
+[node name="Spline" type="Path3D" parent="PCG_Road" unique_id=194451384 groups=["pcg_spline_2030361982752", "pcg_spline_2059923437398", "pcg_spline_26276542898015"]]
 curve = SubResource("Curve3D_bm6s5")
 
 [node name="Sun" type="DirectionalLight3D" parent="." unique_id=1047264369]
