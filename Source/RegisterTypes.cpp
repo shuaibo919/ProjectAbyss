@@ -1,11 +1,16 @@
 #include "RegisterTypes.h"
 
 #include "InputMapping/InputMapping.hpp"
+// CameraManager
 #include "CameraManager/CameraManager.hpp"
 #include "CameraManager/CameraViewpoint.hpp"
 #include "CameraManager/CameraSwitcher.hpp"
 #include "CameraManager/CameraRigController.hpp"
 #include "CameraManager/WhiteboxPlayer.hpp"
+// Terrain3D
+#include "Terrain/terrain_3d.h"
+#include "Terrain/terrain_3d_editor.h"
+
 
 #include <gdextension_interface.h>
 #include <godot_cpp/core/defs.hpp>
@@ -26,6 +31,18 @@ void initialize_abyss_module(ModuleInitializationLevel p_level) {
 	GDREGISTER_CLASS(CameraSwitcher);
 	GDREGISTER_CLASS(CameraRigController);
 	GDREGISTER_CLASS(WhiteboxPlayer);
+
+	GDREGISTER_CLASS(Terrain3D);
+	GDREGISTER_CLASS(Terrain3DAssets);
+	GDREGISTER_CLASS(Terrain3DData);
+	GDREGISTER_CLASS(Terrain3DEditor);
+	GDREGISTER_CLASS(Terrain3DCollision);
+	GDREGISTER_CLASS(Terrain3DInstancer);
+	GDREGISTER_CLASS(Terrain3DMaterial);
+	GDREGISTER_CLASS(Terrain3DMeshAsset);
+	GDREGISTER_CLASS(Terrain3DRegion);
+	GDREGISTER_CLASS(Terrain3DTextureAsset);
+	GDREGISTER_CLASS(Terrain3DUtil);
 }
 
 void uninitialize_abyss_module(ModuleInitializationLevel p_level) {

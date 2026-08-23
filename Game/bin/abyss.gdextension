@@ -1,8 +1,12 @@
 [configuration]
 
 entry_symbol = "InitAbyssLibrary"
-compatibility_minimum = "4.1"
+compatibility_minimum = "4.5"
 reloadable = true
+
+[icons]
+
+Terrain3D = "res://addons/terrain_3d/icons/terrain3d.svg"
 
 [libraries]
 

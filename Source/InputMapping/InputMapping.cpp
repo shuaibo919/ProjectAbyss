@@ -16,15 +16,15 @@ void InputMapping::_bind_methods() {
 	ClassDB::bind_static_method("InputMapping", D_METHOD("RemoveAction", "name"), &InputMapping::RemoveAction);
 }
 
-InputEvent* InputMapping::_MakeKey(Key p_key) {
-	InputEventKey* ev = memnew(InputEventKey);
+Ref<InputEvent> InputMapping::_MakeKey(Key p_key) {
+	Ref<InputEventKey> ev = memnew(InputEventKey);
 	ev->set_keycode(p_key);
 	ev->set_pressed(true);
 	return ev;
 }
 
-InputEvent* InputMapping::_MakeMouseButton(MouseButton p_button) {
-	InputEventMouseButton* ev = memnew(InputEventMouseButton);
+Ref<InputEvent> InputMapping::_MakeMouseButton(MouseButton p_button) {
+	Ref<InputEventMouseButton> ev = memnew(InputEventMouseButton);
 	ev->set_button_index(p_button);
 	ev->set_pressed(true);
 	return ev;

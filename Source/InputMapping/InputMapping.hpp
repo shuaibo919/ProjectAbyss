@@ -1,6 +1,7 @@
 #pragma once
 
 #include <godot_cpp/classes/node.hpp>
+#include <godot_cpp/classes/ref.hpp>
 #include <godot_cpp/variant/string_name.hpp>
 #include <godot_cpp/variant/array.hpp>
 
@@ -23,8 +24,8 @@ public:
 	static void RemoveAction(const StringName& p_name);
 
 private:
-	static InputEvent* _MakeKey(Key p_key);
-	static InputEvent* _MakeMouseButton(MouseButton p_button);
+	static Ref<InputEvent> _MakeKey(Key p_key);
+	static Ref<InputEvent> _MakeMouseButton(MouseButton p_button);
 };
 
 } // namespace godot

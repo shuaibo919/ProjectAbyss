@@ -5,6 +5,15 @@ import sys
 # You can find documentation for SCons and SConstruct files at:
 # https://scons.org/documentation.html
 
+# Engine/ is a custom Godot fork, so prefer bindings generated from its own dumped API
+# over godot-cpp's bundled copies. Regenerate after updating the engine with:
+#   cd build_api && ../Engine/bin/godot.windows.editor.x86_64.console.exe --headless --dump-extension-api
+custom_api_file = os.path.join("build_api", "extension_api.json")
+if os.path.isfile(custom_api_file):
+    ARGUMENTS.setdefault("custom_api_file", custom_api_file)
+else:
+    ARGUMENTS.setdefault("api_version", "4.7")
+
 # This lets SCons know that we're using godot-cpp, from the godot-cpp folder.
 env = SConscript("godot-cpp/SConstruct")
 
