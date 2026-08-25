@@ -1,0 +1,6 @@
+[gd_scene load_steps=2 format=3 uid="uid://bbuildvalidate01"]
+
+[ext_resource type="Script" path="res://Develop/BuildingValidate.gd" id="1_bld"]
+
+[node name="BuildingValidate" type="Node3D"]
+script = ExtResource("1_bld")

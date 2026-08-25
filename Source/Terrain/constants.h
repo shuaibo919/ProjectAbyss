@@ -5,6 +5,7 @@
 
 #include <functional>
 
+#include <godot_cpp/core/math.hpp>
 #include <godot_cpp/variant/color.hpp>
 #include <godot_cpp/variant/vector2.hpp>
 #include <godot_cpp/variant/vector2i.hpp>
@@ -13,6 +14,20 @@
 // GDExtension uses the godot namespace, custom modules do not.
 #if defined(GDEXTENSION) && !defined(GODOT_MODULE)
 using namespace godot;
+
+// godot-cpp master moved these into namespace godot::Math and dropped the legacy
+// Math_* macros, but Terrain3D still uses the pre-4.5 spellings throughout.
+#ifndef Math_PI
+#define Math_PI Math::PI
+#endif
+#ifndef Math_TAU
+#define Math_TAU Math::TAU
+#endif
+using godot::Math::closest_power_of_2;
+using godot::Math::get_shift_from_power_of_2;
+using godot::Math::is_power_of_2;
+using godot::Math::next_power_of_2;
+using godot::Math::previous_power_of_2;
 #endif
 
 // File Paths (e.g. extras)

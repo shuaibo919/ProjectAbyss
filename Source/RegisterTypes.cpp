@@ -10,15 +10,35 @@
 // Terrain3D
 #include "Terrain/terrain_3d.h"
 #include "Terrain/terrain_3d_editor.h"
+// Procedural trees (port of "Real-Time GPU Tree Generation", Kuth et al., HPG 2025)
+#include "TreeGen/ProceduralTree.h"
+#include "TreeGen/ProceduralTreeEditorPlugin.h"
+#include "TreeGen/ProceduralTreeParameters.h"
+// Ancient Chinese architecture (port of Hu & Qin 2020 — see Docs/AncientBuilding_Spec.md)
+#include "AncientBuilding/AncientBuilding.h"
+#include "AncientBuilding/AncientBuildingEditorPlugin.h"
+#include "AncientBuilding/AncientBuildingParameters.h"
+#include "AncientBuilding/AncientSplineSweep.h"
 
 
 #include <gdextension_interface.h>
+#include <godot_cpp/classes/editor_plugin_registration.hpp>
 #include <godot_cpp/core/defs.hpp>
 #include <godot_cpp/godot.hpp>
 
 using namespace godot;
 
 void initialize_abyss_module(ModuleInitializationLevel p_level) {
+	if (p_level == MODULE_INITIALIZATION_LEVEL_EDITOR) {
+		// Always-on editor plugin: no plugin.cfg and nothing under addons/ required.
+		GDREGISTER_INTERNAL_CLASS(ProceduralTreeEditorPlugin);
+		EditorPlugins::add_by_type<ProceduralTreeEditorPlugin>();
+
+		GDREGISTER_INTERNAL_CLASS(AncientBuildingEditorPlugin);
+		EditorPlugins::add_by_type<AncientBuildingEditorPlugin>();
+		return;
+	}
+
 	if (p_level != MODULE_INITIALIZATION_LEVEL_SCENE) {
 		return;
 	}
@@ -43,6 +63,15 @@ void initialize_abyss_module(ModuleInitializationLevel p_level) {
 	GDREGISTER_CLASS(Terrain3DRegion);
 	GDREGISTER_CLASS(Terrain3DTextureAsset);
 	GDREGISTER_CLASS(Terrain3DUtil);
+
+	GDREGISTER_CLASS(ProceduralTreeLeafParameters);
+	GDREGISTER_CLASS(ProceduralTreeFruitParameters);
+	GDREGISTER_CLASS(ProceduralTreeParameters);
+	GDREGISTER_CLASS(ProceduralTree);
+
+	GDREGISTER_CLASS(AncientSplineSweep);
+	GDREGISTER_CLASS(AncientBuildingParameters);
+	GDREGISTER_CLASS(AncientBuilding);
 }
 
 void uninitialize_abyss_module(ModuleInitializationLevel p_level) {

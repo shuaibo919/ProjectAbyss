@@ -1,0 +1,6 @@
+[gd_scene load_steps=2 format=3 uid="uid://bcjkdiag001"]
+
+[ext_resource type="Script" path="res://Develop/CjkDiagnose.gd" id="1_cjk"]
+
+[node name="CjkDiagnose" type="Node2D"]
+script = ExtResource("1_cjk")
