@@ -1,5 +1,7 @@
 #include "AncientBuilding/BuildingBuilder.h"
 
+#include "AncientBuilding/TileSkin.h"
+
 #include <algorithm>
 #include <cmath>
 
@@ -10,25 +12,6 @@ namespace
 	const float BUILD_PI = 3.14159265358979323846f;
 	const float BUILD_TAU = 2.0f * BUILD_PI;
 	const float BUILD_EPSILON = 1e-6f;
-
-	/**
-	 * Half-round 瓦垄 section, swept down each tile course. Lift raises the chord off the
-	 * boarding: without it the flat underside is exactly coplanar with the roof surface and the
-	 * two z-fight into a mottled mess. Tiles sit on battens in reality anyway.
-	 */
-	std::vector<Vector2> MakeTileContour(float Width, float Lift)
-	{
-		const float R = Width * 0.5f;
-		std::vector<Vector2> Contour;
-		const int32_t Steps = 5;
-		for (int32_t Index = 0; Index <= Steps; ++Index)
-		{
-			const float Angle = BUILD_PI * float(Index) / float(Steps);
-			Contour.push_back(Vector2(-R * std::cos(Angle), Lift + R * 0.62f * std::sin(Angle)));
-		}
-
-		return Contour;
-	}
 
 	/** Ridge tile: flat soffit, shoulders, rounded crown. */
 	std::vector<Vector2> MakeRidgeContour(float Scale)
@@ -45,7 +28,14 @@ namespace
 		return Contour;
 	}
 
-	/** 滴水 drip course along the eave. */
+	/**
+	 * 连檐: the timber board the tile courses die onto at the eave.
+	 *
+	 * This used to be a fat bar standing in for the whole 滴水 course. Now that the tile skin hangs
+	 * a real 滴水 from every channel and caps every barrel with a 瓦当, the bar's only remaining job
+	 * is to be the board behind them — so it is slim, and TuckedEaveKnot drops it clear of the
+	 * tiles instead of leaving it coincident with them, where it hid the lot.
+	 */
 	std::vector<Vector2> MakeEaveContour(float Scale)
 	{
 		std::vector<Vector2> Contour;
@@ -55,6 +45,24 @@ namespace
 		Contour.push_back(Vector2(-0.5f, 0.16f) * Scale);
 
 		return Contour;
+	}
+
+	/** Scale for the 连檐 board, slim enough to sit behind the eave tiles rather than over them. */
+	float EaveBoardScale(const BuildingSpec& Spec)
+	{
+		return Spec.Module * 0.42f * Spec.RidgeScale;
+	}
+
+	/**
+	 * Moves an eave knot down and back up the slope, so the board lands under the tile ends.
+	 * OutwardZ is the sign of the eave's outward direction along Z, or 0 for an eave running along Z.
+	 */
+	Vector3 TuckedEaveKnot(const BuildingSpec& Spec, const Vector3& Knot, float OutwardZ, float OutwardX)
+	{
+		const float Drop = Spec.Module * 0.20f;
+		const float Back = Spec.Module * 0.26f;
+
+		return Knot + Vector3(-OutwardX * Back, -Drop, -OutwardZ * Back);
 	}
 
 	/** Even bay boundary positions across a span, inclusive of both ends. */
@@ -165,14 +173,25 @@ void MeshAccumulator::AddPolygon(const std::vector<Vector3>& Points, const Vecto
 		Colors.push_back(Tint);
 	}
 
-	// Fan, wound to agree with the supplied normal.
-	const Vector3 Reference = (Points[1] - Points[0]).cross(Points[2] - Points[0]);
-	const bool bFlip = Reference.dot(Normal) > 0.0f;
-
+	// Fan, with each triangle wound against the supplied normal individually.
+	//
+	// Taking one winding decision for the whole fan — from the first three points — is only valid
+	// for a convex outline. 山花 is not convex: the 举架 curve caves in, so once the fan passes the
+	// ridge apex the triangles' own orientation reverses and half the tympanum was being culled.
+	// That showed up as a solid missing triangle beside the gable, which reads as a hole in the
+	// side of the roof.
 	for (size_t Index = 1; Index + 1 < Points.size(); ++Index)
 	{
+		const Vector3 Reference = (Points[Index] - Points[0]).cross(Points[Index + 1] - Points[0]);
+		if (Reference.length_squared() < 1e-14f)
+		{
+			// Degenerate sliver, which the duplicated apex vertex produces. Nothing to draw, and
+			// its cross product carries no usable orientation.
+			continue;
+		}
+
 		Indices.push_back(Base);
-		if (bFlip)
+		if (Reference.dot(Normal) > 0.0f)
 		{
 			Indices.push_back(Base + int32_t(Index + 1));
 			Indices.push_back(Base + int32_t(Index));
@@ -283,8 +302,55 @@ void MeshAccumulator::AddQuadOriented(
 	}
 }
 
-// ==================== Corner flip (翼角起翘) ====================
+void MeshAccumulator::AddQuadSmooth(
+	const Vector3& A, const Vector3& B, const Vector3& C, const Vector3& D,
+	const Vector3& NormalA, const Vector3& NormalB, const Vector3& NormalC, const Vector3& NormalD,
+	const Color& Tint)
+{
+	// Geometric normal decides the winding; the supplied normals only shade. AddTriangle negates
+	// the cross product, so the quad faces the way the negated cross points.
+	const Vector3 Geometric = -(B - A).cross(C - A);
+	if (Geometric.length_squared() < 1e-14f)
+	{
+		// Coincident corners: a section crease, or a course pinched out at a hip. Nothing to draw.
+		return;
+	}
 
+	const bool bFlip = Geometric.dot(NormalA + NormalB + NormalC + NormalD) < 0.0f;
+
+	const int32_t Base = int32_t(Vertices.size());
+	const Vector3 Points[4] = { A, B, C, D };
+	const Vector3 Corners[4] = { NormalA, NormalB, NormalC, NormalD };
+	const Vector2 Coords[4] = { Vector2(0, 0), Vector2(1, 0), Vector2(1, 1), Vector2(0, 1) };
+
+	for (int32_t Index = 0; Index < 4; ++Index)
+	{
+		Vertices.push_back(Points[Index]);
+		Normals.push_back(Corners[Index]);
+		UVs.push_back(Coords[Index]);
+		Colors.push_back(Tint);
+	}
+
+	// Two triangles, wound consistently with the shading normals so backface culling keeps them.
+	const int32_t Order[6] = { 0, 1, 2, 0, 2, 3 };
+	for (int32_t Step = 0; Step < 6; Step += 3)
+	{
+		if (bFlip)
+		{
+			Indices.push_back(Base + Order[Step + 2]);
+			Indices.push_back(Base + Order[Step + 1]);
+			Indices.push_back(Base + Order[Step]);
+		}
+		else
+		{
+			Indices.push_back(Base + Order[Step]);
+			Indices.push_back(Base + Order[Step + 1]);
+			Indices.push_back(Base + Order[Step + 2]);
+		}
+	}
+}
+
+// ==================== Corner flip (翼角起翘) ====================
 namespace
 {
 	float FlipRound(float Value)
@@ -360,6 +426,56 @@ std::vector<Vector2> BuildingGen::BuildRoofProfileScaled(
 	Scaled.RoofHeight = TargetRise;
 
 	return BuildRoofProfile(Scaled, HalfSpan);
+}
+
+float BuildingGen::GetBoardThickness(const BuildingSpec& Spec)
+{
+	// Thin enough to read as boarding on rafters rather than as a slab, thick enough to stay
+	// visible at the eave from ground level.
+	return Spec.Module * 0.30f;
+}
+
+void BuildingGen::AddRoofPanel(
+	MeshAccumulator& Mesh,
+	const Vector3& A, const Vector3& B, const Vector3& C, const Vector3& D,
+	const Vector3& Normal,
+	float Thickness,
+	ERoofPanelEdges OpenEdges,
+	const Color& Tint,
+	const Color& SoffitTint)
+{
+	Mesh.AddQuadOriented(A, B, C, D, Normal, Tint);
+
+	if (Thickness <= 0.0f)
+	{
+		return;
+	}
+
+	// Straight down, deliberately not along the normal. Offsetting each panel along its own normal
+	// splits the soffit at every seam where the slope changes — adjacent panels push their shared
+	// corners in different directions — and the roof ends up laced with hairline cracks. Dropping
+	// vertically gives every panel the same displacement, so shared corners stay shared and the
+	// soffit is watertight. It also matches how 举架 depths are reckoned, which are vertical.
+	const Vector3 Drop(0.0f, -Thickness, 0.0f);
+	const Vector3 UnderA = A + Drop;
+	const Vector3 UnderB = B + Drop;
+	const Vector3 UnderC = C + Drop;
+	const Vector3 UnderD = D + Drop;
+
+	Mesh.AddQuadOriented(UnderA, UnderB, UnderC, UnderD, -Normal, SoffitTint);
+
+	// Closing an open edge is also what stops the eave reading as a knife edge.
+	if (HasEdge(OpenEdges, ERoofPanelEdges::Lower))
+	{
+		const Vector3 Outward = ((A + B) - (D + C)).normalized();
+		Mesh.AddQuadOriented(A, B, UnderB, UnderA, Outward, SoffitTint);
+	}
+
+	if (HasEdge(OpenEdges, ERoofPanelEdges::Upper))
+	{
+		const Vector3 Outward = ((D + C) - (A + B)).normalized();
+		Mesh.AddQuadOriented(D, C, UnderC, UnderD, Outward, SoffitTint);
+	}
 }
 
 // ==================== Parts ====================
@@ -926,8 +1042,11 @@ namespace
 		MeshAccumulator& Mesh)
 	{
 		const float RoofBase = Spec.RoofBase;
+		const float Thickness = GetBoardThickness(Spec);
+		const Color BoardColor = Spec.TileColor * 0.7f;
+		const Color SoffitColor = Spec.TimberColor * 1.15f;
 
-		// Boarding, as one quad strip per rafter course.
+		// Boarding, as one quad strip per rafter course, each a sandwich with its 望板 soffit.
 		for (size_t Index = 0; Index + 1 < Profile.size(); ++Index)
 		{
 			const Vector2& Low = Profile[Index];
@@ -938,64 +1057,66 @@ namespace
 			const Vector3 C(HalfWidth, RoofBase + High.y, Sign * High.x);
 			const Vector3 D(-HalfWidth, RoofBase + High.y, Sign * High.x);
 
-			// Wound so the outward face is the front face. Going up-slope means z decreases, so
-			// the naive corner order yields a normal pointing into the roof.
-			if (Sign > 0.0f)
+			// Up-slope means z decreases, so the surface normal is up and outward along Sign.
+			const Vector3 Up = (Vector3(0.0f, High.y - Low.y, Sign * (High.x - Low.x)));
+			Vector3 Normal = Vector3(1.0f, 0.0f, 0.0f).cross(Up).normalized();
+			if (Normal.y < 0.0f)
 			{
-				Mesh.AddQuad(B, A, D, C, Spec.TileColor * 0.7f);
+				Normal = -Normal;
 			}
-			else
-			{
-				Mesh.AddQuad(A, B, C, D, Spec.TileColor * 0.7f);
-			}
+
+			AddRoofPanel(
+				Mesh, A, B, C, D, Normal, Thickness,
+				Index == 0 ? ERoofPanelEdges::Lower : ERoofPanelEdges::None,
+				BoardColor, SoffitColor);
 		}
 
-		// Tile courses. Cr measures coverage down from the ridge, so drop the lower knots.
+		// Tile skin. Cr measures coverage down from the ridge, so drop the lower knots.
 		const int32_t Courses = std::max(int32_t((HalfWidth * 2.0f) / std::fmax(Spec.TileCourseWidth, 0.02f)), 1);
-		const float Spacing = (HalfWidth * 2.0f) / float(Courses);
+		const float Pitch = (HalfWidth * 2.0f) / float(Courses);
 		const size_t KeepFrom = size_t(
 			std::floor(float(Profile.size() - 1) * (1.0f - std::fmin(std::fmax(Spec.TileCoverage, 0.0f), 1.0f))));
 
-		const std::vector<Vector2> TileContour = MakeTileContour(Spacing * 0.92f, Spec.Module * 0.07f);
-
-		for (int32_t Course = 0; Course < Courses; ++Course)
 		{
-			const float X = -HalfWidth + Spacing * (float(Course) + 0.5f);
+			std::vector<TileSkinColumn> Columns;
+			LayTileCourses(
+				-HalfWidth,
+				Pitch,
+				Courses,
+				[&Profile, RoofBase, Sign, KeepFrom](float X) -> std::vector<Vector3>
+				{
+					std::vector<Vector3> Points;
+					Points.reserve(Profile.size() - KeepFrom);
+					for (size_t Index = KeepFrom; Index < Profile.size(); ++Index)
+					{
+						Points.push_back(Vector3(X, RoofBase + Profile[Index].y, Sign * Profile[Index].x));
+					}
 
-			std::vector<Vector3> Knots;
-			for (size_t Index = KeepFrom; Index < Profile.size(); ++Index)
-			{
-				Knots.push_back(Vector3(X, RoofBase + Profile[Index].y, Sign * Profile[Index].x));
-			}
-			if (Knots.size() < 2)
-			{
-				continue;
-			}
+					return Points;
+				},
+				Columns);
 
-			SweepSettings Settings;
-			Settings.Contour = TileContour;
-			Settings.bClosedContour = true;
-			Settings.bGenerateCaps = false;
-			// Up is world up; projected against the slope tangent this gives the outward
-			// roof normal, so the tile's crown faces out of the roof.
-			Settings.UpReference = Vector3(0, 1, 0);
-
-			SweepResult Sweep;
-			if (BuildSweep(Knots, Settings, Sweep))
-			{
-				Mesh.AddSweep(Sweep, Spec.TileColor);
-			}
+			// Cr below 1 bares the roof from the eave upward, which leaves column 0 partway up the
+			// slope with no eave to dress.
+			BuildTileSkin(
+				Columns,
+				ETileSkinLoop::Open,
+				KeepFrom == 0 ? ETileEaves::AtStart : ETileEaves::None,
+				Spec.TileColor,
+				Mesh);
 		}
 
-		// Eave drip course along the bottom edge.
+		// 连檐 board along the bottom edge, tucked under the eave tiles.
 		{
 			const Vector2& Eave = Profile.front();
 			std::vector<Vector3> Knots;
-			Knots.push_back(Vector3(-HalfWidth, RoofBase + Eave.y, Sign * Eave.x));
-			Knots.push_back(Vector3(HalfWidth, RoofBase + Eave.y, Sign * Eave.x));
+			Knots.push_back(TuckedEaveKnot(
+				Spec, Vector3(-HalfWidth, RoofBase + Eave.y, Sign * Eave.x), Sign, 0.0f));
+			Knots.push_back(TuckedEaveKnot(
+				Spec, Vector3(HalfWidth, RoofBase + Eave.y, Sign * Eave.x), Sign, 0.0f));
 
 			SweepSettings Settings;
-			Settings.Contour = MakeEaveContour(Spec.Module * 1.1f * Spec.RidgeScale);
+			Settings.Contour = MakeEaveContour(EaveBoardScale(Spec));
 			Settings.bClosedContour = true;
 
 			SweepResult Sweep;
@@ -1026,6 +1147,88 @@ namespace
 			}
 		}
 	}
+
+	/** How far the hipped shell has closed in at a profile distance: 0 at the eave, 1 at the break. */
+	float SkirtInsetFraction(float Distance, float Inset)
+	{
+		return 1.0f - std::fmin(Distance / std::fmax(Inset, BUILD_EPSILON), 1.0f);
+	}
+
+	/**
+	 * One face of a hipped skirt, and the source of that face's tile skin columns.
+	 *
+	 * A face narrows as the shell rises, so a column laid at a fixed offset along the eave
+	 * eventually runs off the side and has to stop on the hip line. Holding the offset — rather
+	 * than a fraction of the narrowing width — is what keeps the courses parallel and square to
+	 * the eave, as real 瓦垄 are.
+	 */
+	struct SkirtFace
+	{
+		const std::vector<Vector2>* Profile = nullptr;
+		const CornerFlip* Flip = nullptr;
+
+		/** Whether the face's eave runs along X; otherwise along Z. */
+		bool bAlongX = true;
+
+		/** Which of the two opposing faces this is. */
+		float Sign = 1.0f;
+
+		/** Half-extent along the eave, and the distance out to the eave across it. */
+		float Extent = 0.0f;
+		float OppositeExtent = 0.0f;
+
+		float Inset = 0.0f;
+		float RoofBase = 0.0f;
+
+		Vector3 PointAt(float Along, float Fraction, float Y) const
+		{
+			const float Out = OppositeExtent - Inset * Fraction;
+			const Vector3 Point = bAlongX
+				? Vector3(Along, Y, Sign * Out)
+				: Vector3(Sign * Out, Y, Along);
+
+			return Flip->Apply(Point);
+		}
+
+		std::vector<Vector3> Column(float Along) const
+		{
+			const std::vector<Vector2>& Steps = *Profile;
+
+			std::vector<Vector3> Points;
+			Points.reserve(Steps.size());
+
+			for (size_t Step = 0; Step < Steps.size(); ++Step)
+			{
+				const float Fraction = SkirtInsetFraction(Steps[Step].x, Inset);
+				// The face narrows as the shell rises. Once it passes this column, the column has
+				// reached the hip.
+				const float Cross = Extent - Inset * Fraction;
+				if (std::abs(Along) > Cross)
+				{
+					// 翼角切瓦: land the column exactly on the hip line rather than stopping at the
+					// previous ring, which left a serrated edge the 戗脊 could not fully hide.
+					// Real corners use cut tiles for this.
+					if (Step > 0)
+					{
+						const float PrevFraction = SkirtInsetFraction(Steps[Step - 1].x, Inset);
+						const float PrevCross = Extent - Inset * PrevFraction;
+						const float Span = std::fmax(PrevCross - Cross, BUILD_EPSILON);
+						const float T = (PrevCross - std::abs(Along)) / Span;
+
+						const float HitFraction = PrevFraction + (Fraction - PrevFraction) * T;
+						const float HitY = RoofBase + Steps[Step - 1].y
+							+ (Steps[Step].y - Steps[Step - 1].y) * T;
+						Points.push_back(PointAt(Along, HitFraction, HitY));
+					}
+					break;
+				}
+
+				Points.push_back(PointAt(Along, Fraction, RoofBase + Steps[Step].y));
+			}
+
+			return Points;
+		}
+	};
 
 	/**
 	 * The hipped family, 歇山 and 庑殿 in one construction.
@@ -1130,10 +1333,14 @@ namespace
 		// Skirt.x runs from Inset down to 0, so this is 0 at the eave and 1 at the break.
 		const auto InsetFraction = [Inset](float Distance) -> float
 		{
-			return 1.0f - std::fmin(Distance / std::fmax(Inset, BUILD_EPSILON), 1.0f);
+			return SkirtInsetFraction(Distance, Inset);
 		};
 
 		// ---- Hipped skirt, lofted between the eave and break rectangles ----
+
+		const float Thickness = GetBoardThickness(Spec);
+		const Color BoardColor = Spec.TileColor * 0.7f;
+		const Color SoffitColor = Spec.TimberColor * 1.15f;
 
 		std::vector<std::vector<Vector3>> Rings;
 		Rings.reserve(SkirtProfile.size());
@@ -1174,12 +1381,16 @@ namespace
 					Normal = -Normal;
 				}
 
-				Mesh.AddQuadOriented(
-					Low[Index], Low[Next], High[Next], High[Index], Normal, Spec.TileColor * 0.7f);
+				AddRoofPanel(
+					Mesh,
+					Low[Index], Low[Next], High[Next], High[Index],
+					Normal, Thickness,
+					Level == 0 ? ERoofPanelEdges::Lower : ERoofPanelEdges::None,
+					BoardColor, SoffitColor);
 			}
 		}
 
-		// Tile courses on the four skirt faces. The corner wedges keep boarding only and the
+		// Tile skin on the four skirt faces. The corner wedges keep boarding only and the
 		// 戗脊 sits over that seam, which is how a real corner hides its fan of cut tiles.
 		{
 			struct Face
@@ -1191,75 +1402,33 @@ namespace
 
 			for (const Face& Current : Faces)
 			{
-				// Space courses over the eave edge, then clip each one where it runs off the
-				// face. That tiles the corner wedges too, and on 庑殿 it tiles the triangular
-				// hip ends, which a constant top extent would have left bare.
-				const float Extent = Current.bAlongX ? HalfWidthEave : HalfDepthEave;
-				const int32_t Courses = std::max(int32_t(Extent * 2.0f / std::fmax(Spec.TileCourseWidth, 0.05f)), 1);
-				const float Spacing = Extent * 2.0f / float(Courses);
-				const std::vector<Vector2> TileContour = MakeTileContour(Spacing * 0.92f, Spec.Module * 0.07f);
+				// Space courses over the eave edge and let each column clip itself where it runs
+				// off the face. That tiles the corner wedges too, and on 庑殿 it tiles the
+				// triangular hip ends, which a constant top extent would have left bare.
+				SkirtFace Skirt;
+				Skirt.Profile = &SkirtProfile;
+				Skirt.Flip = &Flip;
+				Skirt.bAlongX = Current.bAlongX;
+				Skirt.Sign = Current.Sign;
+				Skirt.Extent = Current.bAlongX ? HalfWidthEave : HalfDepthEave;
+				Skirt.OppositeExtent = Current.bAlongX ? HalfDepthEave : HalfWidthEave;
+				Skirt.Inset = Inset;
+				Skirt.RoofBase = RoofBase;
 
-				for (int32_t Course = 0; Course < Courses; ++Course)
-				{
-					const float Along = -Extent + Spacing * (float(Course) + 0.5f);
+				const int32_t Courses = std::max(
+					int32_t(Skirt.Extent * 2.0f / std::fmax(Spec.TileCourseWidth, 0.05f)), 1);
+				const float Pitch = Skirt.Extent * 2.0f / float(Courses);
 
-					// Positions this course as a function of how far the shell has closed in.
-					const auto CoursePoint = [&](float Fraction, float Y) -> Vector3
-					{
-						const float Out = (Current.bAlongX ? HalfDepthEave : HalfWidthEave) - Inset * Fraction;
-						const Vector3 Point = Current.bAlongX
-							? Vector3(Along, Y, Current.Sign * Out)
-							: Vector3(Current.Sign * Out, Y, Along);
+				std::vector<TileSkinColumn> Columns;
+				LayTileCourses(
+					-Skirt.Extent,
+					Pitch,
+					Courses,
+					[&Skirt](float Along) -> std::vector<Vector3> { return Skirt.Column(Along); },
+					Columns);
 
-						return Flip.Apply(Point);
-					};
-
-					std::vector<Vector3> Knots;
-					for (size_t Step = 0; Step < SkirtProfile.size(); ++Step)
-					{
-						const float Fraction = InsetFraction(SkirtProfile[Step].x);
-						// The face narrows as the shell rises. Once it passes this course, the
-						// course has reached the hip.
-						const float Cross = Extent - Inset * Fraction;
-						if (std::abs(Along) > Cross)
-						{
-							// 翼角切瓦: land the course exactly on the hip line rather than
-							// stopping at the previous ring, which left a serrated edge that the
-							// 戗脊 could not fully hide. Real corners use cut tiles for this.
-							if (Step > 0)
-							{
-								const float PrevFraction = InsetFraction(SkirtProfile[Step - 1].x);
-								const float PrevCross = Extent - Inset * PrevFraction;
-								const float Span = std::fmax(PrevCross - Cross, BUILD_EPSILON);
-								const float T = (PrevCross - std::abs(Along)) / Span;
-
-								const float HitFraction = PrevFraction + (Fraction - PrevFraction) * T;
-								const float HitY = RoofBase + SkirtProfile[Step - 1].y
-									+ (SkirtProfile[Step].y - SkirtProfile[Step - 1].y) * T;
-								Knots.push_back(CoursePoint(HitFraction, HitY));
-							}
-							break;
-						}
-
-						Knots.push_back(CoursePoint(Fraction, RoofBase + SkirtProfile[Step].y));
-					}
-					if (Knots.size() < 2)
-					{
-						continue;
-					}
-
-					SweepSettings Settings;
-					Settings.Contour = TileContour;
-					Settings.bClosedContour = true;
-					Settings.bGenerateCaps = false;
-					Settings.UpReference = Vector3(0, 1, 0);
-
-					SweepResult Sweep;
-					if (BuildSweep(Knots, Settings, Sweep))
-					{
-						Mesh.AddSweep(Sweep, Spec.TileColor);
-					}
-				}
+				BuildTileSkin(
+					Columns, ETileSkinLoop::Open, ETileEaves::AtStart, Spec.TileColor, Mesh);
 			}
 		}
 
@@ -1282,44 +1451,41 @@ namespace
 				const Vector3 C(HalfWidthBreak, TierBase + High.y, float(Sign) * High.x);
 				const Vector3 D(-HalfWidthBreak, TierBase + High.y, float(Sign) * High.x);
 
-				Mesh.AddQuadOriented(
-					A, B, C, D, Vector3(0.0f, 1.0f, float(Sign)).normalized(), Spec.TileColor * 0.7f);
+				// The tier's lower edge lands on the skirt below it, so there is no open eave to cap.
+				AddRoofPanel(
+					Mesh, A, B, C, D,
+					Vector3(0.0f, 1.0f, float(Sign)).normalized(),
+					Thickness, ERoofPanelEdges::None, BoardColor, SoffitColor);
 			}
 
 			const int32_t Courses = std::max(
 				int32_t(HalfWidthBreak * 2.0f / std::fmax(Spec.TileCourseWidth, 0.05f)), 1);
-			const float Spacing = HalfWidthBreak * 2.0f / float(Courses);
-			const std::vector<Vector2> TileContour = MakeTileContour(Spacing * 0.92f, Spec.Module * 0.07f);
+			const float Pitch = HalfWidthBreak * 2.0f / float(Courses);
 			const size_t KeepFrom = size_t(std::floor(
 				float(TierProfile.size() - 1) * (1.0f - std::fmin(std::fmax(Spec.TileCoverage, 0.0f), 1.0f))));
 
-			for (int32_t Course = 0; Course < Courses; ++Course)
-			{
-				const float X = -HalfWidthBreak + Spacing * (float(Course) + 0.5f);
-
-				std::vector<Vector3> Knots;
-				for (size_t Index = KeepFrom; Index < TierProfile.size(); ++Index)
+			std::vector<TileSkinColumn> Columns;
+			LayTileCourses(
+				-HalfWidthBreak,
+				Pitch,
+				Courses,
+				[&TierProfile, TierBase, Sign, KeepFrom](float X) -> std::vector<Vector3>
 				{
-					Knots.push_back(Vector3(
-						X, TierBase + TierProfile[Index].y, float(Sign) * TierProfile[Index].x));
-				}
-				if (Knots.size() < 2)
-				{
-					continue;
-				}
+					std::vector<Vector3> Points;
+					Points.reserve(TierProfile.size() - KeepFrom);
+					for (size_t Index = KeepFrom; Index < TierProfile.size(); ++Index)
+					{
+						Points.push_back(Vector3(
+							X, TierBase + TierProfile[Index].y, float(Sign) * TierProfile[Index].x));
+					}
 
-				SweepSettings Settings;
-				Settings.Contour = TileContour;
-				Settings.bClosedContour = true;
-				Settings.bGenerateCaps = false;
-				Settings.UpReference = Vector3(0, 1, 0);
+					return Points;
+				},
+				Columns);
 
-				SweepResult Sweep;
-				if (BuildSweep(Knots, Settings, Sweep))
-				{
-					Mesh.AddSweep(Sweep, Spec.TileColor);
-				}
-			}
+			// The tier's lower edge is the 收山 break sitting on the skirt below it, closed by a
+			// 博脊 — not an eave, so it gets no 瓦当 or 滴水.
+			BuildTileSkin(Columns, ETileSkinLoop::Open, ETileEaves::None, Spec.TileColor, Mesh);
 		}
 
 		// 山花, the vertical tympanum closing each end of the tier. Only 歇山 has one.
@@ -1448,19 +1614,22 @@ namespace
 			}
 		}
 
-		// 滴水 drip course all the way round the flipped eave. Closing the loop is what makes
-		// the last corner miter against the first side rather than leaving a butt end.
+		// 连檐 board all the way round the flipped eave, tucked under the eave tiles. Closing the
+		// loop is what makes the last corner miter against the first side rather than butt-ending.
 		{
-			const std::vector<Vector2> Plan = BuildRing(HalfWidthEave, HalfDepthEave);
+			// Inset and dropped rather than sitting on the eave line, where at full size it used to
+			// stand in front of the tile ends and hide every 瓦当 and 滴水 behind it.
+			const float Back = Spec.Module * 0.26f;
+			const std::vector<Vector2> Plan = BuildRing(HalfWidthEave - Back, HalfDepthEave - Back);
 			std::vector<Vector3> Knots;
 			for (const Vector2& Point : Plan)
 			{
-				Knots.push_back(Flip.Apply(Vector3(Point.x, RoofBase, Point.y)));
+				Knots.push_back(Flip.Apply(Vector3(Point.x, RoofBase - Spec.Module * 0.20f, Point.y)));
 			}
 			Knots.push_back(Knots.front());
 
 			SweepSettings Settings;
-			Settings.Contour = MakeEaveContour(Spec.Module * 1.1f * Spec.RidgeScale);
+			Settings.Contour = MakeEaveContour(EaveBoardScale(Spec));
 			Settings.bClosedContour = true;
 			Settings.bGenerateCaps = false;
 
@@ -1506,7 +1675,11 @@ namespace
 			Profile.push_back(Vector2(-(Slope[Index].x + Roll), Slope[Index].y));
 		}
 
-		// Boarding.
+		// Boarding. The profile runs eave to eave over the roll, so both ends are open edges.
+		const float Thickness = GetBoardThickness(Spec);
+		const Color BoardColor = Spec.TileColor * 0.7f;
+		const Color SoffitColor = Spec.TimberColor * 1.15f;
+
 		for (size_t Index = 0; Index + 1 < Profile.size(); ++Index)
 		{
 			const Vector2& From = Profile[Index];
@@ -1519,35 +1692,46 @@ namespace
 
 			// Outward is up and away from the centreline, which flips sign over the roll.
 			const Vector3 Outward = Vector3(0.0f, 1.0f, (From.x + To.x) * 0.5f).normalized();
-			Mesh.AddQuadOriented(A, B, C, D, Outward, Spec.TileColor * 0.7f);
+
+			ERoofPanelEdges Edges = ERoofPanelEdges::None;
+			if (Index == 0)
+			{
+				Edges = Edges | ERoofPanelEdges::Lower;
+			}
+			if (Index + 2 == Profile.size())
+			{
+				Edges = Edges | ERoofPanelEdges::Upper;
+			}
+
+			AddRoofPanel(Mesh, A, B, C, D, Outward, Thickness, Edges, BoardColor, SoffitColor);
 		}
 
-		// Tile courses running the full span, eave to eave.
-		const int32_t Courses = std::max(int32_t(HalfWidth * 2.0f / std::fmax(Spec.TileCourseWidth, 0.05f)), 1);
-		const float Spacing = HalfWidth * 2.0f / float(Courses);
-		const std::vector<Vector2> TileContour = MakeTileContour(Spacing * 0.92f, Spec.Module * 0.07f);
-
-		for (int32_t Course = 0; Course < Courses; ++Course)
+		// Tile skin running the full span, eave to eave over the roll.
 		{
-			const float X = -HalfWidth + Spacing * (float(Course) + 0.5f);
+			const int32_t Courses = std::max(int32_t(HalfWidth * 2.0f / std::fmax(Spec.TileCourseWidth, 0.05f)), 1);
+			const float Pitch = HalfWidth * 2.0f / float(Courses);
 
-			std::vector<Vector3> Knots;
-			for (const Vector2& Step : Profile)
-			{
-				Knots.push_back(Vector3(X, RoofBase + Step.y, Step.x));
-			}
+			std::vector<TileSkinColumn> Columns;
+			LayTileCourses(
+				-HalfWidth,
+				Pitch,
+				Courses,
+				[&Profile, RoofBase](float X) -> std::vector<Vector3>
+				{
+					std::vector<Vector3> Points;
+					Points.reserve(Profile.size());
+					for (const Vector2& Step : Profile)
+					{
+						Points.push_back(Vector3(X, RoofBase + Step.y, Step.x));
+					}
 
-			SweepSettings Settings;
-			Settings.Contour = TileContour;
-			Settings.bClosedContour = true;
-			Settings.bGenerateCaps = false;
-			Settings.UpReference = Vector3(0, 1, 0);
+					return Points;
+				},
+				Columns);
 
-			SweepResult Sweep;
-			if (BuildSweep(Knots, Settings, Sweep))
-			{
-				Mesh.AddSweep(Sweep, Spec.TileColor);
-			}
+			// 卷棚's profile runs eave to eave over the roll, so both ends want dressing.
+			BuildTileSkin(
+				Columns, ETileSkinLoop::Open, ETileEaves::AtBothEnds, Spec.TileColor, Mesh);
 		}
 
 		// 垂脊 along both gable edges, following the whole rolled profile.
@@ -1571,15 +1755,17 @@ namespace
 			}
 		}
 
-		// Eave drip on both sides.
+		// 连檐 board on both sides, tucked under the eave tiles.
 		for (int32_t Sign = -1; Sign <= 1; Sign += 2)
 		{
 			std::vector<Vector3> Knots;
-			Knots.push_back(Vector3(-HalfWidth, RoofBase, float(Sign) * HalfSpan));
-			Knots.push_back(Vector3(HalfWidth, RoofBase, float(Sign) * HalfSpan));
+			Knots.push_back(TuckedEaveKnot(
+				Spec, Vector3(-HalfWidth, RoofBase, float(Sign) * HalfSpan), float(Sign), 0.0f));
+			Knots.push_back(TuckedEaveKnot(
+				Spec, Vector3(HalfWidth, RoofBase, float(Sign) * HalfSpan), float(Sign), 0.0f));
 
 			SweepSettings Settings;
-			Settings.Contour = MakeEaveContour(Spec.Module * 1.1f * Spec.RidgeScale);
+			Settings.Contour = MakeEaveContour(EaveBoardScale(Spec));
 			Settings.bClosedContour = true;
 
 			SweepResult Sweep;

@@ -129,12 +129,27 @@ namespace BuildingGen
 		/** Corners in order; wound so the side facing the computed normal is the front face. */
 		void AddQuad(const Vector3& A, const Vector3& B, const Vector3& C, const Vector3& D, const Color& Tint);
 		void AddBox(const Vector3& Centre, const Vector3& HalfExtents, const Color& Tint);
-		/** Convex polygon, fan-triangulated, with an explicit normal. */
+		/**
+		 * Polygon, fan-triangulated, with an explicit normal.
+		 *
+		 * Each fan triangle is wound against that normal on its own, so a mildly non-convex outline
+		 * such as 山花 — whose 举架 sides cave in — does not lose the half of itself that lies past
+		 * the fan's turning point. The outline must still be star-shaped about Points[0].
+		 */
 		void AddPolygon(const std::vector<Vector3>& Points, const Vector3& Normal, const Color& Tint);
 		/** Quad wound so its front face points along DesiredNormal. */
 		void AddQuadOriented(
 			const Vector3& A, const Vector3& B, const Vector3& C, const Vector3& D,
 			const Vector3& DesiredNormal, const Color& Tint);
+		/**
+		 * Quad with a normal supplied per corner, for surfaces that must shade smoothly across
+		 * their facets — the tile skin's 筒瓦 barrels, which are three quads pretending to be a
+		 * cylinder. Degenerate quads are dropped, which is what makes the skin's crease pairs free.
+		 */
+		void AddQuadSmooth(
+			const Vector3& A, const Vector3& B, const Vector3& C, const Vector3& D,
+			const Vector3& NormalA, const Vector3& NormalB, const Vector3& NormalC, const Vector3& NormalD,
+			const Color& Tint);
 		void AddSweep(const SweepResult& Sweep, const Color& Tint);
 		/** Tapered prism about a vertical axis; used for columns. */
 		void AddColumn(const Vector3& Base, float Height, float BottomRadius, float TopRadius, int32_t Sides, const Color& Tint);
@@ -149,9 +164,61 @@ namespace BuildingGen
 	 * normalised to the spec's roof height — which is what gives the concave Chinese slope.
 	 */
 	std::vector<Vector2> BuildRoofProfile(const BuildingSpec& Spec, float HalfSpan);
-
 	/** As BuildRoofProfile, but normalised to an explicit rise instead of Spec.RoofHeight. */
 	std::vector<Vector2> BuildRoofProfileScaled(const BuildingSpec& Spec, float HalfSpan, float TargetRise);
+
+	/**
+	 * Thickness given to the roof boarding, in world units.
+	 *
+	 * The boarding started life as a zero-thickness single-sided surface, which meant the roof was
+	 * see-through from underneath — you could watch the sky between the rafters, and at grazing
+	 * angles see straight through the near slope into the back of the far one. It also left the
+	 * eave a knife edge. A real roof is a 望板 deck on rafters, so the fix is to give it depth
+	 * rather than to disable backface culling, which would only paper over it and would fight the
+	 * planned NPR shading.
+	 */
+	float GetBoardThickness(const BuildingSpec& Spec);
+
+	/**
+	 * Which open edges of a roof panel need closing between the weather face and the soffit.
+	 *
+	 * Most slopes only have their eave open, but 卷棚's profile runs eave to eave over the roll, so
+	 * its last segment's *upper* edge is an eave too.
+	 */
+	enum class ERoofPanelEdges
+	{
+		None = 0,
+		/** The A-B edge, which is down-slope. */
+		Lower = 1,
+		/** The D-C edge, which is up-slope. */
+		Upper = 2,
+	};
+
+	inline ERoofPanelEdges operator|(ERoofPanelEdges Left, ERoofPanelEdges Right)
+	{
+		return ERoofPanelEdges(int32_t(Left) | int32_t(Right));
+	}
+
+	inline bool HasEdge(ERoofPanelEdges Set, ERoofPanelEdges Edge)
+	{
+		return (int32_t(Set) & int32_t(Edge)) != 0;
+	}
+
+	/**
+	 * Emits a boarding quad together with its 望板 soffit and the rims that close any open edges.
+	 *
+	 * The soffit is the same quad pushed back along the surface normal and wound to face the other
+	 * way. Corners are passed in the same order as AddQuadOriented: A-B along the lower edge,
+	 * D-C along the upper.
+	 */
+	void AddRoofPanel(
+		MeshAccumulator& Mesh,
+		const Vector3& A, const Vector3& B, const Vector3& C, const Vector3& D,
+		const Vector3& Normal,
+		float Thickness,
+		ERoofPanelEdges OpenEdges,
+		const Color& Tint,
+		const Color& SoffitTint);
 
 	/**
 	 * 翼角起翘. Structurally the corner rafter is longer and tilts up, dragging the eave with

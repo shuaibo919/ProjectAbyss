@@ -1,5 +1,7 @@
 #include "AncientBuilding/BuildingBuilder.h"
 
+#include "AncientBuilding/TileSkin.h"
+
 // The centralised roof family (攒尖 / 圆攒尖 / 盔顶) and the polygonal plan it needs.
 //
 // Equation 8 of Hu & Qin 2020 ties the two together: `sides != 4` forces the aspect ratio to 1,
@@ -32,20 +34,6 @@ namespace
 		Contour.push_back(Vector2(0.0f, 0.75f) * Scale);
 		Contour.push_back(Vector2(-0.30f, 0.62f) * Scale);
 		Contour.push_back(Vector2(-0.5f, 0.30f) * Scale);
-
-		return Contour;
-	}
-
-	std::vector<Vector2> MakeTileSection(float Width, float Lift)
-	{
-		const float R = Width * 0.5f;
-		std::vector<Vector2> Contour;
-		const int32_t Steps = 5;
-		for (int32_t Index = 0; Index <= Steps; ++Index)
-		{
-			const float Angle = POLY_PI * float(Index) / float(Steps);
-			Contour.push_back(Vector2(-R * std::cos(Angle), Lift + R * 0.62f * std::sin(Angle)));
-		}
 
 		return Contour;
 	}
@@ -112,6 +100,31 @@ namespace
 		Profile.back() = Vector2(0.0f, 1.0f);
 
 		return Profile;
+	}
+
+	/**
+	 * Where the tile skin stops, as a fraction of the eave apothem.
+	 *
+	 * On a centralised roof every course converges on the apex, so its pitch shrinks with the plan
+	 * radius. Taken all the way in, the barrels end up narrower than a pixel and the whole crown
+	 * shimmers. Real 攒尖 roofs do not tile to a point either: the courses die into the masonry
+	 * base under the 宝顶, which is what BuildFinialBase covers this with.
+	 */
+	const float TILE_APEX_CUTOFF = 0.22f;
+
+	/** 宝顶 base: the drum the converging courses and 垂脊 die into. */
+	void BuildFinialBase(const BuildingSpec& Spec, const Vector3& Apex, float Radius, MeshAccumulator& Mesh)
+	{
+		if (Radius <= 0.0f)
+		{
+			return;
+		}
+
+		// Sunk slightly so its rim overlaps the last ring of tiles rather than meeting it exactly.
+		const float Drop = Radius * 0.35f;
+		Mesh.AddColumn(
+			Apex - Vector3(0.0f, Drop, 0.0f), Drop * 1.45f,
+			Radius, Radius * 0.62f, 12, Spec.RidgeColor);
 	}
 
 	/** 宝顶: a small stack of blocks at the apex, so the converging ridges have something to die into. */
@@ -215,6 +228,10 @@ void BuildingGen::BuildCentralisedRoof(
 		Rings.push_back(RingAt(Step.x, Spec.RoofBase + Step.y * Spec.RoofHeight));
 	}
 
+	const float BoardThickness = GetBoardThickness(Spec);
+	const Color BoardColor = Spec.TileColor * 0.7f;
+	const Color SoffitColor = Spec.TimberColor * 1.15f;
+
 	for (size_t Level = 0; Level + 1 < Rings.size(); ++Level)
 	{
 		const std::vector<Vector3>& Low = Rings[Level];
@@ -236,19 +253,22 @@ void BuildingGen::BuildCentralisedRoof(
 				Normal = -Normal;
 			}
 
-			OutMesh.AddQuadOriented(
-				Low[Index], Low[Next], High[Next], High[Index], Normal, Spec.TileColor * 0.7f);
+			AddRoofPanel(
+				OutMesh,
+				Low[Index], Low[Next], High[Next], High[Index],
+				Normal, BoardThickness,
+				Level == 0 ? ERoofPanelEdges::Lower : ERoofPanelEdges::None,
+				BoardColor, SoffitColor);
 		}
 	}
 
-	// ---- Tile courses running up each facet, from the eave towards the apex ----
+	// ---- Tile skin running up each facet, from the eave towards the apex ----
 	{
 		const std::vector<Vector2> Corners = PlanPolygon(EaveApothem, Sides);
 		const float SideLength = Corners[0].distance_to(Corners[size_t(1 % Sides)]);
 		const int32_t Courses = std::max(
 			int32_t(SideLength / std::fmax(Spec.TileCourseWidth, 0.05f)), 1);
-		const float Spacing = SideLength / float(Courses);
-		const std::vector<Vector2> TileContour = MakeTileSection(Spacing * 0.9f, Spec.Module * 0.07f);
+		const float Pitch = SideLength / float(Courses);
 
 		const size_t KeepFrom = size_t(std::floor(
 			float(Shape.size() - 1) * (1.0f - std::fmin(std::fmax(Spec.TileCoverage, 0.0f), 1.0f))));
@@ -258,38 +278,45 @@ void BuildingGen::BuildCentralisedRoof(
 			const Vector2& From = Corners[size_t(Side)];
 			const Vector2& To = Corners[size_t((Side + 1) % Sides)];
 
-			for (int32_t Course = 0; Course < Courses; ++Course)
-			{
-				// Position across the facet, held constant as the course climbs. Because every
-				// ring is the same polygon scaled about the centre, holding the *fraction* keeps
-				// the course on the facet all the way to the apex — no clipping needed here.
-				const float Fraction = (float(Course) + 0.5f) / float(Courses);
-
-				std::vector<Vector3> Knots;
-				for (size_t Index = KeepFrom; Index < Shape.size(); ++Index)
+			// Position across the facet, held constant as the column climbs. Because every ring is
+			// the same polygon scaled about the centre, holding the *fraction* keeps the column on
+			// the facet all the way to the apex — no clipping needed here, and the courses converge
+			// on the finial the way a real 攒尖 roof's do.
+			std::vector<TileSkinColumn> Columns;
+			LayTileCourses(
+				0.0f,
+				Pitch,
+				Courses,
+				[&Shape, &From, &To, &Flip, &Spec, SideLength, KeepFrom](float Across) -> std::vector<Vector3>
 				{
-					const Vector2& Step = Shape[Index];
-					const Vector2 Plan = (From + (To - From) * Fraction) * Step.x;
-					Knots.push_back(Flip.Apply(
-						Vector3(Plan.x, Spec.RoofBase + Step.y * Spec.RoofHeight, Plan.y)));
-				}
-				if (Knots.size() < 2)
-				{
-					continue;
-				}
+					const float Fraction = Across / std::fmax(SideLength, 1e-6f);
 
-				SweepSettings Settings;
-				Settings.Contour = TileContour;
-				Settings.bClosedContour = true;
-				Settings.bGenerateCaps = false;
-				Settings.UpReference = Vector3(0, 1, 0);
+					std::vector<Vector3> Points;
+					Points.reserve(Shape.size() - KeepFrom);
+					for (size_t Index = KeepFrom; Index < Shape.size(); ++Index)
+					{
+						const Vector2& Step = Shape[Index];
+						if (Step.x < TILE_APEX_CUTOFF)
+						{
+							break;
+						}
 
-				SweepResult Sweep;
-				if (BuildSweep(Knots, Settings, Sweep))
-				{
-					OutMesh.AddSweep(Sweep, Spec.TileColor);
-				}
-			}
+						const Vector2 Plan = (From + (To - From) * Fraction) * Step.x;
+						Points.push_back(Flip.Apply(
+							Vector3(Plan.x, Spec.RoofBase + Step.y * Spec.RoofHeight, Plan.y)));
+					}
+
+					return Points;
+				},
+				Columns);
+
+			// Cr below 1 bares the roof from the eave upward, leaving column 0 partway up the facet.
+			BuildTileSkin(
+				Columns,
+				ETileSkinLoop::Open,
+				KeepFrom == 0 ? ETileEaves::AtStart : ETileEaves::None,
+				Spec.TileColor,
+				OutMesh);
 		}
 	}
 
@@ -331,12 +358,16 @@ void BuildingGen::BuildCentralisedRoof(
 		}
 	}
 
+	// 连檐 board round the eave polygon, inset and dropped so it sits under the eave tiles rather
+	// than in front of them.
 	{
-		std::vector<Vector3> Knots = RingAt(1.0f, Spec.RoofBase);
+		const float Back = Spec.Module * 0.26f;
+		const float Inset = 1.0f - Back / std::fmax(EaveApothem, 1e-6f);
+		std::vector<Vector3> Knots = RingAt(Inset, Spec.RoofBase - Spec.Module * 0.20f);
 		Knots.push_back(Knots.front());
 
 		SweepSettings Settings;
-		Settings.Contour = MakeEaveSection(Spec.Module * 1.1f * Spec.RidgeScale);
+		Settings.Contour = MakeEaveSection(Spec.Module * 0.42f * Spec.RidgeScale);
 		Settings.bClosedContour = true;
 		Settings.bGenerateCaps = false;
 
@@ -347,6 +378,7 @@ void BuildingGen::BuildCentralisedRoof(
 		}
 	}
 
+	BuildFinialBase(Spec, Apex, EaveApothem * TILE_APEX_CUTOFF, OutMesh);
 	BuildFinial(Spec, Apex, OutMesh);
 }
 
