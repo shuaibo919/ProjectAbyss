@@ -6,6 +6,7 @@
 #include <functional>
 
 #include <godot_cpp/core/math.hpp>
+#include <godot_cpp/core/math_funcs_binary.hpp>
 #include <godot_cpp/variant/color.hpp>
 #include <godot_cpp/variant/vector2.hpp>
 #include <godot_cpp/variant/vector2i.hpp>

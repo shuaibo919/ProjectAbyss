@@ -10,7 +10,7 @@ cd /d "%SCRIPT_DIR%"
 set VSLANG=1033
 
 echo Building GDExtension (template_debug, x86_64)...
-python run_scons.py %*
+uv run run_scons.py %*
 
 if %ERRORLEVEL% neq 0 (
     echo.
