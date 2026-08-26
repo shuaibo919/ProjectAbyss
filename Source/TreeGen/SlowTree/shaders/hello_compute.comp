@@ -1,0 +1,34 @@
+#version 450
+
+// Hello-compute probe: proves the fork's D3D12 RenderingDevice can round-trip a
+// compute dispatch end to end (SPIR-V -> pipeline -> dispatch -> readback) before
+// any real tree tessellation is built on it.
+//
+// One thread per element: dst[i] = src[i] * 2.0 + 1.0.
+// Multiply-by-two and add-one are bit-exact IEEE-754 operations, so the host can
+// verify the readback bit-for-bit — any mismatch means a real pipeline problem,
+// not floating-point noise.
+//
+// Rebuilt with: Tools/build_slowtree_shaders.ps1 (checked-in hello_compute.spv.h).
+
+layout(local_size_x = 64, local_size_y = 1, local_size_z = 1) in;
+
+layout(std430, set = 0, binding = 0) readonly buffer SrcBuffer {
+	float values[];
+} src_buffer;
+
+layout(std430, set = 0, binding = 1) buffer DstBuffer {
+	float values[];
+} dst_buffer;
+
+layout(std430, set = 0, binding = 2) readonly buffer ParamsBuffer {
+	uint element_count;
+} params_buffer;
+
+void main() {
+	uint index = gl_GlobalInvocationID.x;
+	if (index >= params_buffer.element_count) {
+		return;
+	}
+	dst_buffer.values[index] = src_buffer.values[index] * 2.0 + 1.0;
+}

@@ -25,7 +25,8 @@ env['ENV']['VSLANG'] = '1033'
 env.Append(CPPPATH=["Source/"])
 
 # Collects all .cpp files in the 'Source' folder as compile targets.
-sources = Glob("Source/*.cpp") + Glob("Source/*/*.cpp")
+# The third glob covers Source/TreeGen/SlowTree/ (vendored generator core).
+sources = Glob("Source/*.cpp") + Glob("Source/*/*.cpp") + Glob("Source/*/*/*.cpp")
 
 # The filename for the dynamic library for this GDExtension.
 # $SHLIBPREFIX is a platform specific prefix for the dynamic library ('lib' on Unix, '' on Windows).

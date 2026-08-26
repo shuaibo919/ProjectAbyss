@@ -41,6 +41,38 @@ void ProceduralTree::_bind_methods()
 		PropertyInfo(Variant::OBJECT, "parameters", PROPERTY_HINT_RESOURCE_TYPE, "ProceduralTreeParameters"),
 		"set_parameters", "get_parameters");
 
+	// 双后端选择 + SlowTree 预设 id。slowtree_preset 的枚举提示由预设表动态拼接。
+	// (嵌套枚举无法走 BIND_ENUM_CONSTANT 的 GetTypeInfo 路径, 用显式常量绑定。)
+	ClassDB::bind_integer_constant(
+		get_class_static(), StringName("ProceduralTreeBackend"), StringName("BACKEND_WEBER_PENN"),
+		int64_t(BACKEND_WEBER_PENN));
+	ClassDB::bind_integer_constant(
+		get_class_static(), StringName("ProceduralTreeBackend"), StringName("BACKEND_SLOWTREE"),
+		int64_t(BACKEND_SLOWTREE));
+
+	ClassDB::bind_method(D_METHOD("set_backend", "value"), &ProceduralTree::SetBackend);
+	ClassDB::bind_method(D_METHOD("get_backend"), &ProceduralTree::GetBackend);
+	ADD_PROPERTY(
+		PropertyInfo(Variant::INT, "backend", PROPERTY_HINT_ENUM, "Weber-Penn (HPG 2025),SlowTree"),
+		"set_backend", "get_backend");
+
+	ClassDB::bind_method(D_METHOD("set_slowtree_preset", "value"), &ProceduralTree::SetSlowTreePreset);
+	ClassDB::bind_method(D_METHOD("get_slowtree_preset"), &ProceduralTree::GetSlowTreePreset);
+	{
+		String PresetHint;
+		for (int32_t i = 0; i < SlowTreeGenerator::GetPresetCount(); ++i)
+		{
+			if (i > 0)
+			{
+				PresetHint += ",";
+			}
+			PresetHint += SlowTreeGenerator::GetPresetName(i);
+		}
+		ADD_PROPERTY(
+			PropertyInfo(Variant::INT, "slowtree_preset", PROPERTY_HINT_ENUM, PresetHint),
+			"set_slowtree_preset", "get_slowtree_preset");
+	}
+
 	TREE_BIND_RANGE(Variant::INT, "seed", Seed, "0,65535,1,or_greater")
 	TREE_BIND_RANGE(Variant::FLOAT, "season", Season, "0,4,0.01")
 	TREE_BIND_RANGE(Variant::FLOAT, "wind_strength", WindStrength, "0,20,0.01")
@@ -267,6 +299,12 @@ void ProceduralTree::CollectTreeParams(TreeGen::TreeParams& OutParams) const
 
 void ProceduralTree::Generate()
 {
+	if (Backend == BACKEND_SLOWTREE)
+	{
+		GenerateSlowTree();
+		return;
+	}
+
 	EnsureParameters();
 	EnsureMaterials();
 
@@ -348,6 +386,38 @@ void ProceduralTree::Generate()
 	}
 }
 
+void ProceduralTree::GenerateSlowTree()
+{
+	const int32_t PresetCount = SlowTreeGenerator::GetPresetCount();
+	const int32_t Preset = std::clamp(SlowTreePreset, 0, std::max(0, PresetCount - 1));
+
+	const Dictionary Result = SlowTreeGenerator::Generate(Preset, int64_t(Seed));
+	const String Error = Result["error"];
+	if (!Error.is_empty())
+	{
+		UtilityFunctions::push_warning(
+			"ProceduralTree '", get_name(), "' SlowTree generation failed: ", Error);
+		return;
+	}
+
+	const Ref<ArrayMesh> Mesh = Result["mesh"];
+	set_mesh(Mesh);
+
+	// 统计映射: SlowTree 没有段/叶独立计数, surface 数最有意义; 叶数为 0(Stage 2/3 可补)。
+	LastVertexCount = int32_t(Result["vertex_count"]);
+	LastTriangleCount = int32_t(Result["triangle_count"]);
+	LastSegmentCount = int32_t(Result["surface_count"]);
+	LastLeafCount = 0;
+	bLastResultTruncated = bool(Result["truncated"]);
+
+	if (bLastResultTruncated)
+	{
+		UtilityFunctions::push_warning(
+			"ProceduralTree '", get_name(), "' SlowTree generation hit the vertex budget "
+			"and was truncated. Reduce the preset's leaf/spine counts.");
+	}
+}
+
 Ref<ArrayMesh> ProceduralTree::BakeMesh()
 {
 	Generate();
@@ -396,6 +466,13 @@ void ProceduralTree::SetParameters(const Ref<ProceduralTreeParameters>& Value)
 
 void ProceduralTree::ApplyPreset(int32_t Preset)
 {
+	// SlowTree 后端下 apply_preset 落在 SlowTree 预设 id 上(Weber 参数面板此时无效)。
+	if (Backend == BACKEND_SLOWTREE)
+	{
+		SetSlowTreePreset(Preset);
+		return;
+	}
+
 	EnsureParameters();
 	// ApplyPreset emits `changed`, which regenerates through OnParametersChanged().
 	Parameters->ApplyPreset(Preset);
@@ -409,6 +486,8 @@ void ProceduralTree::ApplyPreset(int32_t Preset)
 	}
 
 TREE_DEFINE_SETTER(int32_t, Seed, Seed, Value)
+TREE_DEFINE_SETTER(int32_t, Backend, Backend, TreeGen::ClampInt(Value, 0, 1))
+TREE_DEFINE_SETTER(int32_t, SlowTreePreset, SlowTreePreset, TreeGen::ClampInt(Value, 0, std::max(0, SlowTreeGenerator::GetPresetCount() - 1)))
 TREE_DEFINE_SETTER(float, Season, Season, TreeGen::Clamp(Value, 0.0f, 4.0f))
 TREE_DEFINE_SETTER(float, WindStrength, WindStrength, std::fmax(0.0f, Value))
 TREE_DEFINE_SETTER(float, WindTime, WindTime, Value)

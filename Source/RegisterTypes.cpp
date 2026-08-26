@@ -14,6 +14,10 @@
 #include "TreeGen/ProceduralTree.h"
 #include "TreeGen/ProceduralTreeEditorPlugin.h"
 #include "TreeGen/ProceduralTreeParameters.h"
+// SlowTree integration (SpeedTree-style generator + compute-shader pipeline)
+#include "TreeGen/SlowTree/SlowTreeCompute.h"
+#include "TreeGen/SlowTree/SlowTreeGenerator.h"
+#include "TreeGen/SlowTree/SlowTreeSelfTest.h"
 // Ancient Chinese architecture (port of Hu & Qin 2020 — see Docs/AncientBuilding_Spec.md)
 #include "AncientBuilding/AncientBuilding.h"
 #include "AncientBuilding/AncientBuildingEditorPlugin.h"
@@ -68,6 +72,10 @@ void initialize_abyss_module(ModuleInitializationLevel p_level) {
 	GDREGISTER_CLASS(ProceduralTreeFruitParameters);
 	GDREGISTER_CLASS(ProceduralTreeParameters);
 	GDREGISTER_CLASS(ProceduralTree);
+
+	GDREGISTER_CLASS(SlowTreeCompute);
+	GDREGISTER_CLASS(SlowTreeGenerator);
+	GDREGISTER_CLASS(SlowTreeSelfTest);
 
 	GDREGISTER_CLASS(AncientSplineSweep);
 	GDREGISTER_CLASS(AncientBuildingParameters);

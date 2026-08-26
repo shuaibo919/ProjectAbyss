@@ -39,6 +39,13 @@ namespace godot
 		SpinBox* RadialSpin = nullptr;
 		CheckBox* BarkDetailCheck = nullptr;
 
+		// 双后端控件: Backend 下拉 + SlowTree 预设下拉; Weber 专属控件分组按后端显隐。
+		OptionButton* BackendPicker = nullptr;
+		OptionButton* SlowTreePresetPicker = nullptr;
+		Label* SlowTreePresetCaption = nullptr;
+		VBoxContainer* WeberSpeciesBox = nullptr;
+		VBoxContainer* WeberTuningBox = nullptr;
+
 		/** The tree currently being edited, or null. Only touched through ResolveTree(). */
 		ObjectID EditedTreeId;
 
@@ -61,12 +68,17 @@ namespace godot
 		void OnApplyToSelectedPressed();
 		void OnRegeneratePressed();
 		void OnRandomizeSeedPressed();
+		void OnBackendChanged(int64_t Index);
+		void OnSlowTreePresetChanged(int64_t Index);
 		void OnSeedChanged(double Value);
 		void OnSeasonChanged(double Value);
 		void OnWindChanged(double Value);
 		void OnDensityChanged(double Value);
 		void OnRadialChanged(double Value);
 		void OnBarkDetailToggled(bool bPressed);
+
+		/** Tool menu: runs the SlowTree hello-compute probe and prints the report. */
+		void OnHelloComputeProbePressed();
 
 		/** Adds a labelled row so the sliders read as more than bare tracks. */
 		HSlider* AddSliderRow(VBoxContainer* Parent, const String& Text, double Min, double Max, double Step);

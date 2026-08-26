@@ -7,6 +7,7 @@
 // StandardMaterial3D consumes as albedo.
 
 #include "TreeGen/ProceduralTreeParameters.h"
+#include "TreeGen/SlowTree/SlowTreeGenerator.h"
 #include "TreeGen/TreeMeshBuilder.h"
 
 #include <godot_cpp/classes/mesh_instance3d.hpp>
@@ -18,9 +19,21 @@ namespace godot
 	{
 		GDCLASS(ProceduralTree, MeshInstance3D)
 
+	public:
+		// 双后端(开发期共存): Weber-Penn 保持默认直至 SlowTree 预设达标(Stage 4 切换)。
+		enum ProceduralTreeBackend
+		{
+			BACKEND_WEBER_PENN = 0,
+			BACKEND_SLOWTREE = 1,
+		};
+
 	private:
 		Ref<ProceduralTreeParameters> Parameters;
 		int32_t Seed = 0;
+
+		// SlowTree 后端: 预设模板 id + 全局种子(0 = 模板原样, 非 0 = Mix32 派生变种)。
+		int32_t Backend = BACKEND_WEBER_PENN;
+		int32_t SlowTreePreset = 0;
 
 		float Season = 2.0f;
 		float WindStrength = 0.0f;
@@ -57,6 +70,9 @@ namespace godot
 		void OnParametersChanged();
 		void RequestRegenerate();
 
+		/** SlowTree 后端生成路径: 预设模板 → 全局种子派生 → facade → set_mesh + 统计。 */
+		void GenerateSlowTree();
+
 		/** Fills the plain-C++ parameter snapshot the generator works on. */
 		void CollectTreeParams(TreeGen::TreeParams& OutParams) const;
 
@@ -89,6 +105,14 @@ namespace godot
 
 		void SetSeed(int32_t Value);
 		int32_t GetSeed() const { return Seed; }
+
+		/** 生成后端: BACKEND_WEBER_PENN(默认) / BACKEND_SLOWTREE。切换立即重建。 */
+		void SetBackend(int32_t Value);
+		int32_t GetBackend() const { return Backend; }
+
+		/** SlowTree 预设模板 id(0..GetPresetCount()-1)。仅 SlowTree 后端生效。 */
+		void SetSlowTreePreset(int32_t Value);
+		int32_t GetSlowTreePreset() const { return SlowTreePreset; }
 
 		void SetSeason(float Value);
 		float GetSeason() const { return Season; }
