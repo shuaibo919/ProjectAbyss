@@ -34,6 +34,8 @@ namespace godot
 		// SlowTree 后端: 预设模板 id + 全局种子(0 = 模板原样, 非 0 = Mix32 派生变种)。
 		int32_t Backend = BACKEND_WEBER_PENN;
 		int32_t SlowTreePreset = 0;
+		// Stage 2: 细分走 compute 管线(默认关, 与 CPU 路径输出等价; 大数据量下更快)。
+		bool bUseGpuTessellation = false;
 
 		float Season = 2.0f;
 		float WindStrength = 0.0f;
@@ -113,6 +115,10 @@ namespace godot
 		/** SlowTree 预设模板 id(0..GetPresetCount()-1)。仅 SlowTree 后端生效。 */
 		void SetSlowTreePreset(int32_t Value);
 		int32_t GetSlowTreePreset() const { return SlowTreePreset; }
+
+		/** SlowTree 细分是否走 GPU compute 管线(仅 SlowTree 后端生效)。 */
+		void SetUseGpuTessellation(bool bValue);
+		bool ShouldUseGpuTessellation() const { return bUseGpuTessellation; }
 
 		void SetSeason(float Value);
 		float GetSeason() const { return Season; }

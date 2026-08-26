@@ -167,6 +167,13 @@ void TreeGenerator::appendCylinder(MeshBatch& batch,
         float vTop = ((vAccum + segLen) / totalLen) * uvTilingV;
         vAccum += segLen;
 
+        if (m_gpuEmit) {
+            // Stage 2 GPU: 发射段描述子, 顶点/索引展开交给 cylinder.comp。
+            emitGpuBranchSeg(batch, bot, top, (int)ri, (int)rings.size() - 1,
+                             vBot, vTop, uTiling, sides);
+            continue;
+        }
+
         // 每个顶点: pos(3)+normal(3)+uv(2)+wind(2) = 10 floats
         uint32_t base = (uint32_t)(batch.vertices.size() / 10);
         int lastRing = (int)rings.size() - 1;
@@ -247,6 +254,15 @@ void TreeGenerator::appendCollar(MeshBatch& batch,
     };
 
     auto smooth = [](float x){ x = std::clamp(x, 0.0f, 1.0f); return x*x*(3.0f-2.0f*x); };
+
+    if (m_gpuEmit) {
+        // Stage 2 GPU: 发射裙边描述子(landingAt 的环采样在 collar.comp 内复现)。
+        // 注意: 传递的是归一化后的 A/up, 着色器不再二次归一化(避免除自身长度引入噪声)。
+        emitGpuCollar(batch, parentC, A, parentR, childBase, up, childRight,
+                      startR, flareMax, upperSpread, lowerSpread,
+                      landingR, uTiling, vPerUnit, collarSink, sides, trunkRings);
+        return;
+    }
 
     int rv = sides + 1;
     uint32_t base = (uint32_t)(batch.vertices.size() / 10);
@@ -1088,6 +1104,14 @@ void TreeGenerator::buildLeafCluster(
         // 每顶点: pos(3)+normal(3)+uv(2)+albedo(3)+wind(2)+anchor(3) = 16 floats
         // 叶片绕 basePos(附着点)整体摆动, 每片叶相位错开(i*2.4)
         float leafPhase = m_windPhase + (float)i * 2.4f;
+
+        if (m_gpuEmit) {
+            // Stage 2 GPU: 发射叶卡描述子, quad/轮廓展开交给 leaf_card.comp。
+            emitGpuLeafCard(batch, node, pos, leafRight, leafUp, leafNormal, basePos,
+                            hs, hw, leafPhase, col);
+            continue;
+        }
+
         size_t hlV = batch.vertices.size(), hlI = batch.indices.size();
         uint32_t base = (uint32_t)(batch.vertices.size() / 16);
 
@@ -1265,6 +1289,21 @@ void TreeGenerator::buildFrond(
     // 逐 ring 生成一排横向顶点(共 rings.size() 行 × totalCols 列)
     godot::Vector3 frondAnchor = rings.front().center;   // 叶带整体绕基部摆动
 
+    if (m_gpuEmit) {
+        // Stage 2 GPU: 发射叶带描述子(网格铺带/轮廓裁剪同一描述子, 模式由
+        // pointCount 区分), 顶点/索引展开交给 frond.comp。
+        const bool cutout = p.useCutout && p.cutoutPoints.size() >= 3 && p.cutoutTris.size() >= 3;
+        uint32_t pointOff = 0, triOff = 0, pointCount = 0, triCount = 0;
+        if (cutout) {
+            gpuCutoutPool(&p.cutoutPoints, &p.cutoutTris, pointOff, triOff);
+            pointCount = (uint32_t)p.cutoutPoints.size();
+            triCount   = (uint32_t)p.cutoutTris.size();
+        }
+        emitGpuFrond(batch, node, rings, frondAnchor, col, nSeg, totalCols,
+                     pointOff, triOff, triCount, pointCount);
+        return;
+    }
+
     // 叶带曲面采样: (u,v)∈[0,1] → 世界坐标+法线。u=横向 lateral, v=沿脊线 t。
     // 供轮廓网格(cutout)按叶带局部 UV 映射到实际曲面。
     auto sampleFrond = [&](float u, float v, godot::Vector3& outPos, godot::Vector3& outN) {
@@ -1359,4 +1398,212 @@ void TreeGenerator::buildFrond(
         }
     }
     afterAppend(batch, hlV, hlI);
+}
+
+// ================= Stage 2 GPU 描述子发射 =================
+// 四个 emit 位点的 GPU 变体: 参数是 CPU 位点算好的中间值(共享原算法),
+// 按 SlowTreeGpuData.h 的布局写入扁平 float 描述子。只有环角 cos/sin、
+// 叶形 sin/pow 等三角与幂函数留在 GPU 侧(容差 ε=1e-4, 见自检)。
+//
+// firstVertex 为"顶点单位"(着色器乘 stride 10/16 得 float 偏移),
+// firstIdx 为 uint32 索引偏移; 两者都来自发射时刻的全局计数,
+// 与 CPU 路径在同一批次内的插入顺序一致(读回按 chunk 拼回 batch)。
+
+void TreeGenerator::EnableGpuEmission(godot::TreeGpuEmission* emission) {
+    m_gpu     = emission;
+    m_gpuEmit = (emission != nullptr);
+    m_gpuVerts = 0;
+    m_gpuIdx   = 0;
+    m_gpuVerts10 = 0;
+    m_gpuVerts16 = 0;
+    m_gpuCutoutPool.clear();
+}
+
+int TreeGenerator::gpuBatchFor(MeshBatch& batch) {
+    const int idx = (int)(&batch - m_out->batches.data());
+    const size_t want = (size_t)(idx + 1);
+    if (m_gpu->BranchDescs.size() < want) m_gpu->BranchDescs.resize(want);
+    if (m_gpu->CollarDescs.size() < want) m_gpu->CollarDescs.resize(want);
+    if (m_gpu->LeafDescs.size()   < want) m_gpu->LeafDescs.resize(want);
+    if (m_gpu->FrondDescs.size()  < want) m_gpu->FrondDescs.resize(want);
+    return idx;
+}
+
+void TreeGenerator::gpuCommit(int batchIdx, uint64_t firstVertex, uint64_t vertFloats, uint64_t idxCount) {
+    if (vertFloats > 0 || idxCount > 0) {
+        m_gpu->Chunks.push_back({(uint32_t)batchIdx, m_gpuVerts, vertFloats, firstVertex, m_gpuIdx, idxCount});
+    }
+    m_gpuVerts += vertFloats;
+    m_gpuIdx += idxCount;
+    m_gpu->VertFloats = m_gpuVerts;
+    m_gpu->IndexCount = m_gpuIdx;
+}
+
+uint32_t TreeGenerator::gpuRingPoolOffset(const std::vector<BranchRing>* rings) {
+    // 不去重: 兄弟节点的局部 rings 向量会复用同一栈地址, 指针去重会把当前环列
+    // 错配到已销毁的旧环列。环数据量小(12 floats/环), 直接追加。
+    const uint32_t off = (uint32_t)(m_gpu->Rings.size() / godot::GPU_RING_ENTRY_FLOATS);
+    for (const BranchRing& r : *rings) {
+        // 与着色器 RingEntry(vec4 centerRadius; vec4 right; vec4 up) 逐字段对齐:
+        // 12 floats/环(std430 下 3×vec4), 尾部各补 0 占位。
+        m_gpu->Rings.insert(m_gpu->Rings.end(),
+            {r.center.x, r.center.y, r.center.z, r.radius,
+             r.right.x, r.right.y, r.right.z, 0.0f,
+             r.up.x, r.up.y, r.up.z, 0.0f});
+    }
+    return off;
+}
+
+void TreeGenerator::gpuCutoutPool(const std::vector<godot::Vector2>* points,
+                                  const std::vector<uint32_t>* tris,
+                                  uint32_t& outPointOff, uint32_t& outTriOff) {
+    auto it = m_gpuCutoutPool.find(points);
+    if (it != m_gpuCutoutPool.end()) {
+        outPointOff = it->second.first;
+        outTriOff   = it->second.second;
+        return;
+    }
+    outPointOff = (uint32_t)(m_gpu->CutoutPoints.size() / godot::GPU_CUTOUT_POINT_FLOATS);
+    for (const godot::Vector2& q : *points)
+        m_gpu->CutoutPoints.insert(m_gpu->CutoutPoints.end(), {q.x, q.y});
+    outTriOff = (uint32_t)m_gpu->CutoutTris.size();
+    m_gpu->CutoutTris.insert(m_gpu->CutoutTris.end(), tris->begin(), tris->end());
+    m_gpuCutoutPool.emplace(points, std::make_pair(outPointOff, outTriOff));
+}
+
+uint32_t TreeGenerator::CountCutoutTris(const std::vector<uint32_t>& tris, uint32_t vCount) {
+    uint32_t n = 0;
+    for (size_t k = 0; k + 2 < tris.size(); k += 3) {
+        const uint32_t a = tris[k], b = tris[k+1], c = tris[k+2];
+        if (a < vCount && b < vCount && c < vCount) ++n;
+    }
+    return n;
+}
+
+void TreeGenerator::emitGpuBranchSeg(MeshBatch& batch, const BranchRing& bot, const BranchRing& top,
+                                     int ringIdx, int lastRing, float vBot, float vTop,
+                                     float uTiling, int sides) {
+    const int batchIdx = gpuBatchFor(batch);
+    // firstVertexFloats = 全局 float 缓冲写偏移; firstVertexUnits = 分支顶点单位
+    // (索引基)。两者不能互相推导: 全局缓冲里叶顶点(16 floats)与枝顶点交错。
+    const uint64_t firstVertexFloats = m_gpuVerts;
+    const uint64_t firstVertexUnits  = m_gpuVerts10;
+    const uint64_t firstIdx          = m_gpuIdx;
+    std::vector<float>& d = m_gpu->BranchDescs[batchIdx];
+    const size_t off = d.size();
+    d.resize(off + godot::GPU_BRANCH_SEG_FLOATS);
+    float* f = d.data() + off;
+    f[0]=bot.center.x;  f[1]=bot.center.y;  f[2]=bot.center.z;  f[3]=bot.radius;
+    f[4]=bot.up.x;      f[5]=bot.up.y;      f[6]=bot.up.z;      f[7]=0.0f;
+    f[8]=bot.right.x;   f[9]=bot.right.y;   f[10]=bot.right.z;  f[11]=0.0f;
+    f[12]=top.center.x; f[13]=top.center.y; f[14]=top.center.z; f[15]=top.radius;
+    f[16]=top.up.x;     f[17]=top.up.y;     f[18]=top.up.z;     f[19]=0.0f;
+    f[20]=top.right.x;  f[21]=top.right.y;  f[22]=top.right.z;  f[23]=0.0f;
+    f[24]=vBot; f[25]=vTop; f[26]=uTiling; f[27]=m_windW;
+    f[28]=(float)sides; f[29]=(float)lastRing; f[30]=(float)ringIdx; f[31]=(float)(ringIdx+1);
+    f[32]=m_windPhase; f[33]=(float)firstVertexFloats; f[34]=(float)firstVertexUnits; f[35]=(float)firstIdx;
+    m_gpuVerts10 += (uint64_t)2 * (uint64_t)(sides + 1);
+    gpuCommit(batchIdx, firstVertexUnits, (uint64_t)10 * 2 * (uint64_t)(sides+1), (uint64_t)6 * (uint64_t)sides);
+}
+
+void TreeGenerator::emitGpuCollar(MeshBatch& batch,
+                                  godot::Vector3 parentC, godot::Vector3 parentA, float parentR,
+                                  godot::Vector3 childBase, godot::Vector3 childDir, godot::Vector3 childRight,
+                                  float startR, float flareMax, float upperSpread, float lowerSpread,
+                                  float landingR, float uTiling, float vPerUnit, float collarSink,
+                                  int sides, const std::vector<BranchRing>* trunkRings) {
+    const int batchIdx = gpuBatchFor(batch);
+    uint32_t ringOff = 0, ringCount = 0;
+    if (trunkRings && trunkRings->size() >= 2) {
+        ringOff   = gpuRingPoolOffset(trunkRings);
+        ringCount = (uint32_t)trunkRings->size();
+    }
+    const uint64_t firstVertexFloats = m_gpuVerts;
+    const uint64_t firstVertexUnits  = m_gpuVerts10;
+    const uint64_t firstIdx          = m_gpuIdx;
+    std::vector<float>& d = m_gpu->CollarDescs[batchIdx];
+    const size_t off = d.size();
+    d.resize(off + godot::GPU_COLLAR_FLOATS);
+    float* f = d.data() + off;
+    f[0]=parentC.x;  f[1]=parentC.y;  f[2]=parentC.z;  f[3]=parentR;
+    f[4]=parentA.x;  f[5]=parentA.y;  f[6]=parentA.z;  f[7]=0.0f;
+    f[8]=childBase.x;  f[9]=childBase.y;  f[10]=childBase.z;  f[11]=0.0f;
+    f[12]=childDir.x;  f[13]=childDir.y;  f[14]=childDir.z;  f[15]=0.0f;
+    f[16]=childRight.x; f[17]=childRight.y; f[18]=childRight.z; f[19]=0.0f;
+    f[20]=startR; f[21]=flareMax; f[22]=upperSpread; f[23]=lowerSpread;
+    f[24]=landingR; f[25]=uTiling; f[26]=vPerUnit; f[27]=collarSink;
+    f[28]=(float)sides; f[29]=(float)ringOff; f[30]=(float)ringCount; f[31]=m_windPhase;
+    f[32]=(float)firstVertexFloats; f[33]=(float)firstVertexUnits; f[34]=(float)firstIdx; f[35]=0.0f;
+    constexpr int weldSegs = 4;   // 与 CPU appendCollar 常量一致
+    m_gpuVerts10 += (uint64_t)(weldSegs + 1) * (uint64_t)(sides + 1);
+    gpuCommit(batchIdx, firstVertexUnits, (uint64_t)10 * (uint64_t)(weldSegs+1) * (uint64_t)(sides+1),
+              (uint64_t)6 * (uint64_t)weldSegs * (uint64_t)sides);
+}
+
+void TreeGenerator::emitGpuLeafCard(MeshBatch& batch, const LeafClusterNode* node,
+                                    godot::Vector3 pos, godot::Vector3 leafRight, godot::Vector3 leafUp,
+                                    godot::Vector3 leafNormal, godot::Vector3 basePos,
+                                    float hs, float hw, float leafPhase, godot::Vector3 col) {
+    const auto& p = node->params;
+    const int batchIdx = gpuBatchFor(batch);
+    const bool cutout = p.useCutout && p.cutoutPoints.size() >= 3 && p.cutoutTris.size() >= 3;
+    uint32_t pointOff = 0, triOff = 0, pointCount = 0, triCount = 0;
+    if (cutout) {
+        gpuCutoutPool(&p.cutoutPoints, &p.cutoutTris, pointOff, triOff);
+        pointCount = (uint32_t)p.cutoutPoints.size();
+        triCount   = (uint32_t)p.cutoutTris.size();
+    }
+    const uint64_t firstVertexFloats = m_gpuVerts;
+    const uint64_t firstVertexUnits  = m_gpuVerts16;
+    const uint64_t firstIdx          = m_gpuIdx;
+    std::vector<float>& d = m_gpu->LeafDescs[batchIdx];
+    const size_t off = d.size();
+    d.resize(off + godot::GPU_LEAF_CARD_FLOATS);
+    float* f = d.data() + off;
+    f[0]=pos.x;  f[1]=pos.y;  f[2]=pos.z;  f[3]=0.0f;
+    f[4]=leafRight.x;  f[5]=leafRight.y;  f[6]=leafRight.z;  f[7]=0.0f;
+    f[8]=leafUp.x;     f[9]=leafUp.y;     f[10]=leafUp.z;    f[11]=0.0f;
+    f[12]=leafNormal.x; f[13]=leafNormal.y; f[14]=leafNormal.z; f[15]=0.0f;
+    f[16]=hs; f[17]=hw; f[18]=m_windW; f[19]=leafPhase;
+    f[20]=col.x; f[21]=col.y; f[22]=col.z; f[23]=0.0f;
+    f[24]=basePos.x; f[25]=basePos.y; f[26]=basePos.z; f[27]=0.0f;
+    f[28]=cutout?1.0f:0.0f; f[29]=(float)pointOff; f[30]=(float)triOff; f[31]=(float)triCount;
+    f[32]=(float)pointCount; f[33]=(float)firstVertexFloats; f[34]=(float)firstVertexUnits; f[35]=(float)firstIdx;
+    const uint64_t vertFloats = cutout ? (uint64_t)16 * pointCount : 64;
+    const uint64_t idxCount   = cutout ? CountCutoutTris(p.cutoutTris, pointCount) : 6;
+    m_gpuVerts16 += cutout ? pointCount : 4;
+    gpuCommit(batchIdx, firstVertexUnits, vertFloats, idxCount);
+}
+
+void TreeGenerator::emitGpuFrond(MeshBatch& batch, const FrondNode* node,
+                                 const std::vector<BranchRing>& rings, godot::Vector3 frondAnchor,
+                                 godot::Vector3 col, int nSeg, int totalCols,
+                                 uint32_t pointOff, uint32_t triOff, uint32_t triCount, uint32_t pointCount) {
+    const auto& p = node->params;
+    const int batchIdx = gpuBatchFor(batch);
+    const uint32_t ringOff = gpuRingPoolOffset(&rings);
+    const uint64_t firstVertexFloats = m_gpuVerts;
+    const uint64_t firstVertexUnits  = m_gpuVerts16;
+    const uint64_t firstIdx          = m_gpuIdx;
+    std::vector<float>& d = m_gpu->FrondDescs[batchIdx];
+    const size_t off = d.size();
+    d.resize(off + godot::GPU_FROND_FLOATS);
+    float* f = d.data() + off;
+    f[0]=p.widthBase; f[1]=p.widthTip; f[2]=p.width; f[3]=p.profilePow;
+    f[4]=p.curl; f[5]=p.serrateDepth; f[6]=(p.serrate?1.0f:0.0f); f[7]=0.0f;
+    f[8]=col.x; f[9]=col.y; f[10]=col.z; f[11]=0.0f;
+    f[12]=m_windW; f[13]=m_windPhase; f[14]=0.0f; f[15]=0.0f;
+    f[16]=frondAnchor.x; f[17]=frondAnchor.y; f[18]=frondAnchor.z; f[19]=0.0f;
+    f[20]=(float)ringOff; f[21]=(float)rings.size(); f[22]=(float)nSeg; f[23]=(float)totalCols;
+    f[24]=(float)pointOff; f[25]=(float)triOff; f[26]=(float)triCount; f[27]=(float)pointCount;
+    f[28]=(float)firstVertexFloats; f[29]=(float)firstVertexUnits; f[30]=(float)firstIdx; f[31]=0.0f;
+    const bool cutout = pointCount > 0;
+    const uint64_t vertFloats = cutout
+        ? (uint64_t)16 * pointCount
+        : (uint64_t)16 * rings.size() * (uint64_t)totalCols;
+    const uint64_t idxCount = cutout
+        ? (uint64_t)2 * CountCutoutTris(p.cutoutTris, pointCount)
+        : (uint64_t)12 * (uint64_t)nSeg * (uint64_t)(totalCols-1);
+    m_gpuVerts16 += cutout ? pointCount : rings.size() * (uint64_t)totalCols;
+    gpuCommit(batchIdx, firstVertexUnits, vertFloats, idxCount);
 }

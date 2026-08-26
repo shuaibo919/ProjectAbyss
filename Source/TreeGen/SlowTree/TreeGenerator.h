@@ -10,15 +10,21 @@
 #include "NodeGraph.h"
 #include "Nodes.h"
 #include "SlowTreeMeshData.h"
+#include "SlowTreeGpuData.h"
 #include "CylinderSegment.h"
 #include <godot_cpp/variant/vector3.hpp>
 #include <random>
 #include <set>
+#include <unordered_map>
 
 class TreeGenerator {
 public:
     // hlNode: 需要在视口高亮的节点(该节点及其子树的几何会被镜像到 hlVerts/hlIdx)
     TreeMeshData generate(NodeGraph& graph, NodeId hlNode = INVALID_NODE);
+
+    // Stage 2 GPU 发射: 传入非空指针后, 各 emit 位点发射描述子而非顶点
+    // (中心线/RNG/附着计算完全共享 CPU 代码); nullptr 恢复纯 CPU 路径。
+    void EnableGpuEmission(godot::TreeGpuEmission* emission);
 
 private:
     TreeMeshData* m_out = nullptr;
@@ -51,6 +57,48 @@ private:
     // 顶点风力烘焙: 当前节点的风力基权重与相位, 由 processNode 按节点类型/id 设置。
     float         m_windW = 0.0f;     // 该节点枝条风力基权重(尖端处再乘 tRing)
     float         m_windPhase = 0.0f; // 该节点相位偏移(按节点 id 哈希, 令相邻枝条不同步)
+
+    // ---- Stage 2 GPU 描述子发射(CPU 路径不受影响) ----
+    bool                     m_gpuEmit  = false;   // true = 发射描述子, 顶点展开交给 compute
+    godot::TreeGpuEmission*  m_gpu      = nullptr; // 描述子/区间累积目标(生命周期由调用方管理)
+    uint64_t                 m_gpuVerts = 0;       // 已发射顶点(float 数, 全局缓冲写偏移)
+    uint64_t                 m_gpuIdx   = 0;       // 已发射索引(uint32 数)
+    // 按 stride 分开的全局顶点单位计数: 全局 float 缓冲里枝(stride 10)与叶(stride 16)
+    // 交错, 顶点单位只能按 stride 各自累计(索引按顶点单位写, 见 emit 位点)。
+    uint64_t                 m_gpuVerts10 = 0;     // 分支顶点单位(branch/collar)
+    uint64_t                 m_gpuVerts16 = 0;     // 叶顶点单位(leaf card/frond)
+    // 共享池: 仅轮廓点去重(叶簇全部叶片共用 cutout; 键是节点 params 内的堆上向量,
+    // 生成期间稳定)。环列不按指针去重——兄弟枝的局部 rings 会复用同一栈地址,
+    // 指针去重会把活枝的环错配到死枝数据(见 RunGpu 装配注释)。
+    std::unordered_map<const std::vector<godot::Vector2>*,
+                       std::pair<uint32_t, uint32_t>> m_gpuCutoutPool;
+
+    int      gpuBatchFor(MeshBatch& batch);   // batch 下标 + 描述子容器对齐 batch 数
+    void     gpuCommit(int batchIdx, uint64_t firstVertexUnits, uint64_t vertFloats, uint64_t idxCount); // 记区间 + 推进计数
+    uint32_t gpuRingPoolOffset(const std::vector<BranchRing>* rings);         // 入池(不去重)
+    void     gpuCutoutPool(const std::vector<godot::Vector2>* points,
+                           const std::vector<uint32_t>* tris,
+                           uint32_t& outPointOff, uint32_t& outTriOff);       // 入库或复用
+    static uint32_t CountCutoutTris(const std::vector<uint32_t>& tris, uint32_t vCount);
+
+    // 四个 emit 位点的 GPU 变体(参数即 CPU 位点算好的中间值, 描述子布局见 SlowTreeGpuData.h)。
+    void emitGpuBranchSeg(MeshBatch& batch, const BranchRing& bot, const BranchRing& top,
+                          int ringIdx, int lastRing, float vBot, float vTop,
+                          float uTiling, int sides);
+    void emitGpuCollar(MeshBatch& batch,
+                       godot::Vector3 parentC, godot::Vector3 parentA, float parentR,
+                       godot::Vector3 childBase, godot::Vector3 childDir, godot::Vector3 childRight,
+                       float startR, float flareMax, float upperSpread, float lowerSpread,
+                       float landingR, float uTiling, float vPerUnit, float collarSink,
+                       int sides, const std::vector<BranchRing>* trunkRings);
+    void emitGpuLeafCard(MeshBatch& batch, const LeafClusterNode* node,
+                         godot::Vector3 pos, godot::Vector3 leafRight, godot::Vector3 leafUp,
+                         godot::Vector3 leafNormal, godot::Vector3 basePos,
+                         float hs, float hw, float leafPhase, godot::Vector3 col);
+    void emitGpuFrond(MeshBatch& batch, const FrondNode* node,
+                      const std::vector<BranchRing>& rings, godot::Vector3 frondAnchor,
+                      godot::Vector3 col, int nSeg, int totalCols,
+                      uint32_t pointOff, uint32_t triOff, uint32_t triCount, uint32_t pointCount);
 
     // ---- 原生绑骨(方案A: 只出骨架, 暂不蒙皮) ----
     // 每个枝干节点沿其 rings 生成一条骨链(boneCount 根骨), 首骨父接到"父枝链中离本枝

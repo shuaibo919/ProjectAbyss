@@ -238,6 +238,12 @@ void ProceduralTreeEditorPlugin::BuildPanel()
 	SlowTreePresetPicker->connect("item_selected", callable_mp(this, &ProceduralTreeEditorPlugin::OnSlowTreePresetChanged));
 	SelectionBox->add_child(SlowTreePresetPicker);
 
+	// Stage 2: GPU 细分开关(仅 SlowTree 后端可见; 与 inspector 的 use_gpu_tessellation 同源)。
+	GpuTessellationCheck = memnew(CheckBox);
+	GpuTessellationCheck->set_text("GPU tessellation (compute)");
+	GpuTessellationCheck->connect("toggled", callable_mp(this, &ProceduralTreeEditorPlugin::OnGpuTessellationToggled));
+	SelectionBox->add_child(GpuTessellationCheck);
+
 	Label* SeedCaption = memnew(Label);
 	SeedCaption->set_text("Seed");
 	SelectionBox->add_child(SeedCaption);
@@ -318,6 +324,8 @@ void ProceduralTreeEditorPlugin::SyncFromTree()
 	WeberTuningBox->set_visible(!bSlowTree);
 	SlowTreePresetCaption->set_visible(bSlowTree);
 	SlowTreePresetPicker->set_visible(bSlowTree);
+	GpuTessellationCheck->set_visible(bSlowTree);
+	GpuTessellationCheck->set_pressed(Tree->ShouldUseGpuTessellation());
 	SeedSpin->set_value(Tree->GetSeed());
 	SeasonSlider->set_value(Tree->GetSeason());
 	WindSlider->set_value(Tree->GetWindStrength());
@@ -412,6 +420,23 @@ void ProceduralTreeEditorPlugin::OnSlowTreePresetChanged(int64_t Index)
 	}
 
 	Tree->SetSlowTreePreset(int32_t(Index));
+	SyncFromTree();
+}
+
+void ProceduralTreeEditorPlugin::OnGpuTessellationToggled(bool bPressed)
+{
+	if (bSyncingWidgets)
+	{
+		return;
+	}
+
+	ProceduralTree* Tree = ResolveTree();
+	if (Tree == nullptr)
+	{
+		return;
+	}
+
+	Tree->SetUseGpuTessellation(bPressed);
 	SyncFromTree();
 }
 

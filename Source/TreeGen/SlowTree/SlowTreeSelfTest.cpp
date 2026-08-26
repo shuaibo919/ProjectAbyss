@@ -5,6 +5,8 @@
 #include "SlowTreePresets.h"
 #include "VtreeIO.h"
 
+#include <cstring>
+
 #include <godot_cpp/classes/array_mesh.hpp>
 #include <godot_cpp/classes/mesh.hpp>
 #include <godot_cpp/core/class_db.hpp>
@@ -129,6 +131,179 @@ namespace
 		{
 			r["error"] = check;
 		}
+		return r;
+	}
+
+	// Stage 2: GPU vs CPU 对拍。同一预设图分别走 CPU 细分与 GPU compute 读回:
+	//  - batch 数/顺序/尺寸一致
+	//  - 索引位级一致(纯数据搬运, GPU 侧无任何重排)
+	//  - 顶点浮点: pos/normal |Δ| ≤ 5e-4(仅环角 cos/sin 与 collar 的 pos 推导上 GPU;
+	//    collar 法线在 normalize(mix(localDir, rdir, proj)) 输入近零时把 ~1e-7 三角差
+	//    放大到 ~1.8e-4, 两种实现各取合法方向, 视觉不可见);
+	//    uv/wind/albedo/anchor ≤ 1e-3(collar vCoord 由 pos 推导会被 vPerUnit 放大;
+	//    其余为纯拷贝/除法, 预期位级一致, 位级差异数作为观察值上报)
+	//  - GPU 读回结果走同一 ConvertToGodotMesh 装配, 再做结构自检(端到端)
+	Dictionary RunGpuVsCpu(int32_t Preset, int64_t Seed)
+	{
+		Dictionary r;
+		r["test"] = "gpu_vs_cpu";
+		r["preset"] = Preset;
+		r["name"] = String(SlowTreePresets::GetPresetName(Preset));
+		r["seed"] = Seed;
+
+		// 种子派生会就地改写节点图, 两条路径各建一份图。
+		NodeGraph cpuGraph;
+		NodeGraph gpuGraph;
+		if (!SlowTreePresets::BuildGraph(Preset, cpuGraph) || !SlowTreePresets::BuildGraph(Preset, gpuGraph))
+		{
+			r["ok"] = false;
+			r["error"] = "预设图构建失败";
+			return r;
+		}
+
+		TreeMeshData cpuMesh;
+		String cpuErr;
+		const auto tCpu0 = std::chrono::steady_clock::now();
+		if (!SlowTreeGenerator::RunGeneration(cpuGraph, Seed, cpuMesh, cpuErr))
+		{
+			r["ok"] = false;
+			r["error"] = "CPU 生成失败: " + cpuErr;
+			return r;
+		}
+		const double cpuMs = std::chrono::duration<double, std::milli>(
+			std::chrono::steady_clock::now() - tCpu0).count();
+
+		TreeMeshData gpuMesh;
+		Dictionary gpuStats;
+		String gpuErr;
+		if (!SlowTreeGenerator::RunGenerationGpu(gpuGraph, Seed, gpuMesh, &gpuStats, gpuErr))
+		{
+			r["ok"] = false;
+			r["error"] = "GPU 生成失败: " + gpuErr;
+			return r;
+		}
+
+		const size_t batchCount = cpuMesh.batches.size();
+		if (gpuMesh.batches.size() != batchCount)
+		{
+			r["ok"] = false;
+			r["error"] = vformat("batch 数不一致: CPU %d vs GPU %d",
+				int64_t(batchCount), int64_t(gpuMesh.batches.size()));
+			return r;
+		}
+
+		int64_t bitDiffFloats = 0; // 位级差异浮点数(观察值; 预期只有 collar vCoord 附近)
+		int64_t totalFloats = 0;
+		for (size_t b = 0; b < batchCount; ++b)
+		{
+			const MeshBatch& cb = cpuMesh.batches[b];
+			const MeshBatch& gb = gpuMesh.batches[b];
+			if (cb.isLeaf != gb.isLeaf)
+			{
+				r["ok"] = false;
+				r["error"] = vformat("batch %d 叶/枝类型不一致", int64_t(b));
+				return r;
+			}
+			if (cb.vertices.size() != gb.vertices.size() || cb.indices.size() != gb.indices.size())
+			{
+				r["ok"] = false;
+				r["error"] = vformat("batch %d 尺寸不一致: 顶点 %d vs %d, 索引 %d vs %d",
+					int64_t(b), int64_t(cb.vertices.size()), int64_t(gb.vertices.size()),
+					int64_t(cb.indices.size()), int64_t(gb.indices.size()));
+				return r;
+			}
+
+			// 索引 memcmp 位级一致。
+			if (memcmp(cb.indices.data(), gb.indices.data(), cb.indices.size() * sizeof(uint32_t)) != 0)
+			{
+				r["ok"] = false;
+				r["error"] = vformat("batch %d 索引与 CPU 路径位级不一致", int64_t(b));
+				return r;
+			}
+
+			// 顶点浮点: pos/normal 通道 ε=5e-4(三角 + 病态 normalize 放大, 见文件头);
+			// 其余数据通道(uv/wind/albedo/anchor)为纯拷贝/除法, 但 collar 的 vCoord
+			// 由 pos 推导(误差被 vPerUnit 放大), 故放宽到 1e-3; 位级差异数作为观察值。
+			const size_t stride = cb.isLeaf ? 16 : 10;
+			totalFloats += int64_t(cb.vertices.size());
+			for (size_t i = 0; i < cb.vertices.size(); ++i)
+			{
+				const float a = cb.vertices[i];
+				const float v = gb.vertices[i];
+				const float d = (a > v) ? (a - v) : (v - a);
+				// pos/normal ε=5e-4: 病态 collar 顶点的 normalize 放大(见文件头注释),
+				// 实测最大 ~1.8e-4; 其余通道 1e-3。
+				const float kEps = (i % stride < 6) ? 5e-4f : 1e-3f;
+				if (d > kEps)
+				{
+					r["ok"] = false;
+					r["error"] = vformat(
+						"batch %d float[%d] 偏差过大: CPU %.6f vs GPU %.6f (顶点 %d, 通道 %d)",
+						int64_t(b), int64_t(i), double(a), double(v),
+						int64_t(i / stride), int64_t(i % stride));
+					// 诊断转储: 失败顶点前后各 2 个顶点的 CPU/GPU 原始浮点。
+					const size_t winStart = (i / stride >= 2) ? (i / stride - 2) * stride : 0;
+					const size_t winEnd = std::min(cb.vertices.size(), (i / stride + 3) * stride);
+					String dump = vformat("  diag batch %d verts[%d..%d):", int64_t(b),
+						int64_t(winStart / stride), int64_t(winEnd / stride));
+					UtilityFunctions::print(dump);
+					for (size_t k = winStart; k < winEnd; ++k)
+					{
+						UtilityFunctions::print(vformat("    [%d] CPU %.6f  GPU %.6f%s",
+							int64_t(k), double(cb.vertices[k]), double(gb.vertices[k]),
+							(k % stride == 0) ? "  <v" : ""));
+					}
+					return r;
+				}
+				if (memcmp(&a, &v, sizeof(float)) != 0)
+				{
+					++bitDiffFloats;
+				}
+			}
+		}
+
+		// GPU 读回 → 同一装配逻辑 → 结构自检。
+		SlowTreeMeshResult gpuResult;
+		if (!SlowTreeGenerator::ConvertToGodotMesh(gpuMesh, gpuResult))
+		{
+			r["ok"] = false;
+			r["error"] = "GPU 输出转网格失败: " + gpuResult.Error;
+			return r;
+		}
+		const String check = CheckMesh(gpuResult.Mesh, int64_t(gpuResult.VertexCount), int64_t(gpuResult.TriangleCount));
+		if (!check.is_empty())
+		{
+			r["ok"] = false;
+			r["error"] = check;
+			return r;
+		}
+
+		// 性能观察: GPU 路径各阶段合计(device/upload/setup/dispatch/readback/assemble)。
+		const char* kGpuStageKeys[] = { "device_ms", "buffer_ms", "setup_ms", "gpu_ms", "readback_ms", "assemble_ms" };
+		float gpuTotalMs = 0.0f;
+		for (const char* key : kGpuStageKeys)
+		{
+			if (gpuStats.has(key))
+			{
+				gpuTotalMs += float(gpuStats[key]);
+			}
+		}
+
+		r["vertex_count"] = gpuResult.VertexCount;
+		r["triangle_count"] = gpuResult.TriangleCount;
+		r["surface_count"] = gpuResult.SurfaceCount;
+		r["bit_diff_floats"] = bitDiffFloats;
+		r["total_floats"] = totalFloats;
+		r["gpu_total_ms"] = gpuTotalMs;
+		// 分段计时(骨架/发射/上传/细分/读回/装配)——性能 crossover 观察表。
+		r["gpu_phases"] = vformat(
+			"emit=%.1f device=%.1f buffer=%.1f setup=%.1f dispatch=%.1f readback=%.1f assemble=%.1f",
+			double(gpuStats.get("emit_ms", 0.0)), double(gpuStats.get("device_ms", 0.0)),
+			double(gpuStats.get("buffer_ms", 0.0)), double(gpuStats.get("setup_ms", 0.0)),
+			double(gpuStats.get("gpu_ms", 0.0)), double(gpuStats.get("readback_ms", 0.0)),
+			double(gpuStats.get("assemble_ms", 0.0)));
+		r["cpu_ms"] = cpuMs;
+		r["ok"] = true;
 		return r;
 	}
 } // namespace
@@ -256,6 +431,33 @@ Dictionary SlowTreeSelfTest::RunAll()
 			r["error"] = "含 Scatter 节点的图未被校验层拒绝";
 		}
 		if (ok)
+		{
+			++passed;
+		}
+		else
+		{
+			++failed;
+		}
+		results.append(r);
+	}
+
+	// 6) Stage 2: GPU vs CPU 对拍(每预设 seed=0 + 预设 0 的种子变种)
+	for (int32_t p = 0; p < presetCount; ++p)
+	{
+		const Dictionary r = RunGpuVsCpu(p, 0);
+		if (bool(r["ok"]))
+		{
+			++passed;
+		}
+		else
+		{
+			++failed;
+		}
+		results.append(r);
+	}
+	{
+		const Dictionary r = RunGpuVsCpu(0, 12345);
+		if (bool(r["ok"]))
 		{
 			++passed;
 		}

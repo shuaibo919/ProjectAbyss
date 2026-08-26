@@ -1,5 +1,6 @@
 #include "SlowTreeGenerator.h"
 
+#include "SlowTreeCompute.h"
 #include "SlowTreeMaterials.h"
 #include "SlowTreePresets.h"
 #include "TreeGenerator.h"
@@ -119,6 +120,22 @@ namespace
 		}
 	}
 
+	// Seed != 0: 全局旋钮派生各节点种子; == 0: 保留模板种子(位级对拍锚点)。
+	// CPU/GPU 两条路径共用(图会被就地改写, 每次生成前需重建或重新派生)。
+	void DeriveNodeSeeds(NodeGraph& Graph, int64_t Seed)
+	{
+		if (Seed == 0)
+		{
+			return;
+		}
+		const auto depths = ComputeDepths(Graph);
+		for (auto& [id, node] : Graph.nodes())
+		{
+			const int depth = depths.count(id) ? depths.at(id) : 0;
+			SetNodeSeed(node.get(), DeriveNodeSeed(Seed, id, depth));
+		}
+	}
+
 	// 把 SlowTree batch 装配成一个 ArrayMesh surface(分支 stride 10, 叶 stride 16)。
 	// 风场通道从第一天就进顶点格式: CUSTOM0 = (windWeight, windPhase) RG32F;
 	// 叶片另带 COLOR = albedo、CUSTOM1 = anchor RGB32F(Stage 3 风着色器消费)。
@@ -204,8 +221,10 @@ void SlowTreeGenerator::_bind_methods()
 {
 	ClassDB::bind_static_method("SlowTreeGenerator", D_METHOD("get_preset_count"), &SlowTreeGenerator::GetPresetCount);
 	ClassDB::bind_static_method("SlowTreeGenerator", D_METHOD("get_preset_name", "preset"), &SlowTreeGenerator::GetPresetName);
-	ClassDB::bind_static_method("SlowTreeGenerator", D_METHOD("generate", "preset", "seed"), &SlowTreeGenerator::Generate);
-	ClassDB::bind_static_method("SlowTreeGenerator", D_METHOD("generate_from_file", "vtree_path", "seed"), &SlowTreeGenerator::GenerateFromFile);
+	ClassDB::bind_static_method("SlowTreeGenerator", D_METHOD("generate", "preset", "seed", "use_gpu"),
+		&SlowTreeGenerator::Generate, DEFVAL(false));
+	ClassDB::bind_static_method("SlowTreeGenerator", D_METHOD("generate_from_file", "vtree_path", "seed", "use_gpu"),
+		&SlowTreeGenerator::GenerateFromFile, DEFVAL(false));
 }
 
 int32_t SlowTreeGenerator::GetPresetCount()
@@ -267,15 +286,7 @@ String SlowTreeGenerator::ValidateGraph(const NodeGraph& Graph)
 bool SlowTreeGenerator::RunGeneration(NodeGraph& Graph, int64_t Seed, TreeMeshData& OutMesh, String& OutError)
 {
 	// Seed != 0: 全局旋钮派生各节点种子; == 0: 保留模板种子(位级对拍锚点)。
-	if (Seed != 0)
-	{
-		const auto depths = ComputeDepths(Graph);
-		for (auto& [id, node] : Graph.nodes())
-		{
-			const int depth = depths.count(id) ? depths.at(id) : 0;
-			SetNodeSeed(node.get(), DeriveNodeSeed(Seed, id, depth));
-		}
-	}
+	DeriveNodeSeeds(Graph, Seed);
 
 	TreeGenerator generator;
 	OutMesh = generator.generate(Graph);
@@ -292,6 +303,59 @@ bool SlowTreeGenerator::RunGeneration(NodeGraph& Graph, int64_t Seed, TreeMeshDa
 			"生成结果超过顶点硬上限(%.1fM floats > %dM)。请降低叶量/细分或等待 GPU 路径。",
 			double(totalVertexFloats) / (1024.0 * 1024.0), int(kMaxVertexFloats / (1024 * 1024)));
 		return false;
+	}
+
+	return true;
+}
+
+bool SlowTreeGenerator::RunGenerationGpu(NodeGraph& Graph, int64_t Seed, TreeMeshData& OutMesh,
+                                         Dictionary* GpuStats, String& OutError)
+{
+	// 种子派生/图遍历/中心线/RNG/附着与 CPU 路径完全同一套代码;
+	// 只有细分部分被 TreeGenerator 的 GPU 发射模式替换为描述子。
+	DeriveNodeSeeds(Graph, Seed);
+
+	const auto tEmit0 = std::chrono::steady_clock::now();
+
+	TreeGpuEmission emission;
+	TreeGenerator generator;
+	generator.EnableGpuEmission(&emission);
+	OutMesh = generator.generate(Graph);
+	generator.EnableGpuEmission(nullptr);   // 恢复 CPU 模式(生成器随后销毁, 防御性)
+
+	const double EmitMs = std::chrono::duration<double, std::milli>(
+		std::chrono::steady_clock::now() - tEmit0).count();
+
+	// 顶点硬上限: GPU 路径同样按 float 数检查(读回装配前拦截, 避免 64MB+ 缓冲)。
+	if (emission.VertFloats > kMaxVertexFloats)
+	{
+		OutError = vformat(
+			"生成结果超过顶点硬上限(%.1fM floats > %dM)。请降低叶量/细分。",
+			double(emission.VertFloats) / (1024.0 * 1024.0), int(kMaxVertexFloats / (1024 * 1024)));
+		return false;
+	}
+
+	Dictionary stats;
+	if (!SlowTreeCompute::RunGpu(emission, OutMesh, &stats, OutError))
+	{
+		return false;
+	}
+
+	if (GpuStats)
+	{
+		(*GpuStats)["emit_ms"] = EmitMs;
+		(*GpuStats)["device_ms"] = stats["device_ms"];
+		(*GpuStats)["buffer_ms"] = stats["buffer_ms"];
+		(*GpuStats)["setup_ms"] = stats["setup_ms"];
+		(*GpuStats)["gpu_ms"] = stats["gpu_ms"];
+		(*GpuStats)["readback_ms"] = stats["readback_ms"];
+		(*GpuStats)["assemble_ms"] = stats["assemble_ms"];
+		(*GpuStats)["vertex_floats"] = emission.VertFloats;
+		(*GpuStats)["index_count"] = emission.IndexCount;
+		(*GpuStats)["cylinder_descs"] = stats["cylinder_descs"];
+		(*GpuStats)["collar_descs"] = stats["collar_descs"];
+		(*GpuStats)["leaf_descs"] = stats["leaf_descs"];
+		(*GpuStats)["frond_descs"] = stats["frond_descs"];
 	}
 
 	return true;
@@ -323,7 +387,7 @@ bool SlowTreeGenerator::ConvertToGodotMesh(const TreeMeshData& Data, SlowTreeMes
 	return true;
 }
 
-bool SlowTreeGenerator::GenerateFromGraph(NodeGraph& Graph, int64_t Seed, SlowTreeMeshResult& Out)
+bool SlowTreeGenerator::GenerateFromGraph(NodeGraph& Graph, int64_t Seed, SlowTreeMeshResult& Out, bool UseGpu)
 {
 	const auto t0 = std::chrono::steady_clock::now();
 
@@ -337,7 +401,16 @@ bool SlowTreeGenerator::GenerateFromGraph(NodeGraph& Graph, int64_t Seed, SlowTr
 	TreeMeshData data;
 	const auto t1 = std::chrono::steady_clock::now();
 	String error;
-	if (!RunGeneration(Graph, Seed, data, error))
+	Dictionary gpuStats;
+	if (UseGpu)
+	{
+		if (!RunGenerationGpu(Graph, Seed, data, &gpuStats, error))
+		{
+			Out.Error = error;
+			return false;
+		}
+	}
+	else if (!RunGeneration(Graph, Seed, data, error))
 	{
 		Out.Error = error;
 		return false;
@@ -353,10 +426,17 @@ bool SlowTreeGenerator::GenerateFromGraph(NodeGraph& Graph, int64_t Seed, SlowTr
 	Out.GraphBuildMs = float(std::chrono::duration<double, std::milli>(t1 - t0).count());
 	Out.GenerationMs = float(std::chrono::duration<double, std::milli>(t2 - t1).count());
 	Out.ConvertMs = float(std::chrono::duration<double, std::milli>(t3 - t2).count());
+	if (UseGpu)
+	{
+		// GPU 侧合计 = 设备 + 上传 + 管线 + dispatch + 读回 + 装配
+		Out.GpuMs = float(double(gpuStats["device_ms"]) + double(gpuStats["buffer_ms"]) +
+		                  double(gpuStats["setup_ms"]) + double(gpuStats["gpu_ms"]) +
+		                  double(gpuStats["readback_ms"]) + double(gpuStats["assemble_ms"]));
+	}
 	return true;
 }
 
-Dictionary SlowTreeGenerator::Generate(int32_t Preset, int64_t Seed)
+Dictionary SlowTreeGenerator::Generate(int32_t Preset, int64_t Seed, bool UseGpu)
 {
 	SlowTreeMeshResult result;
 	NodeGraph graph;
@@ -367,7 +447,7 @@ Dictionary SlowTreeGenerator::Generate(int32_t Preset, int64_t Seed)
 	}
 	else
 	{
-		GenerateFromGraph(graph, Seed, result);
+		GenerateFromGraph(graph, Seed, result, UseGpu);
 	}
 
 	Dictionary out;
@@ -384,11 +464,12 @@ Dictionary SlowTreeGenerator::Generate(int32_t Preset, int64_t Seed)
 	out["surface_count"] = result.SurfaceCount;
 	out["truncated"] = result.Truncated;
 	out["generation_ms"] = result.GenerationMs;
+	out["gpu_ms"] = result.GpuMs;
 	out["convert_ms"] = result.ConvertMs;
 	return out;
 }
 
-Dictionary SlowTreeGenerator::GenerateFromFile(const String& VtreePath, int64_t Seed)
+Dictionary SlowTreeGenerator::GenerateFromFile(const String& VtreePath, int64_t Seed, bool UseGpu)
 {
 	SlowTreeMeshResult result;
 	NodeGraph graph;
@@ -398,7 +479,7 @@ Dictionary SlowTreeGenerator::GenerateFromFile(const String& VtreePath, int64_t 
 	}
 	else
 	{
-		GenerateFromGraph(graph, Seed, result);
+		GenerateFromGraph(graph, Seed, result, UseGpu);
 	}
 
 	Dictionary out;

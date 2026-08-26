@@ -43,6 +43,7 @@ namespace godot
 		OptionButton* BackendPicker = nullptr;
 		OptionButton* SlowTreePresetPicker = nullptr;
 		Label* SlowTreePresetCaption = nullptr;
+		CheckBox* GpuTessellationCheck = nullptr; // Stage 2: SlowTree 细分走 GPU compute(仅 SlowTree 后端可见)
 		VBoxContainer* WeberSpeciesBox = nullptr;
 		VBoxContainer* WeberTuningBox = nullptr;
 
@@ -70,6 +71,7 @@ namespace godot
 		void OnRandomizeSeedPressed();
 		void OnBackendChanged(int64_t Index);
 		void OnSlowTreePresetChanged(int64_t Index);
+		void OnGpuTessellationToggled(bool bPressed);
 		void OnSeedChanged(double Value);
 		void OnSeasonChanged(double Value);
 		void OnWindChanged(double Value);

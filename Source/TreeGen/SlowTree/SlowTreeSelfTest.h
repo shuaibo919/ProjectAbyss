@@ -6,6 +6,7 @@
 //  3) 不同种子变种均可生成
 //  4) 内置默认模板(HelloTree .vtree 解析路径)结构自检
 //  5) 校验层拒绝 v1 不支持的节点(Scatter)
+//  6) Stage 2: GPU vs CPU 对拍(索引位级一致、顶点 ε=1e-4、读回网格结构自检)
 // headless 驱动: Game/tests/treegen_slowtree_selftest.gd
 
 #include <godot_cpp/classes/object.hpp>

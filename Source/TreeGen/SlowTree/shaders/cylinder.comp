@@ -1,0 +1,68 @@
+#version 450
+
+// SlowTree Stage 2: 分支圆柱分段展开。invocation = 一个分段。
+// 与 TreeGenerator::appendCylinder 的 CPU 循环逐行对应; 唯一 GPU 浮点是环角 cos/sin
+// (描述子已带 CPU 算好的全部中间值)。分支顶点 stride = 10:
+//   pos(3) normal(3) uv(2) wind(2)
+
+layout(local_size_x = 64) in;
+
+struct BranchSegDesc {
+    vec4 botPosRadius, botUp, botRight;
+    vec4 topPosRadius, topUp, topRight;
+    vec4 uvWind;    // vBot, vTop, uTiling, windW
+    vec4 meta;      // sides, lastRing, botRingIdx, topRingIdx
+    vec4 meta2;     // windPhase, firstVertexFloats, firstVertexUnits, firstIdx
+};
+
+layout(std430, set = 0, binding = 0) readonly buffer DescBuf { BranchSegDesc descs[]; };
+layout(std430, set = 0, binding = 1) buffer VertBuf { float verts[]; };
+layout(std430, set = 0, binding = 2) buffer IdxBuf { uint indices[]; };
+
+const float TWO_PI = 6.28318530718;
+const int STRIDE = 10;
+
+void main() {
+    uint seg = gl_GlobalInvocationID.x;
+    if (seg >= descs.length()) return;
+    BranchSegDesc d = descs[seg];
+    int sides = int(d.meta.x);
+    int lastRing = int(d.meta.y);
+    uint vertBase = uint(d.meta2.z);   // 索引用: 全局顶点单位(按 stride 各自累计)
+    uint idxBase = uint(d.meta2.w);
+    uint writeBase = uint(d.meta2.y);  // 顶点写偏移: 全局 float 缓冲内的起点
+
+    vec4 centers[2] = { d.botPosRadius, d.topPosRadius };
+    vec4 ups[2] = { d.botUp, d.topUp };
+    vec4 rights[2] = { d.botRight, d.topRight };
+    float vCoords[2] = { d.uvWind.x, d.uvWind.y };
+    float ringIdx[2] = { d.meta.z, d.meta.w };
+
+    for (int ring = 0; ring < 2; ++ring) {
+        float tRing = (lastRing > 0) ? ringIdx[ring] / float(lastRing) : 0.0;
+        float w = d.uvWind.w * tRing;
+        for (int j = 0; j <= sides; ++j) {
+            float angle = float(j) / float(sides) * TWO_PI;
+            vec3 localDir = rights[ring].xyz * cos(angle)
+                          + cross(ups[ring].xyz, rights[ring].xyz) * sin(angle);
+            vec3 pos = centers[ring].xyz + localDir * centers[ring].w;
+            vec3 normal = normalize(localDir);
+            float uCoord = float(j) / float(sides) * d.uvWind.z;
+            uint o = writeBase + uint(ring * (sides + 1) + j) * STRIDE;
+            verts[o+0] = pos.x; verts[o+1] = pos.y; verts[o+2] = pos.z;
+            verts[o+3] = normal.x; verts[o+4] = normal.y; verts[o+5] = normal.z;
+            verts[o+6] = uCoord; verts[o+7] = vCoords[ring];
+            verts[o+8] = w; verts[o+9] = d.meta2.x;
+        }
+    }
+    int rv = sides + 1;
+    for (int j = 0; j < sides; ++j) {
+        uint b0 = vertBase + uint(j);
+        uint b1 = b0 + 1u;
+        uint t0 = vertBase + uint(rv + j);
+        uint t1 = t0 + 1u;
+        uint o = idxBase + uint(j) * 6u;
+        indices[o+0] = b0; indices[o+1] = b1; indices[o+2] = t0;
+        indices[o+3] = b1; indices[o+4] = t1; indices[o+5] = t0;
+    }
+}

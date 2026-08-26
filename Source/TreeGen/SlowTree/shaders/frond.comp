@@ -1,0 +1,150 @@
+#version 450
+
+// SlowTree Stage 2: 蕨叶带展开。invocation = 一条叶带(网格铺带或轮廓裁剪, 由
+// pointCount 区分, 与 CPU 分支条件一致)。
+// 与 TreeGenerator::buildFrond 逐行对应; halfWidthAt 的 sin/pow 为 GPU 浮点
+// (含与移植版一致的端点 clamp ≥0, 见 UPSTREAM_SYNC.md 偏差 6)。
+// 叶顶点 stride = 16: pos(3) normal(3) uv(2) albedo(3) wind(2) anchor(3)
+
+layout(local_size_x = 1) in;
+
+struct FrondDesc {
+    vec4 profile;   // widthBase, widthTip, width, profilePow
+    vec4 shape;     // curl, serrateDepth, serrateFlag, 0
+    vec4 albedo;
+    vec4 wind;      // windW, windPhase, 0, 0
+    vec4 anchor;
+    vec4 meta;      // ringOffset, ringCount, nSeg, totalCols
+    vec4 meta2;     // pointOff, triOff, triCount, pointCount
+    vec4 meta3;     // firstVertexFloats, firstVertexUnits, firstIdx, 0
+};
+
+struct RingEntry { vec4 centerRadius; vec4 right; vec4 up; };
+
+layout(std430, set = 0, binding = 0) readonly buffer DescBuf { FrondDesc descs[]; };
+layout(std430, set = 0, binding = 1) readonly buffer RingBuf { RingEntry rings[]; };
+layout(std430, set = 0, binding = 2) readonly buffer PointBuf { vec2 points[]; };
+layout(std430, set = 0, binding = 3) readonly buffer TriBuf { uint tris[]; };
+layout(std430, set = 0, binding = 4) buffer VertBuf { float verts[]; };
+layout(std430, set = 0, binding = 5) buffer IdxBuf { uint indices[]; };
+
+const float PI = 3.14159265359;
+const int STRIDE = 16;
+
+float halfWidthAt(FrondDesc d, float t) {
+    float base = mix(d.profile.x, d.profile.y, clamp(t, 0.0, 1.0));
+    float bump = pow(max(0.0, sin(PI * clamp(t, 0.0, 1.0))), max(0.05, d.profile.w));
+    return d.profile.z * (base + (1.0 - base) * bump);
+}
+
+// o = 全局 float 缓冲内的写偏移(调用方已加 writeBase + vi * STRIDE, vi = 本叶带局部顶点序号)
+void writeVert(uint o, vec3 pos, vec3 normal, vec2 uv, vec3 albedo, vec2 wind, vec3 anchor) {
+    verts[o+0] = pos.x; verts[o+1] = pos.y; verts[o+2] = pos.z;
+    verts[o+3] = normal.x; verts[o+4] = normal.y; verts[o+5] = normal.z;
+    verts[o+6] = uv.x; verts[o+7] = uv.y;
+    verts[o+8] = albedo.x; verts[o+9] = albedo.y; verts[o+10] = albedo.z;
+    verts[o+11] = wind.x; verts[o+12] = wind.y;
+    verts[o+13] = anchor.x; verts[o+14] = anchor.y; verts[o+15] = anchor.z;
+}
+
+// 叶带曲面采样(u 横向, v 沿脊), 与 CPU sampleFrond 一致
+void sampleFrond(FrondDesc d, float u, float v, out vec3 outPos, out vec3 outN) {
+    float t = clamp(v, 0.0, 1.0);
+    int nSeg = int(d.meta.z);
+    float f = t * float(nSeg);
+    int i0 = int(floor(f));
+    i0 = max(0, min(nSeg - 1, i0));
+    float lerpF = f - float(i0);
+    int ringOff = int(d.meta.x);
+    vec3 center = mix(rings[ringOff + i0].centerRadius.xyz,
+                      rings[ringOff + i0 + 1].centerRadius.xyz, lerpF);
+    vec3 rightAxis = normalize(mix(normalize(rings[ringOff + i0].right.xyz),
+                                   normalize(rings[ringOff + i0 + 1].right.xyz), lerpF));
+    vec3 upAxis = normalize(mix(normalize(rings[ringOff + i0].up.xyz),
+                                normalize(rings[ringOff + i0 + 1].up.xyz), lerpF));
+    vec3 faceN = normalize(cross(rightAxis, upAxis));
+    float hw = halfWidthAt(d, t);
+    float lateral = u * 2.0 - 1.0;
+    float lift = d.shape.x * hw * lateral * lateral;
+    outPos = center + rightAxis * (lateral * hw) + faceN * lift;
+    outN = faceN;
+}
+
+void main() {
+    uint fi = gl_GlobalInvocationID.x;
+    if (fi >= descs.length()) return;
+    FrondDesc d = descs[fi];
+    uint vertBase = uint(d.meta3.y);   // 索引用: 全局顶点单位
+    uint idxBase = uint(d.meta3.z);
+    uint writeBase = uint(d.meta3.x);  // 顶点写偏移: 全局 float 缓冲内的起点
+    vec3 albedo = d.albedo.xyz;
+    vec3 anchor = d.anchor.xyz;
+    uint pointCount = uint(d.meta2.w);
+
+    if (pointCount > 0u) {
+        // 轮廓裁剪(双面可见)
+        uint pointOff = uint(d.meta2.x);
+        for (uint i = 0u; i < pointCount; ++i) {
+            vec2 q = points[pointOff + i];
+            vec3 pos, faceN;
+            sampleFrond(d, q.x, q.y, pos, faceN);
+            float wFrond = d.wind.x * q.y;
+            writeVert(writeBase + i * STRIDE, pos, faceN, q, albedo, vec2(wFrond, d.wind.y), anchor);
+        }
+        uint triOff = uint(d.meta2.y);
+        uint triCount = uint(d.meta2.z);
+        uint w = idxBase;
+        for (uint k = 0u; k + 2u < triCount; k += 3u) {
+            uint ia = tris[triOff + k], ib = tris[triOff + k + 1u], ic = tris[triOff + k + 2u];
+            if (ia < pointCount && ib < pointCount && ic < pointCount) {
+                indices[w+0u] = vertBase + ia; indices[w+1u] = vertBase + ib; indices[w+2u] = vertBase + ic;
+                indices[w+3u] = vertBase + ia; indices[w+4u] = vertBase + ic; indices[w+5u] = vertBase + ib;
+                w += 6u;
+            }
+        }
+        return;
+    }
+
+    // 网格铺带: ringCount 行 × totalCols 列, 相邻行铺双面四边形
+    int ringCount = int(d.meta.y);
+    int totalCols = int(d.meta.w);
+    int nSeg = int(d.meta.z);
+    int ringOff = int(d.meta.x);
+
+    for (int ri = 0; ri < ringCount; ++ri) {
+        float t = (ringCount > 1) ? float(ri) / float(ringCount - 1) : 0.0;
+        float hw = halfWidthAt(d, t);
+        vec3 rightAxis = normalize(rings[ringOff + ri].right.xyz);
+        vec3 upAxis = normalize(rings[ringOff + ri].up.xyz);
+        vec3 faceN = normalize(cross(rightAxis, upAxis));
+        float wFrond = d.wind.x * t;
+        uint rowBase = uint(ri * totalCols);
+        for (int c = 0; c < totalCols; ++c) {
+            float lateral = (float(c) / float(totalCols - 1)) * 2.0 - 1.0;
+            float x = lateral * hw;
+            float lift = d.shape.x * hw * lateral * lateral;
+            float edge = 1.0;
+            if (d.shape.z > 0.5 && abs(abs(lateral) - 1.0) < 1e-3)
+                edge = 1.0 - d.shape.y * (0.5 + 0.5 * sin(float(ri) * 2.3));
+            vec3 pos = rings[ringOff + ri].centerRadius.xyz + rightAxis * (x * edge) + faceN * lift;
+            float uCoord = float(c) / float(totalCols - 1);
+            writeVert(writeBase + (rowBase + uint(c)) * STRIDE, pos, faceN, vec2(uCoord, t), albedo,
+                      vec2(wFrond, d.wind.y), anchor);
+        }
+    }
+    for (int ri = 0; ri < nSeg; ++ri) {
+        uint b0 = vertBase + uint(ri * totalCols);
+        uint b1 = vertBase + uint((ri + 1) * totalCols);
+        for (int c = 0; c < totalCols - 1; ++c) {
+            uint v00 = b0 + uint(c);
+            uint v01 = b0 + uint(c) + 1u;
+            uint v10 = b1 + uint(c);
+            uint v11 = b1 + uint(c) + 1u;
+            uint o = idxBase + uint(ri * (totalCols - 1) + c) * 12u;
+            indices[o+0u] = v00; indices[o+1u] = v01; indices[o+2u] = v11;
+            indices[o+3u] = v00; indices[o+4u] = v11; indices[o+5u] = v10;   // 正面
+            indices[o+6u] = v00; indices[o+7u] = v11; indices[o+8u] = v01;
+            indices[o+9u] = v00; indices[o+10u] = v10; indices[o+11u] = v11; // 背面
+        }
+    }
+}

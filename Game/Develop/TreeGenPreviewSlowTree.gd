@@ -1,6 +1,7 @@
 extends Node3D
 
 # SlowTree 后端截图集: 每个预设拍模板种子(seed=0)与一个种子变种, 供视觉验收。
+# Stage 2 起每个镜头拍 CPU/GPU 两张(use_gpu_tessellation 开关), 供并排比对。
 # Run with: godot --path Game/ res://Develop/TreeGenPreviewSlowTree.tscn
 
 const OUT_DIR := "res://Develop/TreeGenShots"
@@ -32,8 +33,9 @@ func _ready() -> void:
 
 	for i in range(SlowTreeGenerator.get_preset_count()):
 		var preset_name := SlowTreeGenerator.get_preset_name(i)
-		_shots.append({"name": "SlowTree_%s_s0" % preset_name, "preset": i, "seed": 0})
-		_shots.append({"name": "SlowTree_%s_s7" % preset_name, "preset": i, "seed": 7})
+		for mode in ["cpu", "gpu"]:
+			_shots.append({"name": "SlowTree_%s_s0_%s" % [preset_name, mode], "preset": i, "seed": 0, "gpu": mode == "gpu"})
+			_shots.append({"name": "SlowTree_%s_s7_%s" % [preset_name, mode], "preset": i, "seed": 7, "gpu": mode == "gpu"})
 
 	for entry in _shots:
 		await _shoot(entry, camera)
@@ -46,6 +48,7 @@ func _shoot(entry: Dictionary, camera: Camera3D) -> void:
 	tree.backend = ProceduralTree.BACKEND_SLOWTREE
 	tree.slowtree_preset = entry["preset"]
 	tree.seed = entry["seed"]
+	tree.use_gpu_tessellation = entry.get("gpu", false)
 	add_child(tree)
 
 	# Frame the whole tree from its own AABB, so every species gets a comparable shot.

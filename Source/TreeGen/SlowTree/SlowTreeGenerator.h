@@ -39,7 +39,8 @@ namespace godot
 
 		// 分阶段耗时(ms, Stage 2/3 性能对比用)。
 		float GraphBuildMs = 0.0f;
-		float GenerationMs = 0.0f;
+		float GenerationMs = 0.0f;   // CPU: 遍历+细分; GPU: 遍历+描述子发射
+		float GpuMs = 0.0f;          // 仅 GPU 路径: 设备/上传/dispatch/读回合计
 		float ConvertMs = 0.0f;
 
 		bool IsError() const { return !Error.is_empty(); }
@@ -56,23 +57,33 @@ namespace godot
 		static int32_t GetPresetCount();
 		static String GetPresetName(int32_t Preset);
 
-		/** Script-facing: preset + seed → Dictionary(mesh/materials/error/stats/timings). */
-		static Dictionary Generate(int32_t Preset, int64_t Seed);
+		/** Script-facing: preset + seed → Dictionary(mesh/materials/error/stats/timings)。 */
+		static Dictionary Generate(int32_t Preset, int64_t Seed, bool UseGpu = false);
 
 		/** Script-facing: .vtree 文件 + seed → 同上(含不支持节点校验)。 */
-		static Dictionary GenerateFromFile(const String& VtreePath, int64_t Seed);
+		static Dictionary GenerateFromFile(const String& VtreePath, int64_t Seed, bool UseGpu = false);
 
 		/**
 		 * 核心: 图 → ArrayMesh(多 surface)+ 材质。Seed != 0 时按 Mix(seed, id, depth)
 		 * 派生节点种子; == 0 时保留模板种子(位级对拍锚点)。
+		 * UseGpu=true 时细分阶段走 compute 管线(Stage 2), 中心线/RNG/附着共享同一套代码。
 		 */
-		static bool GenerateFromGraph(NodeGraph& Graph, int64_t Seed, SlowTreeMeshResult& Out);
+		static bool GenerateFromGraph(NodeGraph& Graph, int64_t Seed, SlowTreeMeshResult& Out, bool UseGpu = false);
 
 		/** 校验层: 图上含 v1 不支持的节点(自定义/导入/散布)时返回错误(中文提示)。 */
 		static String ValidateGraph(const NodeGraph& Graph);
 
 		/** CPU 生成(RNG/中心线/附着/细分全在调用线程)。SelfTest/Stage 2 共用。 */
 		static bool RunGeneration(NodeGraph& Graph, int64_t Seed, TreeMeshData& OutMesh, String& OutError);
+
+		/**
+		 * GPU 生成(Stage 2): 与 RunGeneration 相同的种子派生与图遍历(共享原代码),
+		 * 但细分由描述子发射 + SlowTreeCompute::RunGpu 完成; 读回结果按 chunk
+		 * 拼回 OutMesh.batches(与 CPU 路径同一批次顺序)。GpuStats 非空时接收
+		 * emit_ms / device_ms / buffer_ms / setup_ms / gpu_ms / readback_ms / assemble_ms。
+		 */
+		static bool RunGenerationGpu(NodeGraph& Graph, int64_t Seed, TreeMeshData& OutMesh,
+		                             Dictionary* GpuStats, String& OutError);
 
 		/** TreeMeshData → ArrayMesh(batch = surface)。GPU 读回路径复用本装配(Stage 2)。 */
 		static bool ConvertToGodotMesh(const TreeMeshData& Data, SlowTreeMeshResult& Out);

@@ -73,6 +73,12 @@ void ProceduralTree::_bind_methods()
 			"set_slowtree_preset", "get_slowtree_preset");
 	}
 
+	// Stage 2: SlowTree 细分走 GPU compute 管线(默认关; 仅 SlowTree 后端生效)。
+	ClassDB::bind_method(D_METHOD("set_use_gpu_tessellation", "value"), &ProceduralTree::SetUseGpuTessellation);
+	ClassDB::bind_method(D_METHOD("should_use_gpu_tessellation"), &ProceduralTree::ShouldUseGpuTessellation);
+	ADD_PROPERTY(PropertyInfo(Variant::BOOL, "use_gpu_tessellation"),
+		"set_use_gpu_tessellation", "should_use_gpu_tessellation");
+
 	TREE_BIND_RANGE(Variant::INT, "seed", Seed, "0,65535,1,or_greater")
 	TREE_BIND_RANGE(Variant::FLOAT, "season", Season, "0,4,0.01")
 	TREE_BIND_RANGE(Variant::FLOAT, "wind_strength", WindStrength, "0,20,0.01")
@@ -391,7 +397,7 @@ void ProceduralTree::GenerateSlowTree()
 	const int32_t PresetCount = SlowTreeGenerator::GetPresetCount();
 	const int32_t Preset = std::clamp(SlowTreePreset, 0, std::max(0, PresetCount - 1));
 
-	const Dictionary Result = SlowTreeGenerator::Generate(Preset, int64_t(Seed));
+	const Dictionary Result = SlowTreeGenerator::Generate(Preset, int64_t(Seed), bUseGpuTessellation);
 	const String Error = Result["error"];
 	if (!Error.is_empty())
 	{
@@ -488,6 +494,7 @@ void ProceduralTree::ApplyPreset(int32_t Preset)
 TREE_DEFINE_SETTER(int32_t, Seed, Seed, Value)
 TREE_DEFINE_SETTER(int32_t, Backend, Backend, TreeGen::ClampInt(Value, 0, 1))
 TREE_DEFINE_SETTER(int32_t, SlowTreePreset, SlowTreePreset, TreeGen::ClampInt(Value, 0, std::max(0, SlowTreeGenerator::GetPresetCount() - 1)))
+TREE_DEFINE_SETTER(bool, UseGpuTessellation, bUseGpuTessellation, Value)
 TREE_DEFINE_SETTER(float, Season, Season, TreeGen::Clamp(Value, 0.0f, 4.0f))
 TREE_DEFINE_SETTER(float, WindStrength, WindStrength, std::fmax(0.0f, Value))
 TREE_DEFINE_SETTER(float, WindTime, WindTime, Value)
