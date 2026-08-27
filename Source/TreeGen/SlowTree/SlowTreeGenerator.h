@@ -58,17 +58,20 @@ namespace godot
 		static String GetPresetName(int32_t Preset);
 
 		/** Script-facing: preset + seed → Dictionary(mesh/materials/error/stats/timings)。 */
-		static Dictionary Generate(int32_t Preset, int64_t Seed, bool UseGpu = false);
+		static Dictionary Generate(int32_t Preset, int64_t Seed, bool UseGpu = false,
+		                           float Season = 2.0f);
 
 		/** Script-facing: .vtree 文件 + seed → 同上(含不支持节点校验)。 */
-		static Dictionary GenerateFromFile(const String& VtreePath, int64_t Seed, bool UseGpu = false);
+		static Dictionary GenerateFromFile(const String& VtreePath, int64_t Seed, bool UseGpu = false,
+		                                   float Season = 2.0f);
 
 		/**
 		 * 核心: 图 → ArrayMesh(多 surface)+ 材质。Seed != 0 时按 Mix(seed, id, depth)
 		 * 派生节点种子; == 0 时保留模板种子(位级对拍锚点)。
 		 * UseGpu=true 时细分阶段走 compute 管线(Stage 2), 中心线/RNG/附着共享同一套代码。
 		 */
-		static bool GenerateFromGraph(NodeGraph& Graph, int64_t Seed, SlowTreeMeshResult& Out, bool UseGpu = false);
+		static bool GenerateFromGraph(NodeGraph& Graph, int64_t Seed, SlowTreeMeshResult& Out,
+		                              bool UseGpu = false, float Season = 2.0f, bool Evergreen = false);
 
 		/** 校验层: 图上含 v1 不支持的节点(自定义/导入/散布)时返回错误(中文提示)。 */
 		static String ValidateGraph(const NodeGraph& Graph);
@@ -86,7 +89,14 @@ namespace godot
 		                             Dictionary* GpuStats, String& OutError);
 
 		/** TreeMeshData → ArrayMesh(batch = surface)。GPU 读回路径复用本装配(Stage 2)。 */
-		static bool ConvertToGodotMesh(const TreeMeshData& Data, SlowTreeMeshResult& Out);
+		/**
+		 * TreeMeshData → **单个** vertex-coloured ArrayMesh surface。
+		 *
+		 * Season 用 TreeGen 的 0..4 语义(0/4 冬, 2 夏), Evergreen=true 时叶色不随季节变化
+		 * (针叶/竹)。花瓣按"红大于绿"自动认出并同样不变色。
+		 */
+		static bool ConvertToGodotMesh(const TreeMeshData& Data, SlowTreeMeshResult& Out,
+		                               float Season = 2.0f, bool Evergreen = false);
 
 	private:
 		/** 顶点硬上限(Stage 1 CPU 路径超限即报错; Stage 2 改为截断标志)。 */

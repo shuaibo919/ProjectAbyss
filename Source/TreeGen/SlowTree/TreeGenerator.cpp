@@ -1570,7 +1570,11 @@ void TreeGenerator::emitGpuLeafCard(MeshBatch& batch, const LeafClusterNode* nod
     f[28]=cutout?1.0f:0.0f; f[29]=(float)pointOff; f[30]=(float)triOff; f[31]=(float)triCount;
     f[32]=(float)pointCount; f[33]=(float)firstVertexFloats; f[34]=(float)firstVertexUnits; f[35]=(float)firstIdx;
     const uint64_t vertFloats = cutout ? (uint64_t)16 * pointCount : 64;
-    const uint64_t idxCount   = cutout ? CountCutoutTris(p.cutoutTris, pointCount) : 6;
+    // idxCount 的单位是**索引**, 不是三角形 —— 四边形分支给的 6 就是 2 个三角 x 3。
+    // CountCutoutTris 返回三角形数, 所以必须 x3。少乘 3 的话 GPU 只预留了实际要写的
+    // 三分之一索引, 之后每片叶的索引区都错位, 对拍报 "batch N 索引与 CPU 路径位级不一致"。
+    // 这条分支此前从未跑过: 项目里没有任何东西设过 useCutout, 所以这个 bug 一直潜伏。
+    const uint64_t idxCount   = cutout ? CountCutoutTris(p.cutoutTris, pointCount) * 3 : 6;
     m_gpuVerts16 += cutout ? pointCount : 4;
     gpuCommit(batchIdx, firstVertexUnits, vertFloats, idxCount);
 }

@@ -1,5 +1,7 @@
 #include "TreeGen/TreeMeshBuilder.h"
 
+#include "TreeGen/TreeLeafOutline.h"
+
 #include <godot_cpp/classes/mesh.hpp>
 #include <godot_cpp/variant/packed_color_array.hpp>
 #include <godot_cpp/variant/packed_int32_array.hpp>
@@ -74,57 +76,20 @@ namespace
 	}
 
 	/**
-	 * The nine outline points of one leaf half. The GPU built these as a mix of on-curve
-	 * points and quadratic Bezier control points so a pixel shader could evaluate the
-	 * silhouette analytically; indices 0/2/4/6/8 lie on the outline, 1/3/5/7 are controls.
+	 * Adapts the shared outline generator to the Weber-Penn leaf parameter set.
+	 *
+	 * The generator itself moved to TreeLeafOutline.h so the SlowTree backend can fill its Mesh
+	 * Cutout slots from the same code. Its dependency on LeafParams was only these four scalars.
 	 */
-	void ComputeLeafOutlinePoints(const LeafParams& P, uint32_t Seed, Vector2 OutPoints[9])
+	void OutlinePointsForLeafParams(const LeafParams& P, uint32_t Seed, Vector2 OutPoints[9])
 	{
-		const float BotAngle = ToRadians(P.BotAngle);
-		const float MidAngle = ToRadians(P.MidAngle);
-		const float TopAngle = ToRadians(P.TopAngle) + 0.2f * Random::SignedValue(Seed, 222);
+		LeafOutlineShape Shape;
+		Shape.BotAngle = P.BotAngle;
+		Shape.MidAngle = P.MidAngle;
+		Shape.TopAngle = P.TopAngle;
+		Shape.SideOffset = P.SideOffset;
 
-		const Vector2 Waypoint[3] = {
-			Vector2(0.0f, 0.0f),
-			Vector2(-0.5f + 0.1f * Random::SignedValue(Seed, 92), P.SideOffset + 0.1f * Random::SignedValue(Seed, 29)),
-			Vector2(0.0f, 1.0f)
-		};
-		const Vector2 Tangent[3] = {
-			Vector2(std::sin(BotAngle), std::cos(BotAngle)),
-			Vector2(std::sin(MidAngle), std::cos(MidAngle)),
-			Vector2(std::sin(TopAngle), std::cos(TopAngle))
-		};
-
-		// Rows 0 and 2 evaluate the Hermite curve at t = 0 and t = 0.5; rows 1 and 3 are the
-		// equivalent Bezier handles.
-		static const float BlendRow[4][4] = {
-			{ 1.0f, 0.0f, 0.0f, 0.0f },
-			{ 1.0f, 0.25f, 0.0f, 0.0f },
-			{ 0.5f, 0.125f, 0.5f, 0.125f },
-			{ 0.0f, 0.0f, 1.0f, 0.25f }
-		};
-
-		for (int32_t InHalf = 0; InHalf < 9; ++InHalf)
-		{
-			int32_t IsSecond = (InHalf > 3) ? 1 : 0;
-			const float ChordLength = IsSecond
-				? Waypoint[1].distance_to(Waypoint[2])
-				: Waypoint[0].distance_to(Waypoint[1]);
-			IsSecond += (InHalf > 7) ? 1 : 0;
-
-			const int32_t Start = std::min(IsSecond, 2);
-			const int32_t End = std::min(IsSecond + 1, 2);
-
-			const Vector2 Control[4] = {
-				Waypoint[Start],
-				Tangent[Start] * ChordLength,
-				Waypoint[End],
-				Tangent[End] * -ChordLength
-			};
-
-			const float* Row = BlendRow[InHalf % 4];
-			OutPoints[InHalf] = Control[0] * Row[0] + Control[1] * Row[1] + Control[2] * Row[2] + Control[3] * Row[3];
-		}
+		TreeGen::ComputeLeafOutlinePoints(Shape, Seed, OutPoints);
 	}
 
 	/** One transformed leaf vertex, ready to append to the foliage surface. */
@@ -581,7 +546,7 @@ void TreeMeshBuilder::BuildFoliage(const std::vector<LeafInstance>& Leaves)
 void TreeMeshBuilder::BuildLeaf(const LeafInstance& Instance, const LeafParams& LeafP)
 {
 	Vector2 Outline[9];
-	ComputeLeafOutlinePoints(LeafP, Instance.Seed, Outline);
+	OutlinePointsForLeafParams(LeafP, Instance.Seed, Outline);
 
 	// Four quadratic arcs run from the leaf base, around the widest point, to the tip.
 	const int32_t ArcSegments = Quality.LeafArcSegments;

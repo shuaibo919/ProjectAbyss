@@ -12,6 +12,11 @@ var _shots: Array[Dictionary] = []
 func _ready() -> void:
 	DirAccess.make_dir_recursive_absolute(ProjectSettings.globalize_path(OUT_DIR))
 
+	# Foliage is fine enough to alias badly at this resolution, and unantialiased it is impossible
+	# to tell a leaf-shape problem from a sampling one. Set before any shot so before/after
+	# comparisons are measured the same way.
+	get_viewport().msaa_3d = Viewport.MSAA_8X
+
 	var light := DirectionalLight3D.new()
 	light.rotation_degrees = Vector3(-45, -35, 0)
 	light.light_energy = 1.5
@@ -30,6 +35,18 @@ func _ready() -> void:
 	var camera := Camera3D.new()
 	camera.current = true
 	add_child(camera)
+
+	# Ground plane. Roots dive below y=0 by design, so without it they float in the air and read
+	# as buttress spikes rather than roots — which is not a fair look at what the Roots node does.
+	var ground := MeshInstance3D.new()
+	var plane := PlaneMesh.new()
+	plane.size = Vector2(60, 60)
+	ground.mesh = plane
+	var ground_mat := StandardMaterial3D.new()
+	ground_mat.albedo_color = Color(0.34, 0.36, 0.28)
+	ground_mat.roughness = 0.95
+	ground.material_override = ground_mat
+	add_child(ground)
 
 	for i in range(SlowTreeGenerator.get_preset_count()):
 		var preset_name := SlowTreeGenerator.get_preset_name(i)

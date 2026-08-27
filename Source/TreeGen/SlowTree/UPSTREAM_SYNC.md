@@ -30,8 +30,37 @@ MIT 许可）拷贝改造而来的生成核心。项目决策：**只取核心�
 4. **v1 不支持 Custom(Lua)/ImportTrunk/ImportLeaf/Scatter**：`SLOWTREE_FULL_NODES` 未定义时这些 builder 不编译；含这些节点的 .vtree 由 `SlowTreeGenerator` 校验层报清晰错误。
 5. **材质贴图路径**：.vtree 内贴图路径是应用机器绝对路径，Godot 侧按 res:// 约定 + basename 搜索兜底，缺图降级纯色（见 SlowTreeMaterials）。
 6. **Frond 端点浮点噪声**：上游 `buildFrond` 的 `halfWidthAt` 在 t=1.0 处 `pow(sin(π·t), profilePow)` 因 π 浮点误差得 `pow(极小负数, 非整数)=NaN`（widthTip=0 时末行整行 NaN）。本移植将 sin 输出 clamp ≥0，只消除端点噪声、不改变曲线形状。
+7. **预设模板是本项目自己写的，不是上游资产**（2026-08-27 重调）。`SlowTreePresets.cpp` 里
+   五个物种模板最初只为覆盖生成路径，每个只有 *一层* Branch，而上游默认模板有三层。叶数逐层
+   相乘，所以少一层少一个数量级：银杏 525 片 / 6k 面 vs 默认模板 26880 片 / 356k 面。已按默认
+   模板的层级结构重调。**改模板时先数 Branch 层数，再动参数。**
+8. **无贴图下 LeafCluster 与 Frond 的观感差距很大**：`LeafCluster` 的叶卡是四边形，缺 alpha
+   贴图时就是不透明矩形；`Frond` 是沿脊线的连续叶带，自带轮廓收尖，无贴图也读作有机叶形。
+   针叶树(松/水杉)改用 `Spine→Frond` 叶簇解决。
+9. **`useCutout` 已启用**（2026-08-27）：`SlowTreeGenerator::FillLeafCutouts` 用 TreeGen 的
+   `TreeLeafOutline` 给每个 LeafCluster 填归一化剪影，CPU/GPU 两条路径都填（否则对拍挂）。
+   **只做 LeafCluster，不动 Frond** —— Frond 自带宽度曲线与 serrate 裂片，加 cutout 会覆盖掉。
+   代价：一片叶 7 三角 vs 四边形 2 三角。上游 Mesh Cutout 的本意是省透明像素 overdraw，本项目
+   无 alpha 贴图，所以省不到填充率，纯属形状开销 —— 预设叶数已相应下调。
 
 ## 自检
 
 `SlowTreeSelfTest` 为**结构自检**（网格非空 / 无 NaN / AABB 合理 / 顶点预算 / 确定性），
 无位级 golden。若未来需要与上游对拍，恢复 `Reference/SlowTree` 并参照旧协议（dumpMesh + SHA256）。
+
+## 上游 bug 修正（本移植已修）
+
+1. **`emitGpuLeafCard` 的 cutout 索引预留少乘 3**（`TreeGenerator.cpp`）。`idxCount` 的单位是
+   索引（四边形分支给 `6`），但 `CountCutoutTris` 返回三角形数。少乘 3 → GPU 只预留实际所需
+   索引的三分之一 → 之后每片叶索引区错位 → GPU/CPU 对拍报「batch N 索引与 CPU 路径位级不一致」。
+   **这条分支在上游和本移植里都从未被执行过**：项目里没有任何东西设过 `useCutout`，直到
+   2026-08-27 加了叶片轮廓填充。属于随功能启用才暴露的潜伏 bug。
+
+2. **叶顶点布局读错，导致所有叶片被压暗偏色**（原 `AddBatchSurface`）。实际布局是
+   `pos(0-2) normal(3-5) uv(6-7) **albedo(8-10) wind(11-12)** anchor(13-15)`
+   （见 `TreeGenerator` 的 `emitVert` 与 `leaf_card.comp` 的 stride 头注），
+   而装配代码按 `wind(8-9) colour(10-12)` 读，于是每片叶的顶点色成了
+   `(col.b, windW, leafPhase)`。`LeafCluster` 的 `windW` 恒为 `1.0`，顶点色又以**乘法**叠在
+   材质 albedo 上 —— 所以银杏 `(0.55,0.62,0.2)` 实际渲染成 `(0.11,0.62,0.2·phase)`，
+   一直是偏暗的深绿。之前记录的"针叶颜色偏灰绿"就是它。
+   **2026-08-27 重写 `ConvertToGodotMesh` 时一并修正**（改单 surface 时必须重读布局，才发现）。

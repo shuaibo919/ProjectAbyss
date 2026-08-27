@@ -27,5 +27,10 @@ namespace godot
 
 		// 预设的原始 VEGTOOL 文本(供转换器/自测抽取, 预设 0 为上游 kDefaultTemplate)。
 		const char* GetPresetVtree(int32_t Preset);
+
+		/**
+		 * 该预设是否常绿(叶色不随季节变化)。颜色推不出针叶/阔叶, 所以这是一张表。
+		 */
+		bool IsEvergreen(int32_t Preset);
 	} // namespace SlowTreePresets
 } // namespace godot

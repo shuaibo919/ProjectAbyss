@@ -397,7 +397,10 @@ void ProceduralTree::GenerateSlowTree()
 	const int32_t PresetCount = SlowTreeGenerator::GetPresetCount();
 	const int32_t Preset = std::clamp(SlowTreePreset, 0, std::max(0, PresetCount - 1));
 
-	const Dictionary Result = SlowTreeGenerator::Generate(Preset, int64_t(Seed), bUseGpuTessellation);
+	// Season 是两个后端共用的旋钮: Weber-Penn 侧在网格构建时着色, SlowTree 侧在装配
+	// 单 surface 时按逐叶锚点哈希着色。语义相同(0/4 冬, 2 夏)。
+	const Dictionary Result = SlowTreeGenerator::Generate(
+		Preset, int64_t(Seed), bUseGpuTessellation, Season);
 	const String Error = Result["error"];
 	if (!Error.is_empty())
 	{
