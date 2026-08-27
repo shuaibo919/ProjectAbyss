@@ -244,6 +244,23 @@ void ProceduralTreeEditorPlugin::BuildPanel()
 	GpuTessellationCheck->connect("toggled", callable_mp(this, &ProceduralTreeEditorPlugin::OnGpuTessellationToggled));
 	SelectionBox->add_child(GpuTessellationCheck);
 
+	// Stage 2.5: SlowTree 形变旋钮(乘法乘数, 1.0 = 预设原样; 仅 SlowTree 后端可见)。
+	// 只暴露用户点名的 4 个(粗细/密度), 其余参数留在预设里。
+	SlowTreeTuningBox = memnew(VBoxContainer);
+	SelectionBox->add_child(SlowTreeTuningBox);
+
+	TrunkThicknessSlider = AddSliderRow(SlowTreeTuningBox, "Trunk thickness", 0.1, 5.0, 0.01);
+	TrunkThicknessSlider->connect("value_changed", callable_mp(this, &ProceduralTreeEditorPlugin::OnTrunkThicknessChanged));
+
+	RootThicknessSlider = AddSliderRow(SlowTreeTuningBox, "Root thickness", 0.1, 5.0, 0.01);
+	RootThicknessSlider->connect("value_changed", callable_mp(this, &ProceduralTreeEditorPlugin::OnRootThicknessChanged));
+
+	BranchThicknessSlider = AddSliderRow(SlowTreeTuningBox, "Branch thickness", 0.1, 5.0, 0.01);
+	BranchThicknessSlider->connect("value_changed", callable_mp(this, &ProceduralTreeEditorPlugin::OnBranchThicknessChanged));
+
+	BranchDensitySlider = AddSliderRow(SlowTreeTuningBox, "Branch density", 0.1, 5.0, 0.01);
+	BranchDensitySlider->connect("value_changed", callable_mp(this, &ProceduralTreeEditorPlugin::OnBranchDensityChanged));
+
 	Label* SeedCaption = memnew(Label);
 	SeedCaption->set_text("Seed");
 	SelectionBox->add_child(SeedCaption);
@@ -326,6 +343,11 @@ void ProceduralTreeEditorPlugin::SyncFromTree()
 	SlowTreePresetPicker->set_visible(bSlowTree);
 	GpuTessellationCheck->set_visible(bSlowTree);
 	GpuTessellationCheck->set_pressed(Tree->ShouldUseGpuTessellation());
+	SlowTreeTuningBox->set_visible(bSlowTree);
+	TrunkThicknessSlider->set_value(Tree->GetTrunkThickness());
+	RootThicknessSlider->set_value(Tree->GetRootThickness());
+	BranchThicknessSlider->set_value(Tree->GetBranchThickness());
+	BranchDensitySlider->set_value(Tree->GetBranchDensity());
 	SeedSpin->set_value(Tree->GetSeed());
 	SeasonSlider->set_value(Tree->GetSeason());
 	WindSlider->set_value(Tree->GetWindStrength());
@@ -461,6 +483,10 @@ TREE_PANEL_CALLBACK(OnSeasonChanged, SetSeason, float)
 TREE_PANEL_CALLBACK(OnWindChanged, SetWindStrength, float)
 TREE_PANEL_CALLBACK(OnDensityChanged, SetLeafDensity, float)
 TREE_PANEL_CALLBACK(OnRadialChanged, SetRadialSegments, int32_t)
+TREE_PANEL_CALLBACK(OnTrunkThicknessChanged, SetTrunkThickness, float)
+TREE_PANEL_CALLBACK(OnRootThicknessChanged, SetRootThickness, float)
+TREE_PANEL_CALLBACK(OnBranchThicknessChanged, SetBranchThickness, float)
+TREE_PANEL_CALLBACK(OnBranchDensityChanged, SetBranchDensity, float)
 
 #undef TREE_PANEL_CALLBACK
 

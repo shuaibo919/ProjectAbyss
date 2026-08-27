@@ -46,6 +46,12 @@ namespace godot
 		CheckBox* GpuTessellationCheck = nullptr; // Stage 2: SlowTree 细分走 GPU compute(仅 SlowTree 后端可见)
 		VBoxContainer* WeberSpeciesBox = nullptr;
 		VBoxContainer* WeberTuningBox = nullptr;
+		// Stage 2.5: SlowTree 形变旋钮(粗细/密度, 乘法乘数, 仅 SlowTree 后端可见)。
+		VBoxContainer* SlowTreeTuningBox = nullptr;
+		HSlider* TrunkThicknessSlider = nullptr;
+		HSlider* RootThicknessSlider = nullptr;
+		HSlider* BranchThicknessSlider = nullptr;
+		HSlider* BranchDensitySlider = nullptr;
 
 		/** The tree currently being edited, or null. Only touched through ResolveTree(). */
 		ObjectID EditedTreeId;
@@ -77,6 +83,10 @@ namespace godot
 		void OnWindChanged(double Value);
 		void OnDensityChanged(double Value);
 		void OnRadialChanged(double Value);
+		void OnTrunkThicknessChanged(double Value);
+		void OnRootThicknessChanged(double Value);
+		void OnBranchThicknessChanged(double Value);
+		void OnBranchDensityChanged(double Value);
 		void OnBarkDetailToggled(bool bPressed);
 
 		/** Tool menu: runs the SlowTree hello-compute probe and prints the report. */

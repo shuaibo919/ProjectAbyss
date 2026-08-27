@@ -22,6 +22,7 @@
 
 #include <algorithm>
 #include <chrono>
+#include <cmath>
 #include <queue>
 #include <unordered_map>
 #include <vector>
@@ -198,6 +199,76 @@ namespace
 		}
 	}
 
+	// 用户面形变旋钮: 4 个乘法乘数覆盖到节点参数上(见 SlowTreeTuning 头注)。
+	// 只动粗细/密度; count 取整 ≥1(0 倍会生成空树)。
+	void ApplyTuning(NodeGraph& Graph, const SlowTreeTuning& Tuning)
+	{
+		for (auto& [id, node] : Graph.nodes())
+		{
+			switch (node->getType())
+			{
+				case NodeType::Trunk:
+				{
+					// 粗细 = 半径绝对缩放。endRadius 是绝对的, 跟着乘以保持锥度比不变
+					// (预设间的 taperPow/形状差异不受旋钮影响)。
+					TrunkParams& p = static_cast<TrunkNode*>(node.get())->params;
+					p.startRadius *= Tuning.TrunkThickness;
+					p.endRadius *= Tuning.TrunkThickness;
+					break;
+				}
+				case NodeType::Roots:
+				{
+					// 根半径是"树干基部半径 × radiusScale"的相对量, 直接乘在比例上。
+					RootsParams& p = static_cast<RootsNode*>(node.get())->params;
+					p.radiusScale *= Tuning.RootThickness;
+					break;
+				}
+				case NodeType::Branch:
+				{
+					BranchParams& p = static_cast<BranchNode*>(node.get())->params;
+					p.radiusScale *= Tuning.BranchThickness;
+					// 密度按模式分组: Interval 模式每节枝数, 其余按条数。
+					if (p.mode == BranchMode::Interval)
+					{
+						p.branchesPerNode = std::max(1, int(std::round(p.branchesPerNode * Tuning.BranchDensity)));
+					}
+					else
+					{
+						p.branchCount = std::max(1, int(std::round(p.branchCount * Tuning.BranchDensity)));
+					}
+					break;
+				}
+				case NodeType::Twig:
+				{
+					TwigParams& p = static_cast<TwigNode*>(node.get())->params;
+					p.radiusScale *= Tuning.BranchThickness;
+					p.twigCount = std::max(1, int(std::round(p.twigCount * Tuning.BranchDensity)));
+					break;
+				}
+				case NodeType::Spine:
+				{
+					// 叶轴是肉眼可见的管子, 跟枝杈粗细走; spineCount 是叶簇数量不是枝杈, 不受密度影响。
+					SpineParams& p = static_cast<SpineNode*>(node.get())->params;
+					p.radiusScale *= Tuning.BranchThickness;
+					break;
+				}
+				default:
+					break;
+			}
+		}
+	}
+
+	// GDScript Dictionary(键可缺)→ SlowTreeTuning。缺键按 1.0。
+	SlowTreeTuning BuildTuning(const Dictionary& Tuning)
+	{
+		SlowTreeTuning t;
+		if (Tuning.has("trunk_thickness")) { t.TrunkThickness = float(Tuning["trunk_thickness"]); }
+		if (Tuning.has("root_thickness")) { t.RootThickness = float(Tuning["root_thickness"]); }
+		if (Tuning.has("branch_thickness")) { t.BranchThickness = float(Tuning["branch_thickness"]); }
+		if (Tuning.has("branch_density")) { t.BranchDensity = float(Tuning["branch_density"]); }
+		return t;
+	}
+
 	// 把 SlowTree batch 装配成一个 ArrayMesh surface(分支 stride 10, 叶 stride 16)。
 	// 风场通道从第一天就进顶点格式: CUSTOM0 = (windWeight, windPhase) RG32F;
 	// 叶片另带 COLOR = albedo、CUSTOM1 = anchor RGB32F(Stage 3 风着色器消费)。
@@ -283,10 +354,10 @@ void SlowTreeGenerator::_bind_methods()
 {
 	ClassDB::bind_static_method("SlowTreeGenerator", D_METHOD("get_preset_count"), &SlowTreeGenerator::GetPresetCount);
 	ClassDB::bind_static_method("SlowTreeGenerator", D_METHOD("get_preset_name", "preset"), &SlowTreeGenerator::GetPresetName);
-	ClassDB::bind_static_method("SlowTreeGenerator", D_METHOD("generate", "preset", "seed", "use_gpu", "season"),
-		&SlowTreeGenerator::Generate, DEFVAL(false), DEFVAL(2.0f));
-	ClassDB::bind_static_method("SlowTreeGenerator", D_METHOD("generate_from_file", "vtree_path", "seed", "use_gpu", "season"),
-		&SlowTreeGenerator::GenerateFromFile, DEFVAL(false), DEFVAL(2.0f));
+	ClassDB::bind_static_method("SlowTreeGenerator", D_METHOD("generate", "preset", "seed", "use_gpu", "season", "tuning"),
+		&SlowTreeGenerator::Generate, DEFVAL(false), DEFVAL(2.0f), DEFVAL(Dictionary()));
+	ClassDB::bind_static_method("SlowTreeGenerator", D_METHOD("generate_from_file", "vtree_path", "seed", "use_gpu", "season", "tuning"),
+		&SlowTreeGenerator::GenerateFromFile, DEFVAL(false), DEFVAL(2.0f), DEFVAL(Dictionary()));
 }
 
 int32_t SlowTreeGenerator::GetPresetCount()
@@ -598,7 +669,8 @@ bool SlowTreeGenerator::ConvertToGodotMesh(
 
 bool SlowTreeGenerator::GenerateFromGraph(NodeGraph& Graph, int64_t Seed,
                                          SlowTreeMeshResult& Out, bool UseGpu,
-                                         float Season, bool Evergreen)
+                                         float Season, bool Evergreen,
+                                         const SlowTreeTuning& Tuning)
 {
 	const auto t0 = std::chrono::steady_clock::now();
 
@@ -608,6 +680,10 @@ bool SlowTreeGenerator::GenerateFromGraph(NodeGraph& Graph, int64_t Seed,
 		Out.Error = validation;
 		return false;
 	}
+
+	// 旋钮是生成期形变: 在种子派生前作用于图(派生只覆盖 seed 字段, 顺序上无冲突,
+	// 但先形变后派生语义更清晰 — 派生基于形变后的结构, 深度/节点 id 不变)。
+	ApplyTuning(Graph, Tuning);
 
 	TreeMeshData data;
 	const auto t1 = std::chrono::steady_clock::now();
@@ -647,7 +723,8 @@ bool SlowTreeGenerator::GenerateFromGraph(NodeGraph& Graph, int64_t Seed,
 	return true;
 }
 
-Dictionary SlowTreeGenerator::Generate(int32_t Preset, int64_t Seed, bool UseGpu, float Season)
+Dictionary SlowTreeGenerator::Generate(int32_t Preset, int64_t Seed, bool UseGpu, float Season,
+                                       const Dictionary& Tuning)
 {
 	SlowTreeMeshResult result;
 	NodeGraph graph;
@@ -658,7 +735,8 @@ Dictionary SlowTreeGenerator::Generate(int32_t Preset, int64_t Seed, bool UseGpu
 	}
 	else
 	{
-		GenerateFromGraph(graph, Seed, result, UseGpu, Season, SlowTreePresets::IsEvergreen(Preset));
+		GenerateFromGraph(graph, Seed, result, UseGpu, Season,
+			SlowTreePresets::IsEvergreen(Preset), BuildTuning(Tuning));
 	}
 
 	Dictionary out;
@@ -681,7 +759,7 @@ Dictionary SlowTreeGenerator::Generate(int32_t Preset, int64_t Seed, bool UseGpu
 }
 
 Dictionary SlowTreeGenerator::GenerateFromFile(const String& VtreePath, int64_t Seed,
-                                              bool UseGpu, float Season)
+                                              bool UseGpu, float Season, const Dictionary& Tuning)
 {
 	SlowTreeMeshResult result;
 	NodeGraph graph;
@@ -691,7 +769,7 @@ Dictionary SlowTreeGenerator::GenerateFromFile(const String& VtreePath, int64_t 
 	}
 	else
 	{
-		GenerateFromGraph(graph, Seed, result, UseGpu, Season, false);
+		GenerateFromGraph(graph, Seed, result, UseGpu, Season, false, BuildTuning(Tuning));
 	}
 
 	Dictionary out;

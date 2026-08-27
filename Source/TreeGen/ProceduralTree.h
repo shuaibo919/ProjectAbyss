@@ -42,6 +42,13 @@ namespace godot
 		float WindTime = 0.0f;
 		float LeafDensity = 1.0f;
 
+		// SlowTree 形变旋钮(乘法乘数, 1.0 = 预设原样; 仅 SlowTree 后端生效)。
+		// 对应 SlowTreeTuning: 主干/根部/枝杈粗细 + 枝杈密度。
+		float TrunkThickness = 1.0f;
+		float RootThickness = 1.0f;
+		float BranchThickness = 1.0f;
+		float BranchDensity = 1.0f;
+
 		int32_t RadialSegments = 12;
 		int32_t RingsPerSegment = 1;
 		int32_t LeafArcSegments = 2;
@@ -131,6 +138,19 @@ namespace godot
 
 		void SetLeafDensity(float Value);
 		float GetLeafDensity() const { return LeafDensity; }
+
+		/** SlowTree 形变乘数(仅 SlowTree 后端; 1.0 = 预设原样), 见 SlowTreeTuning。 */
+		void SetTrunkThickness(float Value);
+		float GetTrunkThickness() const { return TrunkThickness; }
+
+		void SetRootThickness(float Value);
+		float GetRootThickness() const { return RootThickness; }
+
+		void SetBranchThickness(float Value);
+		float GetBranchThickness() const { return BranchThickness; }
+
+		void SetBranchDensity(float Value);
+		float GetBranchDensity() const { return BranchDensity; }
 
 		void SetRadialSegments(int32_t Value);
 		int32_t GetRadialSegments() const { return RadialSegments; }

@@ -26,6 +26,24 @@
 
 namespace godot
 {
+	/**
+	 * 用户面形变旋钮(乘法乘数, 1.0 = 预设原样)。只动"粗细/密度", 不动长度/角度/噪声,
+	 * 保证调整恒为对基准预设的形变, 预设之间的差别(层数/轮生/叶形)不会被旋钮抹平。
+	 * 映射:
+	 *  - TrunkThickness  → TrunkParams.startRadius/endRadius(主干粗细)
+	 *  - RootThickness   → RootsParams.radiusScale(根部粗细, 相对树干基部半径的比例)
+	 *  - BranchThickness → Branch/Twig/Spine 的 radiusScale(枝杈粗细, 相对父级附着点半径)
+	 *  - BranchDensity   → BranchClassic.branchCount / Interval.branchesPerNode / Twig.twigCount
+	 *                      (每层数量取整 ≥1; Spine 是叶轴不算枝, 数量不受密度影响)
+	 */
+	struct SlowTreeTuning
+	{
+		float TrunkThickness = 1.0f;
+		float RootThickness = 1.0f;
+		float BranchThickness = 1.0f;
+		float BranchDensity = 1.0f;
+	};
+
 	/** Generation output: one ArrayMesh surface per SlowTree batch, materials parallel. */
 	struct SlowTreeMeshResult
 	{
@@ -57,21 +75,27 @@ namespace godot
 		static int32_t GetPresetCount();
 		static String GetPresetName(int32_t Preset);
 
-		/** Script-facing: preset + seed → Dictionary(mesh/materials/error/stats/timings)。 */
+		/**
+		 * Script-facing: preset + seed → Dictionary(mesh/materials/error/stats/timings)。
+		 * Tuning 为 Dictionary{trunk_thickness, root_thickness, branch_thickness, branch_density},
+		 * 缺省键按 1.0(预设原样)。
+		 */
 		static Dictionary Generate(int32_t Preset, int64_t Seed, bool UseGpu = false,
-		                           float Season = 2.0f);
+		                           float Season = 2.0f, const Dictionary& Tuning = Dictionary());
 
 		/** Script-facing: .vtree 文件 + seed → 同上(含不支持节点校验)。 */
 		static Dictionary GenerateFromFile(const String& VtreePath, int64_t Seed, bool UseGpu = false,
-		                                   float Season = 2.0f);
+		                                   float Season = 2.0f, const Dictionary& Tuning = Dictionary());
 
 		/**
 		 * 核心: 图 → ArrayMesh(多 surface)+ 材质。Seed != 0 时按 Mix(seed, id, depth)
 		 * 派生节点种子; == 0 时保留模板种子(位级对拍锚点)。
 		 * UseGpu=true 时细分阶段走 compute 管线(Stage 2), 中心线/RNG/附着共享同一套代码。
+		 * Tuning 在种子派生前覆盖到节点参数上(见 SlowTreeTuning 头注)。
 		 */
 		static bool GenerateFromGraph(NodeGraph& Graph, int64_t Seed, SlowTreeMeshResult& Out,
-		                              bool UseGpu = false, float Season = 2.0f, bool Evergreen = false);
+		                              bool UseGpu = false, float Season = 2.0f, bool Evergreen = false,
+		                              const SlowTreeTuning& Tuning = {});
 
 		/** 校验层: 图上含 v1 不支持的节点(自定义/导入/散布)时返回错误(中文提示)。 */
 		static String ValidateGraph(const NodeGraph& Graph);

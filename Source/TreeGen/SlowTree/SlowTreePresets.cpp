@@ -144,7 +144,7 @@ LINK 4 5
 	static const char* kPineVtree = R"VT(VEGTOOL 1
 NODE 1 0 100 200
 length 9.0
-startRadius 0.32
+startRadius 0.24
 endRadius 0.05
 baseFlare 1.6
 noiseAmount 85
@@ -166,10 +166,10 @@ lengthRatio 0.34
 radiusScale 0.68
 endRatio 0.25
 baseFlare 2.1
-taperPow 1.4
-spreadAngle 85
+taperPow 1.15
+spreadAngle 62
 rotateOffset 137.5
-gravity 0.35
+gravity 0.3
 regionStart 0.15
 regionEnd 1.0
 noiseAmount 20
@@ -186,11 +186,11 @@ mat.roughness 0.87
 ENDNODE
 NODE 3 2 417 200
 lengthRatio 0.45
-radiusScale 0.55
+radiusScale 0.45
 endRatio 0.25
 baseFlare 2.2
 taperPow 1.3
-spreadAngle 55
+spreadAngle 45
 rotateOffset 137.5
 gravity 0.25
 regionStart 0.4
@@ -199,7 +199,7 @@ noiseAmount 18
 noiseFreq 2.1
 gnarl 3
 sizeFalloff 0.3
-branchCount 4
+branchCount 5
 sides 4
 lengthSegs 4
 seed 23
@@ -208,8 +208,8 @@ mat.albedo 0.3 0.19 0.09
 mat.roughness 0.88
 ENDNODE
 NODE 4 5 554 200
-spineCount 3
-lengthRatio 1.1
+spineCount 7
+lengthRatio 0.85
 radiusScale 0.12
 endRatio 0.15
 taperPow 1.2
@@ -224,20 +224,20 @@ gnarl 3
 sides 3
 lengthSegs 6
 seed 26
-mat.albedo 0.16 0.32 0.14
+mat.albedo 0.13 0.3 0.12
 mat.roughness 0.7
 ENDNODE
 NODE 5 6 682 200
-width 0.26
+width 0.22
 widthBase 0.85
-widthTip 0.45
-profilePow 0.3
+widthTip 0.2
+profilePow 0.8
 curl 0
 segsPerSide 2
 serrate 1
 serrateDepth 0.65
 seed 27
-mat.albedo 0.13 0.33 0.15
+mat.albedo 0.11 0.3 0.13
 mat.roughness 0.75
 mat.sssStrength 0.6
 ENDNODE
@@ -396,9 +396,9 @@ length 8.5
 startRadius 0.15
 endRadius 0.09
 baseFlare 1.6
-noiseAmount 85
+noiseAmount 14
 noiseFreq 3.1
-gnarl 14
+gnarl 3
 taperPow 1.6
 sides 8
 lengthSegs 16
@@ -411,22 +411,21 @@ mat.roughness 0.85
 ENDNODE
 NODE 2 2 282 200
 mode 6
-intervalSpacing 0.07
-branchesPerNode 3
-lengthRatio 0.42
+intervalSpacing 0.1
+branchesPerNode 2
+lengthRatio 0.35
 radiusScale 0.68
 endRatio 0.25
 baseFlare 2.1
 taperPow 1.15
-spreadAngle 45
+spreadAngle 58
 rotateOffset 137.5
-gravity 0.35
+gravity 0.3
 regionStart 0.45
-regionEnd 0.92
+regionEnd 0.95
 noiseAmount 14
 noiseFreq 2.4
 gnarl 3
-branchCount 3
 sides 6
 lengthSegs 6
 seed 42
@@ -435,15 +434,15 @@ mat.albedo 0.22 0.4 0.11
 mat.roughness 0.87
 ENDNODE
 NODE 3 3 417 200
-twigCount 4
-lengthRatio 0.55
+twigCount 3
+lengthRatio 0.45
 radiusScale 1
 endRatio 0.25
 baseFlare 1.8
 taperPow 1.1
 spreadAngle 38
 rotateOffset 137.5
-gravity 0.5
+gravity 0.4
 regionStart 0.2
 regionEnd 0.87
 noiseAmount 12
@@ -457,16 +456,176 @@ mat.albedo 0.22 0.4 0.11
 mat.roughness 0.9
 ENDNODE
 NODE 4 4 554 200
-leafCount 13
+leafCount 9
 clusterRadius 0.05
-leafSize 0.21
+leafSize 0.17
 leafAspect 0.22
 normalJitter 0.26
 normalSoften 0.4
 planar 1
 sizeFalloff 0.35
 seed 43
-mat.albedo 0.2 0.5 0.2
+mat.albedo 0.13 0.4 0.17
+mat.roughness 0.82
+mat.sssStrength 0.8
+ENDNODE
+NODE 5 0 100 200
+length 7.4
+startRadius 0.13
+endRadius 0.08
+baseFlare 1.6
+noiseAmount 14
+noiseFreq 3.1
+gnarl 3
+taperPow 1.6
+sides 8
+lengthSegs 16
+seed 51
+uvTiling 3
+jointCount 16
+jointBulge 0.18
+posX 0.45
+posZ 0.5
+mat.albedo 0.24 0.42 0.12
+mat.roughness 0.85
+ENDNODE
+NODE 6 2 282 200
+mode 6
+intervalSpacing 0.09
+branchesPerNode 2
+lengthRatio 0.35
+radiusScale 0.68
+endRatio 0.25
+baseFlare 2.1
+taperPow 1.15
+spreadAngle 58
+rotateOffset 137.5
+gravity 0.3
+regionStart 0.45
+regionEnd 0.95
+noiseAmount 14
+noiseFreq 2.4
+gnarl 3
+sides 6
+lengthSegs 6
+seed 52
+uvTiling 2
+mat.albedo 0.22 0.4 0.11
+mat.roughness 0.87
+ENDNODE
+NODE 8 3 417 200
+twigCount 3
+lengthRatio 0.45
+radiusScale 1
+endRatio 0.25
+baseFlare 1.8
+taperPow 1.1
+spreadAngle 38
+rotateOffset 137.5
+gravity 0.4
+regionStart 0.2
+regionEnd 0.87
+noiseAmount 12
+noiseFreq 3.5
+gnarl 2
+sides 4
+lengthSegs 4
+alternating 1
+seed 54
+mat.albedo 0.22 0.4 0.11
+mat.roughness 0.9
+ENDNODE
+NODE 9 4 554 200
+leafCount 9
+clusterRadius 0.05
+leafSize 0.17
+leafAspect 0.22
+normalJitter 0.26
+normalSoften 0.4
+planar 1
+sizeFalloff 0.35
+seed 53
+mat.albedo 0.13 0.4 0.17
+mat.roughness 0.82
+mat.sssStrength 0.8
+ENDNODE
+NODE 10 0 100 200
+length 6.6
+startRadius 0.12
+endRadius 0.07
+baseFlare 1.6
+noiseAmount 14
+noiseFreq 3.1
+gnarl 3
+taperPow 1.6
+sides 8
+lengthSegs 16
+seed 61
+uvTiling 3
+jointCount 16
+jointBulge 0.18
+posX -0.5
+posZ 0.35
+mat.albedo 0.24 0.42 0.12
+mat.roughness 0.85
+ENDNODE
+NODE 11 2 282 200
+mode 6
+intervalSpacing 0.08
+branchesPerNode 2
+lengthRatio 0.35
+radiusScale 0.68
+endRatio 0.25
+baseFlare 2.1
+taperPow 1.15
+spreadAngle 58
+rotateOffset 137.5
+gravity 0.3
+regionStart 0.45
+regionEnd 0.95
+noiseAmount 14
+noiseFreq 2.4
+gnarl 3
+sides 6
+lengthSegs 6
+seed 62
+uvTiling 2
+mat.albedo 0.22 0.4 0.11
+mat.roughness 0.87
+ENDNODE
+NODE 12 3 417 200
+twigCount 3
+lengthRatio 0.45
+radiusScale 1
+endRatio 0.25
+baseFlare 1.8
+taperPow 1.1
+spreadAngle 38
+rotateOffset 137.5
+gravity 0.4
+regionStart 0.2
+regionEnd 0.87
+noiseAmount 12
+noiseFreq 3.5
+gnarl 2
+sides 4
+lengthSegs 4
+alternating 1
+seed 64
+mat.albedo 0.22 0.4 0.11
+mat.roughness 0.9
+ENDNODE
+NODE 13 4 554 200
+leafCount 9
+clusterRadius 0.05
+leafSize 0.17
+leafAspect 0.22
+normalJitter 0.26
+normalSoften 0.4
+planar 1
+sizeFalloff 0.35
+seed 63
+mat.albedo 0.13 0.4 0.17
 mat.roughness 0.82
 mat.sssStrength 0.8
 ENDNODE
@@ -493,6 +652,12 @@ LINK 1 2
 LINK 1 7
 LINK 2 3
 LINK 3 4
+LINK 5 6
+LINK 6 8
+LINK 8 9
+LINK 10 11
+LINK 11 12
+LINK 12 13
 )VT";
 
 	// 水杉: 羽状复叶——Twig 挂 Spine 叶轴, Frond 沿叶轴铺连续叶带(覆盖 Spine/Frond 路径)。

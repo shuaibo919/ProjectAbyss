@@ -85,6 +85,12 @@ void ProceduralTree::_bind_methods()
 	TREE_BIND_RANGE(Variant::FLOAT, "wind_time", WindTime, "0,120,0.01")
 	TREE_BIND_RANGE(Variant::FLOAT, "leaf_density", LeafDensity, "0.001,1,0.001")
 
+	// SlowTree 形变旋钮: 乘法乘数, 1.0 = 预设原样(对应 SlowTreeTuning, 仅 SlowTree 后端生效)。
+	TREE_BIND_RANGE(Variant::FLOAT, "trunk_thickness", TrunkThickness, "0.1,5,0.01")
+	TREE_BIND_RANGE(Variant::FLOAT, "root_thickness", RootThickness, "0.1,5,0.01")
+	TREE_BIND_RANGE(Variant::FLOAT, "branch_thickness", BranchThickness, "0.1,5,0.01")
+	TREE_BIND_RANGE(Variant::FLOAT, "branch_density", BranchDensity, "0.1,5,0.01")
+
 	ADD_GROUP("Tessellation", "");
 	TREE_BIND_RANGE(Variant::INT, "radial_segments", RadialSegments, "3,32,1")
 	TREE_BIND_RANGE(Variant::INT, "rings_per_segment", RingsPerSegment, "1,8,1")
@@ -399,8 +405,14 @@ void ProceduralTree::GenerateSlowTree()
 
 	// Season 是两个后端共用的旋钮: Weber-Penn 侧在网格构建时着色, SlowTree 侧在装配
 	// 单 surface 时按逐叶锚点哈希着色。语义相同(0/4 冬, 2 夏)。
+	// 形变旋钮以字典直通 Generator(缺省键 = 1.0 预设原样)。
+	Dictionary SlowTreeTuningDict;
+	SlowTreeTuningDict["trunk_thickness"] = TrunkThickness;
+	SlowTreeTuningDict["root_thickness"] = RootThickness;
+	SlowTreeTuningDict["branch_thickness"] = BranchThickness;
+	SlowTreeTuningDict["branch_density"] = BranchDensity;
 	const Dictionary Result = SlowTreeGenerator::Generate(
-		Preset, int64_t(Seed), bUseGpuTessellation, Season);
+		Preset, int64_t(Seed), bUseGpuTessellation, Season, SlowTreeTuningDict);
 	const String Error = Result["error"];
 	if (!Error.is_empty())
 	{
@@ -502,6 +514,10 @@ TREE_DEFINE_SETTER(float, Season, Season, TreeGen::Clamp(Value, 0.0f, 4.0f))
 TREE_DEFINE_SETTER(float, WindStrength, WindStrength, std::fmax(0.0f, Value))
 TREE_DEFINE_SETTER(float, WindTime, WindTime, Value)
 TREE_DEFINE_SETTER(float, LeafDensity, LeafDensity, TreeGen::Clamp(Value, 0.001f, 1.0f))
+TREE_DEFINE_SETTER(float, TrunkThickness, TrunkThickness, TreeGen::Clamp(Value, 0.1f, 5.0f))
+TREE_DEFINE_SETTER(float, RootThickness, RootThickness, TreeGen::Clamp(Value, 0.1f, 5.0f))
+TREE_DEFINE_SETTER(float, BranchThickness, BranchThickness, TreeGen::Clamp(Value, 0.1f, 5.0f))
+TREE_DEFINE_SETTER(float, BranchDensity, BranchDensity, TreeGen::Clamp(Value, 0.1f, 5.0f))
 TREE_DEFINE_SETTER(int32_t, RadialSegments, RadialSegments, TreeGen::ClampInt(Value, 3, 64))
 TREE_DEFINE_SETTER(int32_t, RingsPerSegment, RingsPerSegment, TreeGen::ClampInt(Value, 1, 16))
 TREE_DEFINE_SETTER(int32_t, LeafArcSegments, LeafArcSegments, TreeGen::ClampInt(Value, 1, 8))

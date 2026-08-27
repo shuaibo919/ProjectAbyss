@@ -245,36 +245,74 @@ WILLOW = '\n'.join([
 # needle comb. §06 is conceding the identical problem from the other side.
 PINE = '\n'.join([
     'VEGTOOL 1',
-    trunk(9.0, 0.32, 0.05, 21, '0.34 0.24 0.15'),
-    branch_l1(5, 22, BARK1, spread=85, gravity=0.35, length_ratio=0.34,
+    trunk(9.0, 0.24, 0.05, 21, '0.34 0.24 0.15'),
+    # spreadAngle 62 不是 85: PlantBotany §2② 指出 85 是 Massart(云杉那种平展层次),
+    # 真正的松(Rauh's model)枝是 orthotropic — 抬起、辐射对称。第一版把整枝拍平后
+    # 轮生层像棍子插进树干, 现在抬起一些有松树的气韵。
+    branch_l1(5, 22, BARK1, spread=62, gravity=0.30, length_ratio=0.34,
               mode_lines='mode 6\nintervalSpacing 0.1\nbranchesPerNode 5\n',
-              taper=1.4, noise=20, noise_freq=1.2, gnarl=3, region_start=0.15,
+              taper=1.15, noise=20, noise_freq=1.2, gnarl=3, region_start=0.15,
               size_falloff=0.85, region_end=1.0),
-    branch_l2(4, 23, BARK3, spread=55, gravity=0.25, length_ratio=0.45,
-              taper=1.3, noise=18, gnarl=3, size_falloff=0.3, radius_scale=0.55,
+    # L2 count 5: 第一版 4 根太稀, 轮生枝间褐色裸干刺眼(第二轮截图确认);
+    # 叶簇跟随 L2 数量, 密了才盖得住。
+    branch_l2(5, 23, BARK3, spread=45, gravity=0.25, length_ratio=0.45,
+              taper=1.3, noise=18, gnarl=3, size_falloff=0.3, radius_scale=0.45,
               sides=4, segs=4),
-    spine(3, 26, '0.16 0.32 0.14', node_id=4, x=554, length_ratio=1.1, radius_scale=0.12,
+    # spineCount 7 + lengthRatio 0.85: 第一版 5 根 x 1.1 倍长, 针叶带顺着整根枝拖成
+    # 一条条稀疏长条(第二轮截图)。短叶轴 + 多叶簇 = 簇形聚焦在枝梢, 读作一簇簇松针。
+    spine(7, 26, '0.13 0.3 0.12', node_id=4, x=554, length_ratio=0.85, radius_scale=0.12,
           spread=26, gravity=0.35, region_start=0.1, region_end=0.95, sides=3, segs=6, noise=14),
-    frond(27, '0.13 0.33 0.15', node_id=5, x=682, width=0.26, width_base=0.85, width_tip=0.45,
-          profile_pow=0.3, segs_per_side=2, serrate=1, serrate_depth=0.65),
+    # width 0.22 + profilePow 0.8: 叶带更宽更饱满(基部收窄、中部圆润),
+    # 而不是一条等宽的细带 —— serrate 边缘给出针叶梳齿。
+    frond(27, '0.11 0.3 0.13', node_id=5, x=682, width=0.22, width_base=0.85, width_tip=0.2,
+          profile_pow=0.8, segs_per_side=2, serrate=1, serrate_depth=0.65),
     roots(1.6, 25, ROOTC),
     'LINK 1 2', 'LINK 1 7', 'LINK 2 3', 'LINK 3 4', 'LINK 4 5',
 ])
 
-# ---- 竹子: straight jointed culm, branches only on the upper culm. Also low-noise. ----
+# ---- 竹子: McClure's model(PlantBotany §2③) - basitonic 分枝, 新竿从根状茎发出。
+# 植物学定论: 竹**必须是一丛** —— 单竿是错的骨架, 实测读作"一把散草"。
+# 三竿: 一主两副, posX/posZ 错开, 副竿更短更细更密。
+# 每竿只有一层 Interval 轮生枝 + 一层 Twig + 叶; 竹竿直(noise 低), 枝位于竿上段(regionStart 0.45)。
+def bamboo_culm(ids, length, start_r, end_r, n_seg, seed_trunk, seed_branch, seed_twig, seed_leaf,
+                pos_lines=''):
+    t, b, w, l = ids
+    return '\n'.join([
+        f'NODE {t} 0 100 200', f'length {length}', f'startRadius {start_r}',
+        f'endRadius {end_r}', 'baseFlare 1.6', 'noiseAmount 14', 'noiseFreq 3.1', 'gnarl 3',
+        'taperPow 1.6', 'sides 8', 'lengthSegs 16', f'seed {seed_trunk}', 'uvTiling 3',
+        'jointCount 16', 'jointBulge 0.18', f'{pos_lines}mat.albedo 0.24 0.42 0.12',
+        'mat.roughness 0.85', 'ENDNODE',
+        f'NODE {b} 2 282 200', 'mode 6', f'intervalSpacing {n_seg}', 'branchesPerNode 2',
+        'lengthRatio 0.35', 'radiusScale 0.68', 'endRatio 0.25', 'baseFlare 2.1',
+        'taperPow 1.15', 'spreadAngle 58', 'rotateOffset 137.5', 'gravity 0.3',
+        'regionStart 0.45', 'regionEnd 0.95', 'noiseAmount 14', 'noiseFreq 2.4', 'gnarl 3',
+        'sides 6', 'lengthSegs 6', f'seed {seed_branch}', 'uvTiling 2',
+        'mat.albedo 0.22 0.4 0.11', 'mat.roughness 0.87', 'ENDNODE',
+        f'NODE {w} 3 417 200', 'twigCount 3', 'lengthRatio 0.45', 'radiusScale 1',
+        'endRatio 0.25', 'baseFlare 1.8', 'taperPow 1.1', 'spreadAngle 38',
+        'rotateOffset 137.5', 'gravity 0.4', 'regionStart 0.2', 'regionEnd 0.87',
+        'noiseAmount 12', 'noiseFreq 3.5', 'gnarl 2', 'sides 4', 'lengthSegs 4',
+        'alternating 1', f'seed {seed_twig}', 'mat.albedo 0.22 0.4 0.11',
+        'mat.roughness 0.9', 'ENDNODE',
+        f'NODE {l} 4 554 200', 'leafCount 9', 'clusterRadius 0.05', 'leafSize 0.17',
+        'leafAspect 0.22', 'normalJitter 0.26', 'normalSoften 0.4', 'planar 1',
+        'sizeFalloff 0.35', f'seed {seed_leaf}', 'mat.albedo 0.13 0.4 0.17',
+        'mat.roughness 0.82', 'mat.sssStrength 0.8', 'ENDNODE',
+    ])
+
+
 BAMBOO = '\n'.join([
     'VEGTOOL 1',
-    trunk(8.5, 0.15, 0.09, 41, '0.24 0.42 0.12',
-          extra='jointCount 16\njointBulge 0.18\n'),
-    branch_l1(3, 42, '0.22 0.4 0.11', spread=45, gravity=0.35, length_ratio=0.42,
-              mode_lines='mode 6\nintervalSpacing 0.07\nbranchesPerNode 3\n',
-              taper=1.15, noise=14, noise_freq=2.4, gnarl=3, region_start=0.45),
-    twig(4, 44, '0.22 0.4 0.11', spread=38, gravity=0.5, length_ratio=0.55, node_id=3, x=417,
-         noise=12, gnarl=2, taper=1.1),
-    leaves(13, 0.21, 0.22, 43, '0.2 0.5 0.2', soften=0.4, planar=1, falloff=0.35,
-           node_id=4, x=554),
+    bamboo_culm((1, 2, 3, 4), 8.5, 0.15, 0.09, 0.1, 41, 42, 44, 43),
+    bamboo_culm((5, 6, 8, 9), 7.4, 0.13, 0.08, 0.09, 51, 52, 54, 53,
+                pos_lines='posX 0.45\nposZ 0.5\n'),
+    bamboo_culm((10, 11, 12, 13), 6.6, 0.12, 0.07, 0.08, 61, 62, 64, 63,
+                pos_lines='posX -0.5\nposZ 0.35\n'),
     roots(1.3, 45, '0.28 0.2 0.12'),
     'LINK 1 2', 'LINK 1 7', 'LINK 2 3', 'LINK 3 4',
+    'LINK 5 6', 'LINK 6 8', 'LINK 8 9',
+    'LINK 10 11', 'LINK 11 12', 'LINK 12 13',
 ])
 
 # ---- 水杉: pinnate compound foliage via Spine -> Frond instead of leaf cards ----
