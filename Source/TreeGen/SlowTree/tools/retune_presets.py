@@ -9,8 +9,10 @@ not leaves, so the skeleton runs two Branch levels rather than HelloTree's three
 tessellation low.
 """
 import io
+import os
 
-PATH = 'Source/TreeGen/SlowTree/SlowTreePresets.cpp'
+# 目标文件定位到脚本旁(本脚本从任意 cwd 运行均可)。
+PATH = os.path.normpath(os.path.join(os.path.dirname(os.path.abspath(__file__)), '..', 'SlowTreePresets.cpp'))
 
 
 def trunk(length, start_r, end_r, seed, albedo, extra=''):

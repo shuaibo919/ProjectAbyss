@@ -7,8 +7,8 @@ import sys
 
 # Engine/ is a custom Godot fork, so prefer bindings generated from its own dumped API
 # over godot-cpp's bundled copies. Regenerate after updating the engine with:
-#   cd build_api && ../Engine/bin/godot.windows.editor.x86_64.console.exe --headless --dump-extension-api
-custom_api_file = os.path.join("build_api", "extension_api.json")
+#   cd Source/build_api && ../../Engine/bin/godot.windows.editor.x86_64.console.exe --headless --dump-extension-api
+custom_api_file = os.path.join("Source", "build_api", "extension_api.json")
 if os.path.isfile(custom_api_file):
     ARGUMENTS.setdefault("custom_api_file", custom_api_file)
 else:

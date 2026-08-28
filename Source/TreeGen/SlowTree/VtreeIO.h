@@ -1,7 +1,7 @@
 #pragma once
 // Vendored from Reference/SlowTree/src/io/ProjectIO.cpp/.h 解析侧 (commit 10e6c66)。
 // 仅保留 .vtree 读取: 写入(save/writeNode)、OBJ/FBX/USD 导出、单节点 kv 接口
-// 是应用/转换器职责(转换器为 Python 侧 Tools/convert_vtree_preset.py), 不随核心移植。
+// 是应用/转换器职责(转换器为 Python 侧 tools/convert_vtree_preset.py), 不随核心移植。
 #include <istream>
 #include <string>
 

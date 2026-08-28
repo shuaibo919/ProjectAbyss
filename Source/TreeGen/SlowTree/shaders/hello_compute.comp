@@ -9,7 +9,7 @@
 // verify the readback bit-for-bit — any mismatch means a real pipeline problem,
 // not floating-point noise.
 //
-// Rebuilt with: Tools/build_slowtree_shaders.ps1 (checked-in hello_compute.spv.h).
+// Rebuilt with: tools/build_slowtree_shaders.ps1 (checked-in hello_compute.spv.h).
 
 layout(local_size_x = 64, local_size_y = 1, local_size_z = 1) in;
 

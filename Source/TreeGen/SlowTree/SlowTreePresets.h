@@ -7,7 +7,7 @@
 // 而不是程序化 builder 代码。理由:
 //   - 与上游应用逐位一致的最强保证: 同事在应用里保存的 .vtree 就是本文件里的文本,
 //     解析路径与上游完全同构; golden 对拍时应用直接加载同一份 .vtree, 无反向转换。
-//   - 转换器(Tools/convert_vtree_preset.py)两个方向都是纯文本处理: .vtree → 内嵌字符串
+//   - 转换器(tools/convert_vtree_preset.py)两个方向都是纯文本处理: .vtree → 内嵌字符串
 //     片段签入; 反方向把内嵌字符串抽出来供同事应用复算 golden。
 //   - 全局种子旋钮在加载后统一派生(见 SlowTreeGenerator), 不依赖模板内种子值。
 

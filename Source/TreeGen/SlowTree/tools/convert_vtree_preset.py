@@ -5,8 +5,8 @@
 -> 手工贴入 Source/TreeGen/SlowTree/SlowTreePresets.cpp(或替换既有模板)。
 
 用法:
-  python Tools/convert_vtree_preset.py wrap   <name> <input.vtree> [desc]
-  python Tools/convert_vtree_preset.py extract <SlowTreePresets.cpp> <out_dir>
+  python Source/TreeGen/SlowTree/tools/convert_vtree_preset.py wrap   <name> <input.vtree> [desc]
+  python Source/TreeGen/SlowTree/tools/convert_vtree_preset.py extract <SlowTreePresets.cpp> <out_dir>
 
 wrap:   读入 .vtree 文本, 输出 C++ raw-string 片段(static const char* k<Name>Vtree)。
         片段中 VEGTOOL 行原样保留(与 VtreeIO 解析器同构, 无任何改写)。

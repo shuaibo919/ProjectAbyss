@@ -105,7 +105,7 @@ Dictionary SlowTreeCompute::hello_compute_probe(uint64_t ElementCount, bool Verb
 	uint64_t FirstMismatch = 0;
 
 	// Phase 1: SPIR-V -> RD shader. Bytecode comes from the checked-in header
-	// baked by Tools/build_slowtree_shaders.ps1.
+	// baked by Source/TreeGen/SlowTree/tools/build_slowtree_shaders.ps1.
 	PhaseStart = Clock::now();
 	Ref<RDShaderSPIRV> Spirv;
 	Spirv.instantiate();
