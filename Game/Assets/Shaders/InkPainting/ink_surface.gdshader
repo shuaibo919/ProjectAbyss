@@ -40,10 +40,21 @@ uniform float light_cun_power : hint_range(0.1, 5.0) = 1.0;
 uniform float light_ran_power : hint_range(0.1, 5.0) = 1.25;
 uniform float light_inline_strength : hint_range(0.0, 2.0) = 0.35;
 
+// === Vertex colour ===
+// The procedural generators (AncientBuilding, SlowTree/TreeGen) are asset-free: every part's
+// basecolor rides on COLOR, and each tree or hall is now a SINGLE surface, so there is no way to
+// give trunk / tile / leaf / blossom different base_color uniforms. Without this the whole mesh
+// collapses to one flat paper tone.
+//
+// Carried through a varying rather than read directly because light() has no COLOR built-in.
+// COLOR defaults to opaque white, so materials that do not supply vertex colours are unchanged.
+uniform bool use_vertex_color = true;
+
 // === Varyings ===
 varying vec2 v_ws_uv;
 varying vec2 v_uv;
 varying float v_dist_normalized;
+varying vec3 v_vertex_color;
 
 void vertex() {
 	vec3 world_pos = (MODEL_MATRIX * vec4(VERTEX, 1.0)).xyz;
@@ -54,11 +65,12 @@ void vertex() {
 	// World-space UV (pseudo-3D projection)
 	v_ws_uv = world_pos.xy + world_pos.yz + world_pos.xz;
 	v_dist_normalized = dist / max_distance;
+	v_vertex_color = use_vertex_color ? COLOR.rgb : vec3(1.0);
 }
 
 void fragment() {
 	// Sample base color: uniform tint * texture (white if no tex assigned)
-	vec3 base = base_color.rgb * texture(base_color_tex, UV).rgb;
+	vec3 base = base_color.rgb * texture(base_color_tex, UV).rgb * v_vertex_color;
 	ALBEDO = base;
 	METALLIC = 0.0;
 	ROUGHNESS = 1.0;
@@ -67,7 +79,7 @@ void fragment() {
 
 void light() {
 	// === Base color (watercolor tint from texture) ===
-	vec3 base = base_color.rgb * texture(base_color_tex, v_uv).rgb;
+	vec3 base = base_color.rgb * texture(base_color_tex, v_uv).rgb * v_vertex_color;
 
 	// === Lighting-driven ink area ===
 	float NdotL = clamp(dot(NORMAL, LIGHT), 0.0, 1.0);
