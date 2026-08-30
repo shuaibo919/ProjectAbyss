@@ -66,6 +66,74 @@ bool AncientBuildingParameters::IsCentralisedRoof(int32_t RoofType)
 	return RoofType == ROOF_PYRAMIDAL || RoofType == ROOF_ROUND || RoofType == ROOF_HELMET;
 }
 
+String AncientBuildingParameters::GetStyleName(int32_t Value)
+{
+	switch (Value)
+	{
+		case STYLE_THATCHED: return "Thatched";
+		case STYLE_EARTHEN: return "Earthen";
+		default: return "Traditional";
+	}
+}
+
+String AncientBuildingParameters::GetStyleNameLocalized(int32_t Value)
+{
+	const char* Chinese = "";
+	switch (Value)
+	{
+		case STYLE_THATCHED: Chinese = "茅草"; break;
+		case STYLE_EARTHEN: Chinese = "土木"; break;
+		default: Chinese = "官式"; break;
+	}
+
+	return vformat("%s (%s)", GetStyleName(Value), String::utf8(Chinese));
+}
+
+float AncientBuildingParameters::GetStyleMottle(int32_t Value)
+{
+	switch (Value)
+	{
+		case STYLE_THATCHED: return 0.12f;
+		case STYLE_EARTHEN: return 0.09f;
+		default: return 0.05f;
+	}
+}
+
+/**
+ * Material palettes (vertex colours, no textures). Sampled off the thatched hut of
+ * Reference/image.png: straw thatch reads as dry grey-yellow bundles, the walls as pale
+ * plaster with a whitewash bloom, the timber as dark weathered pine.
+ */
+void AncientBuildingParameters::ApplyMaterialStyle(int32_t Value)
+{
+	switch (Value)
+	{
+		case STYLE_THATCHED:
+			// Straw (roof), straw-dark (ridge cap), pale plaster, dark timber, wood braces, earth base.
+			TileColor = Color(0.62f, 0.54f, 0.32f, 1.0f);
+			RidgeColor = Color(0.42f, 0.35f, 0.21f, 1.0f);
+			PlasterColor = Color(0.76f, 0.72f, 0.60f, 1.0f);
+			TimberColor = Color(0.34f, 0.25f, 0.16f, 1.0f);
+			BracketColor = Color(0.46f, 0.33f, 0.19f, 1.0f);
+			StoneColor = Color(0.56f, 0.48f, 0.34f, 1.0f);
+			break;
+
+		case STYLE_EARTHEN:
+			// Earth-toned tile, dark ridge, rammed earth walls, dark timber.
+			TileColor = Color(0.33f, 0.31f, 0.27f, 1.0f);
+			RidgeColor = Color(0.24f, 0.22f, 0.19f, 1.0f);
+			PlasterColor = Color(0.68f, 0.57f, 0.38f, 1.0f);
+			TimberColor = Color(0.36f, 0.26f, 0.17f, 1.0f);
+			BracketColor = Color(0.47f, 0.35f, 0.21f, 1.0f);
+			StoneColor = Color(0.52f, 0.46f, 0.35f, 1.0f);
+			break;
+
+		default:
+			// STYLE_TRADITIONAL: keep whatever the user has already set.
+			break;
+	}
+}
+
 void AncientBuildingParameters::_bind_methods()
 {
 	ADD_GROUP("Plan", "");
@@ -117,6 +185,14 @@ void AncientBuildingParameters::_bind_methods()
 	ANCIENT_BIND_RANGE(Variant::FLOAT, "corner_extend_scale", CornerExtendScale, "0,4,0.001")
 	ANCIENT_BIND_RANGE(Variant::FLOAT, "corner_span_ratio", CornerSpanRatio, "0.05,1.5,0.001")
 
+	ADD_GROUP("Material Style", "");
+	ClassDB::bind_method(D_METHOD("set_material_style", "value"), &AncientBuildingParameters::SetMaterialStyle);
+	ClassDB::bind_method(D_METHOD("get_material_style"), &AncientBuildingParameters::GetMaterialStyle);
+	ADD_PROPERTY(
+		PropertyInfo(Variant::INT, "material_style", PROPERTY_HINT_ENUM, "Traditional (官式),Thatched (茅草),Earthen (土木)"),
+		"set_material_style", "get_material_style");
+	ClassDB::bind_method(D_METHOD("apply_material_style", "style"), &AncientBuildingParameters::ApplyMaterialStyle);
+
 	ADD_GROUP("Colors", "");
 	ANCIENT_BIND(Variant::COLOR, "stone_color", StoneColor)
 	ANCIENT_BIND(Variant::COLOR, "timber_color", TimberColor)
@@ -153,6 +229,13 @@ void AncientBuildingParameters::_bind_methods()
 		&AncientBuildingParameters::GetRoofTypeNameLocalized);
 	ClassDB::bind_static_method("AncientBuildingParameters",
 		D_METHOD("is_centralised_roof", "roof_type"), &AncientBuildingParameters::IsCentralisedRoof);
+	ClassDB::bind_static_method("AncientBuildingParameters",
+		D_METHOD("get_style_name", "style"), &AncientBuildingParameters::GetStyleName);
+	ClassDB::bind_static_method("AncientBuildingParameters",
+		D_METHOD("get_style_name_localized", "style"),
+		&AncientBuildingParameters::GetStyleNameLocalized);
+	ClassDB::bind_static_method("AncientBuildingParameters",
+		D_METHOD("get_style_mottle", "style"), &AncientBuildingParameters::GetStyleMottle);
 
 	BIND_ENUM_CONSTANT(ROOF_FLUSH_GABLE);
 	BIND_ENUM_CONSTANT(ROOF_GABLE_AND_HIP);
@@ -163,4 +246,7 @@ void AncientBuildingParameters::_bind_methods()
 	BIND_ENUM_CONSTANT(ROOF_PYRAMIDAL);
 	BIND_ENUM_CONSTANT(ROOF_ROUND);
 	BIND_ENUM_CONSTANT(ROOF_HELMET);
+	BIND_ENUM_CONSTANT(STYLE_TRADITIONAL);
+	BIND_ENUM_CONSTANT(STYLE_THATCHED);
+	BIND_ENUM_CONSTANT(STYLE_EARTHEN);
 }

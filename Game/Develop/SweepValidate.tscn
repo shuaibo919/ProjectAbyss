@@ -1,6 +1,0 @@
-[gd_scene load_steps=2 format=3 uid="uid://bsweepvalidate01"]
-
-[ext_resource type="Script" path="res://Develop/SweepValidate.gd" id="1_sweep"]
-
-[node name="SweepValidate" type="Node3D"]
-script = ExtResource("1_sweep")

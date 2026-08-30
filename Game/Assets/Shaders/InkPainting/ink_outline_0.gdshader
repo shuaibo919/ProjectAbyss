@@ -9,12 +9,22 @@ uniform float persp_exp : hint_range(0.0, 2.0) = 0.0;
 uniform vec4 outline_color : source_color = vec4(0.05, 0.05, 0.05, 1.0);
 uniform float max_distance = 256.0;
 
+// === Base-colour outline (描边随底色) ===
+// The ink line of an object is rarely pure black — blossom edges carry a hint of
+// pink, a tiled roof a hint of green. Instead of pinning a new black per object,
+// derive the line from the same base colour the surface uses: line = base_color *
+// vertex_colour * darken. Default is off, so existing materials are unchanged.
+uniform vec4 base_color : source_color = vec4(1.0, 1.0, 1.0, 1.0);
+uniform bool use_base_color = false;
+uniform bool use_vertex_color = false;
+uniform float base_color_darken : hint_range(0.02, 1.0) = 0.28;
+
 // === Pressure Variation (sine wave simulates brush pressure) ===
 uniform float pressure_period : hint_range(0.1, 20.0) = 5.0;
-uniform float pressure_amount : hint_range(0.0, 1.0) = 0.3;
+uniform float pressure_amount : hint_range(0.0, 1.0) = 0.18;
 
 // === Flying White (飞白) ===
-uniform float feibai_threshold : hint_range(0.0, 1.0) = 0.6;
+uniform float feibai_threshold : hint_range(0.0, 1.0) = 0.5;
 
 // === Textures ===
 uniform sampler2D color_remap_tex : hint_default_black;
@@ -55,9 +65,19 @@ void vertex() {
 	vec2 matcap_uv = map_vec.xy * 0.5 + 0.5;
 	v_matcap_mask = texture(matcap_tex, matcap_uv).r;
 
-	// Noise for flying white
-	vec2 ws_uv = world_pos.xy + world_pos.yz + world_pos.xz;
-	v_noise = texture(noise_tex, ws_uv / 4.0).r;
+	// Noise for flying white — dominant-axis projection keeps the dry-brush breaks
+	// aligned with the face instead of smearing diagonally. (world_normal is already
+	// computed above for the MatCap mask.)
+	vec3 aw = abs(world_normal);
+	vec2 ws_uv;
+	if (aw.x >= aw.y && aw.x >= aw.z) {
+		ws_uv = world_pos.yz;
+	} else if (aw.y >= aw.z) {
+		ws_uv = world_pos.xz;
+	} else {
+		ws_uv = world_pos.xy;
+	}
+	v_noise = texture(noise_tex, ws_uv / 5.5).r;
 
 	v_dist_normalized = dist / max_distance;
 }
@@ -76,6 +96,12 @@ void fragment() {
 	// Distance-based color intensity
 	float remap_val = texture(color_remap_tex, vec2(v_dist_normalized, v_dist_normalized)).r;
 	vec3 col = outline_color.rgb * mix(1.0, remap_val * 2.0, 0.5);
+
+	// Base-colour line: the same tint the surface uses, darkened into ink.
+	if (use_base_color) {
+		vec3 vc = use_vertex_color ? COLOR.rgb : vec3(1.0);
+		col = base_color.rgb * vc * base_color_darken;
+	}
 
 	// Fade out at distance
 	float alpha = mix(1.0, 0.3, clamp(v_dist_normalized * 2.0, 0.0, 1.0));

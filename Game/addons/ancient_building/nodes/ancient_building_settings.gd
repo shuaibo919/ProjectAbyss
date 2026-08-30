@@ -41,6 +41,11 @@ extends NodeSettings
 ## Larger tiles mean fewer 瓦垄 sweeps, which is the main cost knob.
 @export_range(0.1, 2.0, 0.01) var tile_course_width : float = 0.34
 
+@export_group("Material")
+## 官式 / 茅草 / 土木. Selecting 茅草 or 土木 overwrites the colour palette below; hand-tune
+## afterwards as needed. The geometry (硬山) is unchanged.
+@export_enum("Traditional 官式:0", "Thatched 茅草:1", "Earthen 土木:2") var material_style : int = 0
+
 @export_group("Colors")
 @export var stone_color : Color = Color(0.60, 0.58, 0.54)
 @export var timber_color : Color = Color(0.40, 0.15, 0.12)

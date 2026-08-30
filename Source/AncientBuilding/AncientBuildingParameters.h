@@ -57,6 +57,21 @@ namespace godot
 			ROOF_HELMET = 8,
 		};
 
+		/**
+		 * Material preset. The geometry stays the same 硬山 structure; only the vertex-colour
+		 * palette (and the per-piece colour mottle) changes. Selecting a preset writes the
+		 * palette into the six colour properties, so any colour can still be hand-tuned after.
+		 */
+		enum EMaterialStyle
+		{
+			/** 官式 — timber frame, grey tiles. The historical default. */
+			STYLE_TRADITIONAL = 0,
+			/** 茅草 — straw thatch roof, plaster walls, dark timber. (Reference/image.png) */
+			STYLE_THATCHED = 1,
+			/** 土木 — rammed-earth walls with earth-toned tiles. */
+			STYLE_EARTHEN = 2,
+		};
+
 	private:
 		// ---- Plan ----
 		/** 通面阔, the frontage. Every other dimension is derived from this. */
@@ -136,6 +151,9 @@ namespace godot
 		/** How far back along the eave the lift reaches, as a fraction of the half-depth. */
 		float CornerSpanRatio = 0.55f;
 
+		// ---- Material preset ----
+		int32_t MaterialStyle = STYLE_TRADITIONAL;
+
 		// ---- Colours (vertex colours; no textures anywhere) ----
 		Color StoneColor = Color(0.60f, 0.58f, 0.54f, 1.0f);
 		Color TimberColor = Color(0.40f, 0.15f, 0.12f, 1.0f);
@@ -186,6 +204,34 @@ namespace godot
 		ANCIENT_ACCESSORS(Color, TileColor)
 		ANCIENT_ACCESSORS(Color, RidgeColor)
 		ANCIENT_ACCESSORS(Color, BracketColor)
+
+		/**
+		 * Selects a material style and applies its palette to the six colours (notifying
+		 * listeners once for the whole change). STYLE_TRADITIONAL keeps the current colours.
+		 */
+		void SetMaterialStyle(int32_t Value)
+		{
+			MaterialStyle = Value;
+			ApplyMaterialStyle(Value);
+			emit_changed();
+		}
+
+		int32_t GetMaterialStyle() const { return MaterialStyle; }
+
+		/** Applies a style's palette to the six colours without touching MaterialStyle. */
+		void ApplyMaterialStyle(int32_t Value);
+
+		/** Display name for a style, e.g. "Thatched". */
+		static String GetStyleName(int32_t Value);
+
+		/** The same, with the Chinese term appended, e.g. "Thatched (茅草)". */
+		static String GetStyleNameLocalized(int32_t Value);
+
+		/**
+		 * Per-piece colour mottle for a style: the 官式 build is clean (0.05), thatch and
+		 * rammed earth are naturally weathered pieces (0.12 / 0.09).
+		 */
+		static float GetStyleMottle(int32_t Value);
 
 		void SetGenerateFence(bool bValue) { bGenerateFence = bValue; emit_changed(); }
 		bool ShouldGenerateFence() const { return bGenerateFence; }
@@ -354,3 +400,4 @@ namespace godot
 } // namespace godot
 
 VARIANT_ENUM_CAST(AncientBuildingParameters::ERoofType);
+VARIANT_ENUM_CAST(AncientBuildingParameters::EMaterialStyle);

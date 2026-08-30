@@ -147,6 +147,7 @@ void AncientBuilding::CollectSpec(BuildingGen::BuildingSpec& OutSpec) const
 	OutSpec.TileColor = P->GetTileColor();
 	OutSpec.RidgeColor = P->GetRidgeColor();
 	OutSpec.BracketColor = P->GetBracketColor();
+	OutSpec.ColorMottle = AncientBuildingParameters::GetStyleMottle(P->GetMaterialStyle());
 }
 
 void AncientBuilding::Generate()
@@ -158,6 +159,7 @@ void AncientBuilding::Generate()
 	CollectSpec(Spec);
 
 	BuildingGen::MeshAccumulator Accumulated;
+	Accumulated.SetMottle(Spec.ColorMottle);
 	BuildingGen::BuildBuilding(Spec, Accumulated);
 
 	if (Accumulated.Indices.empty())

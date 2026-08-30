@@ -96,6 +96,30 @@ namespace
 
 // ==================== MeshAccumulator ====================
 
+Color MeshAccumulator::MottleColor(const Color& Tint)
+{
+	if (MottleAmount <= 0.0f)
+	{
+		return Tint;
+	}
+
+	// Splitmix-style hash on the running piece counter; no dependence on anything a
+	// rebuild might reorder.
+	uint32_t Hash = PieceCounter * 2654435761u;
+	Hash ^= Hash >> 16;
+	Hash *= 2246822519u;
+	Hash ^= Hash >> 13;
+	PieceCounter += 1;
+
+	const float Frac = float(Hash & 0xFFFF) / 65535.0f;
+	const float Scale = 1.0f + (Frac * 2.0f - 1.0f) * MottleAmount;
+	return Color(
+		std::clamp(Tint.r * Scale, 0.0f, 1.0f),
+		std::clamp(Tint.g * Scale, 0.0f, 1.0f),
+		std::clamp(Tint.b * Scale, 0.0f, 1.0f),
+		Tint.a);
+}
+
 void MeshAccumulator::AddTriangle(const Vector3& A, const Vector3& B, const Vector3& C, const Color& Tint)
 {
 	const Vector3 Edge0 = B - A;
@@ -140,6 +164,9 @@ void MeshAccumulator::AddBox(const Vector3& Centre, const Vector3& HalfExtents, 
 		return;
 	}
 
+	// One mottle per component: the whole box reads as one material piece.
+	const Color Col = MottleColor(Tint);
+
 	const Vector3 P000 = Centre + Vector3(-H.x, -H.y, -H.z);
 	const Vector3 P100 = Centre + Vector3(H.x, -H.y, -H.z);
 	const Vector3 P110 = Centre + Vector3(H.x, H.y, -H.z);
@@ -149,12 +176,12 @@ void MeshAccumulator::AddBox(const Vector3& Centre, const Vector3& HalfExtents, 
 	const Vector3 P111 = Centre + Vector3(H.x, H.y, H.z);
 	const Vector3 P011 = Centre + Vector3(-H.x, H.y, H.z);
 
-	AddQuad(P001, P101, P111, P011, Tint);   // +Z
-	AddQuad(P100, P000, P010, P110, Tint);   // -Z
-	AddQuad(P101, P100, P110, P111, Tint);   // +X
-	AddQuad(P000, P001, P011, P010, Tint);   // -X
-	AddQuad(P010, P011, P111, P110, Tint);   // +Y
-	AddQuad(P000, P100, P101, P001, Tint);   // -Y
+	AddQuad(P001, P101, P111, P011, Col);   // +Z
+	AddQuad(P100, P000, P010, P110, Col);   // -Z
+	AddQuad(P101, P100, P110, P111, Col);   // +X
+	AddQuad(P000, P001, P011, P010, Col);   // -X
+	AddQuad(P010, P011, P111, P110, Col);   // +Y
+	AddQuad(P000, P100, P101, P001, Col);   // -Y
 }
 
 void MeshAccumulator::AddPolygon(const std::vector<Vector3>& Points, const Vector3& Normal, const Color& Tint)
@@ -165,12 +192,14 @@ void MeshAccumulator::AddPolygon(const std::vector<Vector3>& Points, const Vecto
 	}
 
 	const int32_t Base = int32_t(Vertices.size());
+	const Color Col = MottleColor(Tint);
+
 	for (const Vector3& Point : Points)
 	{
 		Vertices.push_back(Point);
 		Normals.push_back(Normal);
 		UVs.push_back(Vector2(Point.x, Point.y));
-		Colors.push_back(Tint);
+		Colors.push_back(Col);
 	}
 
 	// Fan, with each triangle wound against the supplied normal individually.
@@ -208,10 +237,13 @@ void MeshAccumulator::AddSweep(const SweepResult& Sweep, const Color& Tint)
 {
 	const int32_t Base = int32_t(Vertices.size());
 
+	// One mottle per sweep — a rail or a ridge reads as one piece, not per-vertex noise.
+	const Color Col = MottleColor(Tint);
+
 	Vertices.insert(Vertices.end(), Sweep.Vertices.begin(), Sweep.Vertices.end());
 	Normals.insert(Normals.end(), Sweep.Normals.begin(), Sweep.Normals.end());
 	UVs.insert(UVs.end(), Sweep.UVs.begin(), Sweep.UVs.end());
-	Colors.insert(Colors.end(), Sweep.Vertices.size(), Tint);
+	Colors.insert(Colors.end(), Sweep.Vertices.size(), Col);
 
 	for (const int32_t Index : Sweep.Indices)
 	{
@@ -233,6 +265,9 @@ void MeshAccumulator::AddColumn(
 		return;
 	}
 
+	// One mottle per column: the whole shaft reads as one timber.
+	const Color Col = MottleColor(Tint);
+
 	for (int32_t Index = 0; Index < SideCount; ++Index)
 	{
 		const float Angle0 = BUILD_TAU * float(Index) / float(SideCount);
@@ -243,7 +278,7 @@ void MeshAccumulator::AddColumn(
 		const Vector3 T0 = Base + Vector3(TopRadius * std::cos(Angle0), Height, TopRadius * std::sin(Angle0));
 		const Vector3 T1 = Base + Vector3(TopRadius * std::cos(Angle1), Height, TopRadius * std::sin(Angle1));
 
-		AddQuad(B0, B1, T1, T0, Tint);
+		AddQuad(B0, B1, T1, T0, Col);
 	}
 }
 
@@ -322,13 +357,14 @@ void MeshAccumulator::AddQuadSmooth(
 	const Vector3 Points[4] = { A, B, C, D };
 	const Vector3 Corners[4] = { NormalA, NormalB, NormalC, NormalD };
 	const Vector2 Coords[4] = { Vector2(0, 0), Vector2(1, 0), Vector2(1, 1), Vector2(0, 1) };
+	const Color Col = MottleColor(Tint);
 
 	for (int32_t Index = 0; Index < 4; ++Index)
 	{
 		Vertices.push_back(Points[Index]);
 		Normals.push_back(Corners[Index]);
 		UVs.push_back(Coords[Index]);
-		Colors.push_back(Tint);
+		Colors.push_back(Col);
 	}
 
 	// Two triangles, wound consistently with the shading normals so backface culling keeps them.

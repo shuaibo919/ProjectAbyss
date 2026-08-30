@@ -1,0 +1,498 @@
+[gd_scene format=3 uid="uid://b8n0dfegxb8g6"]
+
+[ext_resource type="Shader" uid="uid://clpdpt7bnvxpa" path="res://Assets/Shaders/InkPainting/ink_surface.gdshader" id="1_ink"]
+[ext_resource type="Shader" uid="uid://c3g5e1c1i257i" path="res://Assets/Shaders/InkPainting/ink_outline_0.gdshader" id="2_out0"]
+[ext_resource type="Shader" uid="uid://fj0vq3cga2ul" path="res://Assets/Shaders/InkPainting/ink_outline_1.gdshader" id="3_out1"]
+[ext_resource type="Texture2D" uid="uid://cg5e8n1bthwvi" path="res://Assets/Shaders/InkPainting/Textures/ColorRemap.png" id="4_remap"]
+[ext_resource type="Texture2D" uid="uid://bkdoferaq04gs" path="res://Assets/Shaders/InkPainting/Textures/Noise.png" id="5_noise"]
+[ext_resource type="Texture2D" uid="uid://ou21c1qn01uo" path="res://Assets/Shaders/InkPainting/Textures/Stroke.png" id="6_stroke"]
+[ext_resource type="Texture2D" uid="uid://cmlqxlsawcjrg" path="res://Assets/Shaders/InkPainting/Textures/MatCap.png" id="7_matcap"]
+[ext_resource type="Script" uid="uid://deo0gxkmk2ahd" path="res://addons/sky_3d/src/Sky3D.gd" id="10_skyscript"]
+[ext_resource type="Script" uid="uid://cjmkcj8hwm7ts" path="res://addons/sky_3d/src/TimeOfDay.gd" id="11_tod"]
+[ext_resource type="Script" uid="uid://b4tkplvh7fq40" path="res://addons/sky_3d/src/SkyDome.gd" id="12_dome"]
+[ext_resource type="Shader" uid="uid://cvd0x7lon1ur6" path="res://addons/sky_3d/shaders/SkyMaterial.gdshader" id="13_skymat"]
+[ext_resource type="Texture2D" uid="uid://c1vwcdcdvb74a" path="res://addons/sky_3d/assets/thirdparty/textures/milkyway/Milkyway.jpg" id="14_milky"]
+[ext_resource type="Texture2D" uid="uid://cecwdqjol0ckd" path="res://addons/sky_3d/assets/textures/noiseClouds.png" id="15_clouds"]
+[ext_resource type="Texture2D" uid="uid://cfqk60lpl5ljv" path="res://addons/sky_3d/assets/resources/SNoise.tres" id="16_snoise"]
+[ext_resource type="Texture2D" uid="uid://2r8ylu6rg5dp" path="res://addons/sky_3d/assets/thirdparty/textures/moon/MoonMap.png" id="17_moonmap"]
+[ext_resource type="Texture2D" uid="uid://djpfuyxkryegn" path="res://addons/sky_3d/assets/textures/noise.jpg" id="18_noisejpg"]
+[ext_resource type="Texture2D" uid="uid://bm7dot7t7u1q4" path="res://addons/sky_3d/assets/thirdparty/textures/milkyway/StarField.jpg" id="19_starfield"]
+[ext_resource type="Material" uid="uid://cwaterocean01" path="res://Assets/Shaders/Water/OceanWater.tres" id="20_ocean"]
+
+[sub_resource type="ShaderMaterial" id="SkyMat"]
+shader = ExtResource("13_skymat")
+shader_parameter/sky_visible = true
+shader_parameter/color_correction = Vector2(0, 1)
+shader_parameter/ground_color = Color(0.3, 0.3, 0.3, 1)
+shader_parameter/horizon_offset = 0.0
+shader_parameter/atm_darkness = 0.5
+shader_parameter/atm_sun_intensity = 18.0
+shader_parameter/atm_day_tint = Color(0.807843, 0.909804, 1, 1)
+shader_parameter/atm_horizon_light_tint = Color(0.980392, 0.635294, 0.462745, 1)
+shader_parameter/atm_night_tint = Color(0, 0, 0, 0)
+shader_parameter/atm_level_params = Vector3(1, 0, 0)
+shader_parameter/atm_thickness = 0.7
+shader_parameter/atm_beta_ray = Vector3(5.804544e-06, 1.3562913e-05, 3.311258e-05)
+shader_parameter/atm_beta_mie = Vector3(3.038e-08, 3.038e-08, 3.038e-08)
+shader_parameter/sun_light_color = Color(1, 1, 1, 1)
+shader_parameter/sun_disk_color = Color(0.996094, 0.541334, 0.140076, 1)
+shader_parameter/sun_disk_intensity = 30.0
+shader_parameter/sun_disk_size = 0.02
+shader_parameter/atm_sun_mie_tint = Color(1, 1, 1, 1)
+shader_parameter/atm_sun_mie_intensity = 1.0
+shader_parameter/atm_sun_partial_mie_phase = Vector3(0.36, 1.64, 1.6)
+shader_parameter/moon_color = Color(1, 1, 1, 1)
+shader_parameter/moon_texture = ExtResource("17_moonmap")
+shader_parameter/moon_texture_alignment = Vector3(7, 1.4, 4.8)
+shader_parameter/moon_texture_flip_u = false
+shader_parameter/moon_texture_flip_v = false
+shader_parameter/moon_size = 0.07
+shader_parameter/atm_moon_mie_tint = Color(0.137255, 0.184314, 0.292196, 1)
+shader_parameter/atm_moon_mie_intensity = 0.0
+shader_parameter/atm_moon_partial_mie_phase = Vector3(0.36, 1.64, 1.6)
+shader_parameter/starmap_color = Color(0.709804, 0.709804, 0.709804, 0.854902)
+shader_parameter/starmap_texture = ExtResource("14_milky")
+shader_parameter/starmap_flip_u = false
+shader_parameter/starmap_flip_v = false
+shader_parameter/starmap_alignment = Vector3(2.68288, -0.25891, 0.40101)
+shader_parameter/star_rotation_offset = 9.38899
+shader_parameter/star_rotation = -10.0517497474399
+shader_parameter/star_tilt = -1.2915436464758039
+shader_parameter/star_field_color = Color(1, 1, 1, 1)
+shader_parameter/star_field_texture = ExtResource("19_starfield")
+shader_parameter/star_scintillation = 0.75
+shader_parameter/star_scintillation_speed = 0.01
+shader_parameter/noise_tex = ExtResource("18_noisejpg")
+shader_parameter/clouds_night_color = Color(0.090196, 0.094118, 0.129412, 1)
+shader_parameter/cirrus_visible = true
+shader_parameter/cirrus_intensity = 2.0
+shader_parameter/cirrus_coverage = 0.5
+shader_parameter/cirrus_thickness = 1.7
+shader_parameter/cirrus_absorption = 2.0
+shader_parameter/cirrus_sky_tint_fade = 0.5
+shader_parameter/cirrus_size = 1.0
+shader_parameter/cirrus_uv = Vector2(0.16, 0.11)
+shader_parameter/cirrus_position1 = Vector2(0.3527159, 1.5984991e-05)
+shader_parameter/cirrus_position2 = Vector2(0.3527159, 1.5984991e-05)
+shader_parameter/cirrus_texture = ExtResource("16_snoise")
+shader_parameter/cumulus_visible = true
+shader_parameter/cumulus_intensity = 0.6
+shader_parameter/cumulus_coverage = 0.55
+shader_parameter/cumulus_thickness = 0.0243
+shader_parameter/cumulus_absorption = 2.0
+shader_parameter/cumulus_noise_freq = 2.7
+shader_parameter/cumulus_sky_tint_fade = 0.0
+shader_parameter/cumulus_size = 0.5
+shader_parameter/cumulus_position = Vector2(21.764303, 7.9942285e-05)
+shader_parameter/cumulus_texture = ExtResource("15_clouds")
+shader_parameter/cumulus_partial_mie_phase = Vector3(0.957564, 1.042436, 0.412)
+shader_parameter/cumulus_mie_intensity = 1.0
+shader_parameter/show_azimuthal_grid = false
+shader_parameter/azimuthal_grid_color = Color(0.87058824, 0.72156864, 0.5294118, 1)
+shader_parameter/azimuthal_grid_rotation_offset = 0.03
+shader_parameter/show_equatorial_grid = false
+shader_parameter/equatorial_grid_color = Color(0, 0.75, 1, 1)
+shader_parameter/equatorial_grid_rotation_offset = 0.03
+shader_parameter/moon_matrix = Basis(-0.8491912, -0.5076282, -0.14556004, -0.046773385, 0.34685463, -0.93675184, 0.5260099, -0.78867316, -0.3182894)
+
+[sub_resource type="Sky" id="Sky3dSky"]
+sky_material = SubResource("SkyMat")
+
+[sub_resource type="Environment" id="EnvSky3D"]
+background_mode = 2
+sky = SubResource("Sky3dSky")
+ambient_light_source = 3
+ambient_light_color = Color(0.96064734, 0.96064734, 0.96064734, 1)
+reflected_light_source = 2
+tonemap_mode = 3
+tonemap_white = 6.0
+
+[sub_resource type="CameraAttributesPractical" id="CamAttrSky3D"]
+
+[sub_resource type="CameraAttributesPractical" id="Hd2dAttrs"]
+dof_blur_far_enabled = true
+dof_blur_far_distance = 70.0
+dof_blur_far_transition = 40.0
+dof_blur_near_enabled = true
+dof_blur_near_distance = 22.0
+dof_blur_near_transition = 14.0
+dof_blur_amount = 0.06
+
+[sub_resource type="PlaneMesh" id="SeaMesh"]
+size = Vector2(3000, 3000)
+
+[sub_resource type="ShaderMaterial" id="ShaderMaterial_ground"]
+render_priority = 0
+shader = ExtResource("1_ink")
+shader_parameter/base_color = Color(0.82, 0.81, 0.78, 1)
+shader_parameter/outline_color = Color(0.05, 0.05, 0.05, 1)
+shader_parameter/ran_close = 1.0
+shader_parameter/ran_far = 0.5
+shader_parameter/color_remap_tex = ExtResource("4_remap")
+shader_parameter/noise_tex = ExtResource("5_noise")
+shader_parameter/stroke_tex = ExtResource("6_stroke")
+shader_parameter/rim_rate = 2.0
+shader_parameter/rim_rate_close = 2.5
+shader_parameter/rim_rate_range = 8.0
+shader_parameter/rim_offset = 0.0
+shader_parameter/max_distance = 256.0
+shader_parameter/stroke_ctrl = Vector4(3.2, 0.42, 0.25, 0.85)
+shader_parameter/noise_ctrl = Vector4(4, 0.35, 0.65, 0.8)
+shader_parameter/inline_ctrl = Vector4(1, 1, 10, 10)
+shader_parameter/lambert_rim_blend = 0.0
+shader_parameter/shadow_influence = 0.5
+shader_parameter/light_cun_power = 1.0
+shader_parameter/light_ran_power = 1.25
+shader_parameter/light_inline_strength = 0.22
+shader_parameter/use_vertex_color = false
+
+[sub_resource type="PlaneMesh" id="PlaneMesh_ground"]
+size = Vector2(400, 400)
+subdivide_width = 8
+subdivide_depth = 8
+
+[sub_resource type="AncientBuildingParameters" id="Params_pavilion"]
+width = 8.0
+depth = 8.0
+roof_type = 5
+generate_steps = false
+generate_walls = false
+material_style = 1
+stone_color = Color(0.56, 0.48, 0.34, 1)
+timber_color = Color(0.34, 0.25, 0.16, 1)
+plaster_color = Color(0.76, 0.72, 0.6, 1)
+tile_color = Color(0.62, 0.54, 0.32, 1)
+ridge_color = Color(0.42, 0.35, 0.21, 1)
+bracket_color = Color(0.46, 0.33, 0.19, 1)
+
+[sub_resource type="ShaderMaterial" id="ShaderMaterial_out1"]
+render_priority = 0
+shader = ExtResource("3_out1")
+shader_parameter/outline_width = 3.5
+shader_parameter/persp_exp = 0.0
+shader_parameter/outline_color = Color(0.08, 0.06, 0.05, 1)
+shader_parameter/max_distance = 256.0
+shader_parameter/base_color = Color(1, 1, 1, 1)
+shader_parameter/use_base_color = true
+shader_parameter/use_vertex_color = true
+shader_parameter/base_color_darken = 0.22
+shader_parameter/pressure_period = 3.0
+shader_parameter/pressure_amount = 0.22
+shader_parameter/color_remap_tex = ExtResource("4_remap")
+shader_parameter/noise_tex = ExtResource("5_noise")
+
+[sub_resource type="ShaderMaterial" id="ShaderMaterial_out0"]
+render_priority = 0
+next_pass = SubResource("ShaderMaterial_out1")
+shader = ExtResource("2_out0")
+shader_parameter/outline_width = 2.0
+shader_parameter/persp_exp = 0.0
+shader_parameter/outline_color = Color(0.05, 0.05, 0.05, 1)
+shader_parameter/max_distance = 256.0
+shader_parameter/base_color = Color(1, 1, 1, 1)
+shader_parameter/use_base_color = true
+shader_parameter/use_vertex_color = true
+shader_parameter/base_color_darken = 0.3
+shader_parameter/pressure_period = 5.0
+shader_parameter/pressure_amount = 0.18
+shader_parameter/feibai_threshold = 0.5
+shader_parameter/color_remap_tex = ExtResource("4_remap")
+shader_parameter/matcap_tex = ExtResource("7_matcap")
+shader_parameter/noise_tex = ExtResource("5_noise")
+
+[sub_resource type="ShaderMaterial" id="ShaderMaterial_ink"]
+render_priority = 0
+next_pass = SubResource("ShaderMaterial_out0")
+shader = ExtResource("1_ink")
+shader_parameter/base_color = Color(1, 1, 1, 1)
+shader_parameter/outline_color = Color(0.05, 0.05, 0.05, 1)
+shader_parameter/ran_close = 1.0
+shader_parameter/ran_far = 0.5
+shader_parameter/color_remap_tex = ExtResource("4_remap")
+shader_parameter/noise_tex = ExtResource("5_noise")
+shader_parameter/stroke_tex = ExtResource("6_stroke")
+shader_parameter/rim_rate = 2.0
+shader_parameter/rim_rate_close = 2.5
+shader_parameter/rim_rate_range = 8.0
+shader_parameter/rim_offset = 0.0
+shader_parameter/max_distance = 256.0
+shader_parameter/stroke_ctrl = Vector4(3.2, 0.42, 0.25, 0.85)
+shader_parameter/noise_ctrl = Vector4(4, 0.35, 0.65, 0.8)
+shader_parameter/inline_ctrl = Vector4(1, 1, 10, 10)
+shader_parameter/lambert_rim_blend = 0.0
+shader_parameter/shadow_influence = 0.5
+shader_parameter/light_cun_power = 1.0
+shader_parameter/light_ran_power = 1.25
+shader_parameter/light_inline_strength = 0.22
+shader_parameter/use_vertex_color = true
+
+[sub_resource type="AncientBuildingParameters" id="AncientBuildingParameters_3wu1r"]
+width = 9.5
+generate_fence = false
+generate_steps = false
+material_style = 1
+stone_color = Color(0.56, 0.48, 0.34, 1)
+timber_color = Color(0.34, 0.25, 0.16, 1)
+plaster_color = Color(0.76, 0.72, 0.6, 1)
+tile_color = Color(0.62, 0.54, 0.32, 1)
+ridge_color = Color(0.42, 0.35, 0.21, 1)
+bracket_color = Color(0.46, 0.33, 0.19, 1)
+
+[sub_resource type="ProceduralTreeLeafParameters" id="ProceduralTreeLeafParameters_3wu1r"]
+count = 10
+scale = 0.0495
+scale_x = 0.612
+stem_len = 0.01
+lobes = 4
+lobe_angle = 39.556
+lobe_falloff = 0.02
+color = Color(0.48, 0.35, 0.48, 1)
+
+[sub_resource type="ProceduralTreeFruitParameters" id="ProceduralTreeFruitParameters_2riha"]
+chance = 0.03
+size = 0.06
+shape = Vector4(0.685, -0.4, 0.74, 1.1)
+color = Color(0.29302323, 0.1042142, 0.040886965, 1)
+
+[sub_resource type="ProceduralTreeLeafParameters" id="ProceduralTreeLeafParameters_6uepn"]
+count = 13
+scale = 0.085
+scale_x = 0.465
+stem_len = 0.01
+color = Color(0, 0.225, 0, 1)
+season_offset = -0.186
+
+[sub_resource type="ProceduralTreeParameters" id="ProceduralTreeParameters_30133"]
+scale = 4.5
+scale_v = 1.0
+ratio = 0.02
+ratio_power = 1.5
+attraction_up = 2.0
+flare = 0.9
+base_size = Vector4(0.15, 0.217, 0, 0.05)
+shape = Vector4i(2, 2, 4, 0)
+branches = Vector4i(0, 28, 100, 10)
+curve_res = Vector4i(5, 10, 5, 1)
+length = Vector4(1, 0.5, 0.4, 0)
+length_v = Vector4(0, 0, 0.1, 0)
+curve = Vector4(0, -20, 0, 0)
+curve_v = Vector4(30, 140, 100, 0)
+rotate = Vector4(0, 140, 140, 77)
+down_angle = Vector4(0, 60, 60, 45)
+down_angle_v = Vector4(0, -30, 20, 30)
+base_splits = Vector4i(0, 0, 0, 0)
+seg_splits = Vector4(0, 0.474, 0, 0)
+split_angle = Vector4(0, 20, 0, 0)
+split_angle_v = Vector4(0, 10, 0, 0)
+leaf = SubResource("ProceduralTreeLeafParameters_6uepn")
+blossom = SubResource("ProceduralTreeLeafParameters_3wu1r")
+fruit = SubResource("ProceduralTreeFruitParameters_2riha")
+
+[sub_resource type="ProceduralTreeLeafParameters" id="ProceduralTreeLeafParameters_a6q3d"]
+count = 10
+scale = 0.0495
+scale_x = 0.612
+stem_len = 0.01
+lobes = 4
+lobe_angle = 39.556
+lobe_falloff = 0.02
+color = Color(0.48, 0.35, 0.48, 1)
+
+[sub_resource type="ProceduralTreeFruitParameters" id="ProceduralTreeFruitParameters_o7iwh"]
+chance = 0.03
+size = 0.06
+shape = Vector4(0.685, -0.4, 0.74, 1.1)
+color = Color(0.29302323, 0.1042142, 0.040886965, 1)
+
+[sub_resource type="ProceduralTreeLeafParameters" id="ProceduralTreeLeafParameters_viu5n"]
+count = 13
+scale = 0.085
+scale_x = 0.465
+stem_len = 0.01
+color = Color(0.1539078, 0.375575, 0.31614774, 1)
+season_offset = -0.186
+
+[sub_resource type="ProceduralTreeParameters" id="ProceduralTreeParameters_8rlp2"]
+scale = 4.5
+scale_v = 1.0
+ratio = 0.02
+ratio_power = 1.5
+attraction_up = 2.0
+flare = 0.9
+base_size = Vector4(0.15, 0.217, 0, 0.05)
+shape = Vector4i(2, 2, 4, 0)
+branches = Vector4i(0, 28, 100, 10)
+curve_res = Vector4i(5, 10, 5, 1)
+length = Vector4(1, 0.5, 0.4, 0)
+length_v = Vector4(0, 0, 0.1, 0)
+curve = Vector4(0, -20, 0, 0)
+curve_v = Vector4(30, 140, 100, 0)
+rotate = Vector4(0, 140, 140, 77)
+down_angle = Vector4(0, 60, 60, 45)
+down_angle_v = Vector4(0, -30, 20, 30)
+base_splits = Vector4i(0, 0, 0, 0)
+seg_splits = Vector4(0, 0.474, 0, 0)
+split_angle = Vector4(0, 20, 0, 0)
+split_angle_v = Vector4(0, 10, 0, 0)
+leaf = SubResource("ProceduralTreeLeafParameters_viu5n")
+blossom = SubResource("ProceduralTreeLeafParameters_a6q3d")
+fruit = SubResource("ProceduralTreeFruitParameters_o7iwh")
+
+[sub_resource type="ProceduralTreeLeafParameters" id="ProceduralTreeLeafParameters_qlbvl"]
+count = 10
+scale = 0.0495
+scale_x = 0.612
+stem_len = 0.01
+lobes = 4
+lobe_angle = 39.556
+lobe_falloff = 0.02
+color = Color(0.48, 0.35, 0.48, 1)
+
+[sub_resource type="ProceduralTreeFruitParameters" id="ProceduralTreeFruitParameters_mfqs0"]
+chance = 0.03
+size = 0.06
+shape = Vector4(0.685, -0.4, 0.74, 1.1)
+color = Color(0.29302323, 0.1042142, 0.040886965, 1)
+
+[sub_resource type="ProceduralTreeLeafParameters" id="ProceduralTreeLeafParameters_gnjpf"]
+count = 13
+scale = 0.085
+scale_x = 0.465
+stem_len = 0.01
+color = Color(0, 0.225, 0, 1)
+season_offset = -0.186
+
+[sub_resource type="ProceduralTreeParameters" id="ProceduralTreeParameters_5a1h6"]
+scale = 4.5
+scale_v = 1.0
+ratio = 0.02
+ratio_power = 1.5
+attraction_up = 2.0
+flare = 0.9
+base_size = Vector4(0.15, 0.217, 0, 0.05)
+shape = Vector4i(2, 2, 4, 0)
+branches = Vector4i(0, 28, 100, 10)
+curve_res = Vector4i(5, 10, 5, 1)
+length = Vector4(1, 0.5, 0.4, 0)
+length_v = Vector4(0, 0, 0.1, 0)
+curve = Vector4(0, -20, 0, 0)
+curve_v = Vector4(30, 140, 100, 0)
+rotate = Vector4(0, 140, 140, 77)
+down_angle = Vector4(0, 60, 60, 45)
+down_angle_v = Vector4(0, -30, 20, 30)
+base_splits = Vector4i(0, 0, 0, 0)
+seg_splits = Vector4(0, 0.474, 0, 0)
+split_angle = Vector4(0, 20, 0, 0)
+split_angle_v = Vector4(0, 10, 0, 0)
+leaf = SubResource("ProceduralTreeLeafParameters_gnjpf")
+blossom = SubResource("ProceduralTreeLeafParameters_qlbvl")
+fruit = SubResource("ProceduralTreeFruitParameters_mfqs0")
+
+[node name="Map_PcgInkValidation" type="Node3D" unique_id=1170354001]
+
+[node name="Sky3D" type="WorldEnvironment" parent="." unique_id=158362590]
+environment = SubResource("EnvSky3D")
+camera_attributes = SubResource("CamAttrSky3D")
+script = ExtResource("10_skyscript")
+editor_time_enabled = false
+current_time = 15.605
+wind_speed = 7.000000000000001
+wind_direction = 1.5708
+
+[node name="SunLight" type="DirectionalLight3D" parent="Sky3D" unique_id=225322073]
+transform = Transform3D(0.0012454864, 0.56064695, -0.8280541, 0, 0.8280547, 0.56064737, 0.9999992, -0.0006982787, 0.0010313309, -0.8280541, 0.56064737, 0.0010313309)
+shadow_enabled = true
+directional_shadow_blend_splits = true
+directional_shadow_max_distance = 600.0
+
+[node name="MoonLight" type="DirectionalLight3D" parent="Sky3D" unique_id=677383125]
+transform = Transform3D(0, -0.8504784, 0.5260099, -0.3742475, -0.48778415, -0.7886732, 0.9273288, -0.19685788, -0.31828943, 0.5260099, -0.7886732, -0.31828943)
+light_color = Color(0.572549, 0.776471, 0.956863, 1)
+light_energy = 0.0
+directional_shadow_blend_splits = true
+directional_shadow_max_distance = 256.0
+
+[node name="SkyDome" type="Node" parent="Sky3D" unique_id=302530398]
+script = ExtResource("12_dome")
+sun_azimuth = -4.7111435
+sun_altitude = -0.975629
+moon_azimuth = -1.0266341
+moon_altitude = -2.4794443
+fog_density = 0.01
+wind_speed = 7.000000000000001
+wind_direction = 1.5708
+
+[node name="TimeOfDay" type="Node" parent="Sky3D" unique_id=1909626713]
+script = ExtResource("11_tod")
+editor_time_enabled = false
+dome_path = NodePath("../SkyDome")
+current_time = 15.605
+day = 30
+month = 8
+year = 2026
+
+[node name="Camera3D" type="Camera3D" parent="." unique_id=1625223467]
+transform = Transform3D(-4.371139e-08, -0.055821504, 0.99844074, 0, 0.99844074, 0.055821504, -1, 2.4400355e-09, -4.364323e-08, -4.931001, 11.515, 1.318)
+attributes = SubResource("Hd2dAttrs")
+current = true
+fov = 45.0
+
+[node name="Sea" type="MeshInstance3D" parent="." unique_id=1261996052]
+transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 0, -0.6, 0)
+material_override = ExtResource("20_ocean")
+mesh = SubResource("SeaMesh")
+
+[node name="Ground" type="MeshInstance3D" parent="." unique_id=1916306661]
+transform = Transform3D(0.17444038, 0, 0, 0, 1, 0, 0, 0, 0.15220113, -68.00899, 0, 0)
+material_override = SubResource("ShaderMaterial_ground")
+mesh = SubResource("PlaneMesh_ground")
+
+[node name="Buildings" type="Node3D" parent="." unique_id=1357468978]
+
+[node name="Pavilion" type="AncientBuilding" parent="Buildings" unique_id=2029932650]
+parameters = SubResource("Params_pavilion")
+transform = Transform3D(0.99919236, 0, -0.040184528, 0, 1, 0, 0.040184528, 0, 0.99919236, -82.063446, -0.17289925, 24.359566)
+material_override = SubResource("ShaderMaterial_ink")
+
+[node name="AncientBuilding" type="AncientBuilding" parent="Buildings" unique_id=1583673649]
+parameters = SubResource("AncientBuildingParameters_3wu1r")
+transform = Transform3D(0.999824, 0.018762704, 0, -0.018762704, 0.999824, 0, 0, 0, 1, -53.586098, -1.3823535, 0)
+
+[node name="Trees" type="Node3D" parent="." unique_id=1014391266]
+
+[node name="Peach_2" type="ProceduralTree" parent="Trees" unique_id=160432772]
+parameters = SubResource("ProceduralTreeParameters_30133")
+backend = 1
+slowtree_preset = 6
+seed = 232698
+season = 1.2
+wind_strength = 0.25
+transform = Transform3D(0.6777154, 0, 1.2606082, 0, 2.2518728, 0, -1.5879079, 0, 0.53802454, -57.131996, 0, -12.848902)
+material_override = SubResource("ShaderMaterial_ink")
+
+[node name="Willow" type="ProceduralTree" parent="Trees" unique_id=2052165553]
+parameters = SubResource("ProceduralTreeParameters_8rlp2")
+backend = 1
+use_gpu_tessellation = true
+seed = 133
+wind_strength = 0.35
+transform = Transform3D(2.037129, 0, 0, 0, 2.0400982, 0, 0, 0, 1.6856906, -88.507645, 0, -20.06944)
+material_override = SubResource("ShaderMaterial_ink")
+
+[node name="Pine" type="ProceduralTree" parent="Trees" unique_id=1789873600]
+parameters = SubResource("ProceduralTreeParameters_5a1h6")
+backend = 1
+slowtree_preset = 1
+seed = 383592
+wind_strength = 0.2
+trunk_thickness = 1.28
+root_thickness = 0.73
+branch_thickness = 0.46
+branch_density = 1.1
+transform = Transform3D(-0.89285386, 0, 0.45034656, 0, 1.4735982, 0, -0.45034656, 0, -0.89285386, -42.629513, 0.4089079, -5.807768)
+material_override = SubResource("ShaderMaterial_ink")
+
+[node name="Water" type="Node3D" parent="." unique_id=1005874902]
+transform = Transform3D(-4.371139e-08, -0.06975647, 0.9975641, 0, 0.9975641, 0.06975647, -1, 3.0491523e-09, -4.360491e-08, -4.931, 11.515, 1.318)
+
+[node name="Rocks" type="Node3D" parent="." unique_id=205567645]

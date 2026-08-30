@@ -11,6 +11,7 @@ config_version=5
 [application]
 
 config/name="ProjectAbyss"
+run/main_scene="res://Map/Map_InkValidation.tscn"
 config/features=PackedStringArray("4.7", "Forward Plus")
 config/icon="res://icon.svg"
 
@@ -25,7 +26,7 @@ window/stretch/aspect="expand"
 
 [editor_plugins]
 
-enabled=PackedStringArray("res://addons/ResourceConverter/plugin.cfg", "res://addons/Tripo3d_Godot_Bridge/plugin.cfg", "res://addons/terrain_3d/plugin.cfg", "res://addons/zylann.hterrain/plugin.cfg")
+enabled=PackedStringArray("res://addons/ResourceConverter/plugin.cfg", "res://addons/Tripo3d_Godot_Bridge/plugin.cfg", "res://addons/terrain_3d/plugin.cfg", "res://addons/zylann.hterrain/plugin.cfg", "res://addons/sky_3d/plugin.cfg")
 
 [physics]
 

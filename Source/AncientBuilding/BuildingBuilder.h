@@ -114,6 +114,9 @@ namespace BuildingGen
 		Color TileColor;
 		Color RidgeColor;
 		Color BracketColor;
+
+		/** Per-piece colour variation amplitude. 0.05 官式, ~0.14 茅草, ~0.10 夯土. */
+		float ColorMottle = 0.05f;
 	};
 
 	/** Growable mesh, one surface, vertex colours. */
@@ -154,7 +157,23 @@ namespace BuildingGen
 		/** Tapered prism about a vertical axis; used for columns. */
 		void AddColumn(const Vector3& Base, float Height, float BottomRadius, float TopRadius, int32_t Sides, const Color& Tint);
 
+		/** Per-piece colour variation amplitude. 0 disables it. */
+		void SetMottle(float Amount) { MottleAmount = Amount; }
+
+		/**
+		 * Deterministic per-component brightness variation, so a material palette (thatched
+		 * straw, rammed earth, weathered timber) reads as natural instead of uniform. The hash
+		 * seeds on a running piece counter, so building the same spec twice yields the same
+		 * mesh. Every component colour lands here, because all Add* paths funnel through the
+		 * three colour stores (AddTriangle / AddQuad / AddQuadSmooth).
+		 */
+		Color MottleColor(const Color& Tint);
+
 		int32_t GetTriangleCount() const { return int32_t(Indices.size() / 3); }
+
+	private:
+		float MottleAmount = 0.05f;
+		uint32_t PieceCounter = 0;
 	};
 
 	/**

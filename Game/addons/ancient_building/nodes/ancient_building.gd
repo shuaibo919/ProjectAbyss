@@ -118,6 +118,7 @@ func _build_variants() -> Array[Mesh]:
 		params.generate_steps = settings.generate_steps
 		params.generate_walls = settings.generate_walls
 		params.fence_lambda = settings.fence_lambda
+		params.material_style = settings.material_style
 
 		params.stone_color = settings.stone_color
 		params.timber_color = settings.timber_color
