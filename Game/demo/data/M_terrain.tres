@@ -1,4 +1,4 @@
-[gd_resource type="Terrain3DMaterial" load_steps=4 format=3 uid="uid://ccvn15t8km0ft"]
+[gd_resource type="Terrain3DMaterial" format=3 uid="uid://ccvn15t8km0ft"]
 
 [sub_resource type="Gradient" id="Gradient_vr1m7"]
 offsets = PackedFloat32Array(0.2, 1)
@@ -32,7 +32,6 @@ _shader_parameters = {
 "bias_distance": 512.0,
 "blend_sharpness": 0.5,
 "depth_blur": 0.0,
-&"displacement": null,
 &"distant_normal_scale": 2.0,
 "dual_scale_far": 170.0,
 "dual_scale_near": 100.0,

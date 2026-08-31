@@ -15,9 +15,14 @@
 [ext_resource type="Texture2D" uid="uid://cecwdqjol0ckd" path="res://addons/sky_3d/assets/textures/noiseClouds.png" id="15_clouds"]
 [ext_resource type="Texture2D" uid="uid://cfqk60lpl5ljv" path="res://addons/sky_3d/assets/resources/SNoise.tres" id="16_snoise"]
 [ext_resource type="Texture2D" uid="uid://2r8ylu6rg5dp" path="res://addons/sky_3d/assets/thirdparty/textures/moon/MoonMap.png" id="17_moonmap"]
+[ext_resource type="Texture2D" uid="uid://ddprscrpsofah" path="res://demo/assets/textures/ground037_alb_ht.png" id="18_d230j"]
 [ext_resource type="Texture2D" uid="uid://djpfuyxkryegn" path="res://addons/sky_3d/assets/textures/noise.jpg" id="18_noisejpg"]
+[ext_resource type="Texture2D" uid="uid://c88j3oj0lf6om" path="res://demo/assets/textures/rock023_alb_ht.png" id="18_ojfbk"]
+[ext_resource type="Texture2D" uid="uid://g80pbqtklcws" path="res://demo/assets/textures/ground037_nrm_rgh.png" id="19_1y0e5"]
+[ext_resource type="Texture2D" uid="uid://dabyathlpy04p" path="res://demo/assets/textures/rock023_nrm_rgh.png" id="19_eyjlr"]
 [ext_resource type="Texture2D" uid="uid://bm7dot7t7u1q4" path="res://addons/sky_3d/assets/thirdparty/textures/milkyway/StarField.jpg" id="19_starfield"]
-[ext_resource type="Material" uid="uid://cwaterocean01" path="res://Assets/Shaders/Water/OceanWater.tres" id="20_ocean"]
+[ext_resource type="Material" uid="uid://cgk4glwmc4vk2" path="res://addons/terrain_3d/extras/shaders/M_ocean.tres" id="20_ojfbk"]
+[ext_resource type="PackedScene" uid="uid://d3sr0a7dxfkr8" path="res://addons/terrain_3d/extras/particle_example/Terrain3DParticles.tscn" id="23_eyjlr"]
 
 [sub_resource type="ShaderMaterial" id="SkyMat"]
 shader = ExtResource("13_skymat")
@@ -72,8 +77,8 @@ shader_parameter/cirrus_absorption = 2.0
 shader_parameter/cirrus_sky_tint_fade = 0.5
 shader_parameter/cirrus_size = 1.0
 shader_parameter/cirrus_uv = Vector2(0.16, 0.11)
-shader_parameter/cirrus_position1 = Vector2(0.3527159, 1.5984991e-05)
-shader_parameter/cirrus_position2 = Vector2(0.3527159, 1.5984991e-05)
+shader_parameter/cirrus_position1 = Vector2(0.79577625, 0.00011324993)
+shader_parameter/cirrus_position2 = Vector2(0.79577625, 0.00011324993)
 shader_parameter/cirrus_texture = ExtResource("16_snoise")
 shader_parameter/cumulus_visible = true
 shader_parameter/cumulus_intensity = 0.6
@@ -83,7 +88,7 @@ shader_parameter/cumulus_absorption = 2.0
 shader_parameter/cumulus_noise_freq = 2.7
 shader_parameter/cumulus_sky_tint_fade = 0.0
 shader_parameter/cumulus_size = 0.5
-shader_parameter/cumulus_position = Vector2(21.764303, 7.9942285e-05)
+shader_parameter/cumulus_position = Vector2(153.87686, 0.00056536455)
 shader_parameter/cumulus_texture = ExtResource("15_clouds")
 shader_parameter/cumulus_partial_mie_phase = Vector3(0.957564, 1.042436, 0.412)
 shader_parameter/cumulus_mie_intensity = 1.0
@@ -117,39 +122,6 @@ dof_blur_near_enabled = true
 dof_blur_near_distance = 22.0
 dof_blur_near_transition = 14.0
 dof_blur_amount = 0.06
-
-[sub_resource type="PlaneMesh" id="SeaMesh"]
-size = Vector2(3000, 3000)
-
-[sub_resource type="ShaderMaterial" id="ShaderMaterial_ground"]
-render_priority = 0
-shader = ExtResource("1_ink")
-shader_parameter/base_color = Color(0.82, 0.81, 0.78, 1)
-shader_parameter/outline_color = Color(0.05, 0.05, 0.05, 1)
-shader_parameter/ran_close = 1.0
-shader_parameter/ran_far = 0.5
-shader_parameter/color_remap_tex = ExtResource("4_remap")
-shader_parameter/noise_tex = ExtResource("5_noise")
-shader_parameter/stroke_tex = ExtResource("6_stroke")
-shader_parameter/rim_rate = 2.0
-shader_parameter/rim_rate_close = 2.5
-shader_parameter/rim_rate_range = 8.0
-shader_parameter/rim_offset = 0.0
-shader_parameter/max_distance = 256.0
-shader_parameter/stroke_ctrl = Vector4(3.2, 0.42, 0.25, 0.85)
-shader_parameter/noise_ctrl = Vector4(4, 0.35, 0.65, 0.8)
-shader_parameter/inline_ctrl = Vector4(1, 1, 10, 10)
-shader_parameter/lambert_rim_blend = 0.0
-shader_parameter/shadow_influence = 0.5
-shader_parameter/light_cun_power = 1.0
-shader_parameter/light_ran_power = 1.25
-shader_parameter/light_inline_strength = 0.22
-shader_parameter/use_vertex_color = false
-
-[sub_resource type="PlaneMesh" id="PlaneMesh_ground"]
-size = Vector2(400, 400)
-subdivide_width = 8
-subdivide_depth = 8
 
 [sub_resource type="AncientBuildingParameters" id="Params_pavilion"]
 width = 8.0
@@ -288,105 +260,60 @@ leaf = SubResource("ProceduralTreeLeafParameters_6uepn")
 blossom = SubResource("ProceduralTreeLeafParameters_3wu1r")
 fruit = SubResource("ProceduralTreeFruitParameters_2riha")
 
-[sub_resource type="ProceduralTreeLeafParameters" id="ProceduralTreeLeafParameters_a6q3d"]
-count = 10
-scale = 0.0495
-scale_x = 0.612
-stem_len = 0.01
-lobes = 4
-lobe_angle = 39.556
-lobe_falloff = 0.02
-color = Color(0.48, 0.35, 0.48, 1)
+[sub_resource type="Terrain3DMaterial" id="Terrain3DMaterial_eyjlr"]
+_shader_parameters = {
+&"bias_distance": null,
+&"blend_sharpness": null,
+&"depth_blur": null,
+&"distant_normal_scale": null,
+&"flat_terrain_normals": null,
+&"general_uniforms": null,
+&"ground_level": null,
+&"mipmap_bias": null,
+&"mipmaps": null,
+&"private": null,
+&"region_blend": null
+}
 
-[sub_resource type="ProceduralTreeFruitParameters" id="ProceduralTreeFruitParameters_o7iwh"]
-chance = 0.03
-size = 0.06
-shape = Vector4(0.685, -0.4, 0.74, 1.1)
-color = Color(0.29302323, 0.1042142, 0.040886965, 1)
+[sub_resource type="StandardMaterial3D" id="StandardMaterial3D_r4sro"]
+transparency = 4
+cull_mode = 2
+vertex_color_use_as_albedo = true
+backlight_enabled = true
+backlight = Color(0.5, 0.5, 0.5, 1)
+distance_fade_mode = 1
+distance_fade_min_distance = 128.0
+distance_fade_max_distance = 96.0
+metadata/terrain3d_generated_material = true
 
-[sub_resource type="ProceduralTreeLeafParameters" id="ProceduralTreeLeafParameters_viu5n"]
-count = 13
-scale = 0.085
-scale_x = 0.465
-stem_len = 0.01
-color = Color(0.1539078, 0.375575, 0.31614774, 1)
-season_offset = -0.186
+[sub_resource type="Terrain3DMeshAsset" id="Terrain3DMeshAsset_joca8"]
+generated_type = 1
+height_offset = 0.5
+density = 10.0
+material_override = SubResource("StandardMaterial3D_r4sro")
+last_lod = 0
+last_shadow_lod = 0
+lod0_range = 128.0
 
-[sub_resource type="ProceduralTreeParameters" id="ProceduralTreeParameters_8rlp2"]
-scale = 4.5
-scale_v = 1.0
-ratio = 0.02
-ratio_power = 1.5
-attraction_up = 2.0
-flare = 0.9
-base_size = Vector4(0.15, 0.217, 0, 0.05)
-shape = Vector4i(2, 2, 4, 0)
-branches = Vector4i(0, 28, 100, 10)
-curve_res = Vector4i(5, 10, 5, 1)
-length = Vector4(1, 0.5, 0.4, 0)
-length_v = Vector4(0, 0, 0.1, 0)
-curve = Vector4(0, -20, 0, 0)
-curve_v = Vector4(30, 140, 100, 0)
-rotate = Vector4(0, 140, 140, 77)
-down_angle = Vector4(0, 60, 60, 45)
-down_angle_v = Vector4(0, -30, 20, 30)
-base_splits = Vector4i(0, 0, 0, 0)
-seg_splits = Vector4(0, 0.474, 0, 0)
-split_angle = Vector4(0, 20, 0, 0)
-split_angle_v = Vector4(0, 10, 0, 0)
-leaf = SubResource("ProceduralTreeLeafParameters_viu5n")
-blossom = SubResource("ProceduralTreeLeafParameters_a6q3d")
-fruit = SubResource("ProceduralTreeFruitParameters_o7iwh")
+[sub_resource type="Terrain3DTextureAsset" id="Terrain3DTextureAsset_sl3gy"]
+name = "rock023_alb_ht"
+albedo_texture = ExtResource("18_ojfbk")
+normal_texture = ExtResource("19_eyjlr")
 
-[sub_resource type="ProceduralTreeLeafParameters" id="ProceduralTreeLeafParameters_qlbvl"]
-count = 10
-scale = 0.0495
-scale_x = 0.612
-stem_len = 0.01
-lobes = 4
-lobe_angle = 39.556
-lobe_falloff = 0.02
-color = Color(0.48, 0.35, 0.48, 1)
+[sub_resource type="Terrain3DTextureAsset" id="Terrain3DTextureAsset_cujhl"]
+name = "ground037_alb_ht"
+id = 1
+albedo_texture = ExtResource("18_d230j")
+normal_texture = ExtResource("19_1y0e5")
 
-[sub_resource type="ProceduralTreeFruitParameters" id="ProceduralTreeFruitParameters_mfqs0"]
-chance = 0.03
-size = 0.06
-shape = Vector4(0.685, -0.4, 0.74, 1.1)
-color = Color(0.29302323, 0.1042142, 0.040886965, 1)
+[sub_resource type="Terrain3DAssets" id="Terrain3DAssets_a8b33"]
+mesh_list = Array[Terrain3DMeshAsset]([SubResource("Terrain3DMeshAsset_joca8")])
+texture_list = Array[Terrain3DTextureAsset]([SubResource("Terrain3DTextureAsset_sl3gy"), SubResource("Terrain3DTextureAsset_cujhl")])
 
-[sub_resource type="ProceduralTreeLeafParameters" id="ProceduralTreeLeafParameters_gnjpf"]
-count = 13
-scale = 0.085
-scale_x = 0.465
-stem_len = 0.01
-color = Color(0, 0.225, 0, 1)
-season_offset = -0.186
-
-[sub_resource type="ProceduralTreeParameters" id="ProceduralTreeParameters_5a1h6"]
-scale = 4.5
-scale_v = 1.0
-ratio = 0.02
-ratio_power = 1.5
-attraction_up = 2.0
-flare = 0.9
-base_size = Vector4(0.15, 0.217, 0, 0.05)
-shape = Vector4i(2, 2, 4, 0)
-branches = Vector4i(0, 28, 100, 10)
-curve_res = Vector4i(5, 10, 5, 1)
-length = Vector4(1, 0.5, 0.4, 0)
-length_v = Vector4(0, 0, 0.1, 0)
-curve = Vector4(0, -20, 0, 0)
-curve_v = Vector4(30, 140, 100, 0)
-rotate = Vector4(0, 140, 140, 77)
-down_angle = Vector4(0, 60, 60, 45)
-down_angle_v = Vector4(0, -30, 20, 30)
-base_splits = Vector4i(0, 0, 0, 0)
-seg_splits = Vector4(0, 0.474, 0, 0)
-split_angle = Vector4(0, 20, 0, 0)
-split_angle_v = Vector4(0, 10, 0, 0)
-leaf = SubResource("ProceduralTreeLeafParameters_gnjpf")
-blossom = SubResource("ProceduralTreeLeafParameters_qlbvl")
-fruit = SubResource("ProceduralTreeFruitParameters_mfqs0")
+[sub_resource type="RibbonTrailMesh" id="RibbonTrailMesh_r4sro"]
+shape = 0
+section_length = 0.18
+section_segments = 1
 
 [node name="Map_PcgInkValidation" type="Node3D" unique_id=1170354001]
 
@@ -432,67 +359,62 @@ month = 8
 year = 2026
 
 [node name="Camera3D" type="Camera3D" parent="." unique_id=1625223467]
-transform = Transform3D(-4.371139e-08, -0.055821504, 0.99844074, 0, 0.99844074, 0.055821504, -1, 2.4400355e-09, -4.364323e-08, -4.931001, 11.515, 1.318)
+transform = Transform3D(-1, 4.540531e-08, -1.4400726e-07, 0, 0.95371693, 0.3007058, 1.509958e-07, 0.3007058, -0.95371693, -105.980194, 39.263004, -70.6568)
 attributes = SubResource("Hd2dAttrs")
 current = true
 fov = 45.0
 
-[node name="Sea" type="MeshInstance3D" parent="." unique_id=1261996052]
-transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 0, -0.6, 0)
-material_override = ExtResource("20_ocean")
-mesh = SubResource("SeaMesh")
-
-[node name="Ground" type="MeshInstance3D" parent="." unique_id=1916306661]
-transform = Transform3D(0.17444038, 0, 0, 0, 1, 0, 0, 0, 0.15220113, -68.00899, 0, 0)
-material_override = SubResource("ShaderMaterial_ground")
-mesh = SubResource("PlaneMesh_ground")
-
 [node name="Buildings" type="Node3D" parent="." unique_id=1357468978]
+transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 0, 17.608406, 58.110863)
 
 [node name="Pavilion" type="AncientBuilding" parent="Buildings" unique_id=2029932650]
 parameters = SubResource("Params_pavilion")
-transform = Transform3D(0.99919236, 0, -0.040184528, 0, 1, 0, 0.040184528, 0, 0.99919236, -82.063446, -0.17289925, 24.359566)
+transform = Transform3D(0.99919236, 0, -0.040184528, 0, 1, 0, 0.040184528, 0, 0.99919236, -66.39754, -8.279921, 6.4402695)
 material_override = SubResource("ShaderMaterial_ink")
 
 [node name="AncientBuilding" type="AncientBuilding" parent="Buildings" unique_id=1583673649]
 parameters = SubResource("AncientBuildingParameters_3wu1r")
-transform = Transform3D(0.999824, 0.018762704, 0, -0.018762704, 0.999824, 0, 0, 0, 1, -53.586098, -1.3823535, 0)
+transform = Transform3D(-0.027956726, -0.0005246361, -0.99960893, -0.018762702, 0.9998239, -2.9097355e-11, 0.9994332, 0.018755367, -0.027961649, -99.80288, -9.955925, -36.52611)
 
 [node name="Trees" type="Node3D" parent="." unique_id=1014391266]
+transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 0, 17.608406, 58.110863)
 
 [node name="Peach_2" type="ProceduralTree" parent="Trees" unique_id=160432772]
 parameters = SubResource("ProceduralTreeParameters_30133")
 backend = 1
 slowtree_preset = 6
-seed = 232698
-season = 1.2
+seed = 266075
+season = 4.0
 wind_strength = 0.25
-transform = Transform3D(0.6777154, 0, 1.2606082, 0, 2.2518728, 0, -1.5879079, 0, 0.53802454, -57.131996, 0, -12.848902)
-material_override = SubResource("ShaderMaterial_ink")
-
-[node name="Willow" type="ProceduralTree" parent="Trees" unique_id=2052165553]
-parameters = SubResource("ProceduralTreeParameters_8rlp2")
-backend = 1
-use_gpu_tessellation = true
-seed = 133
-wind_strength = 0.35
-transform = Transform3D(2.037129, 0, 0, 0, 2.0400982, 0, 0, 0, 1.6856906, -88.507645, 0, -20.06944)
-material_override = SubResource("ShaderMaterial_ink")
-
-[node name="Pine" type="ProceduralTree" parent="Trees" unique_id=1789873600]
-parameters = SubResource("ProceduralTreeParameters_5a1h6")
-backend = 1
-slowtree_preset = 1
-seed = 383592
-wind_strength = 0.2
-trunk_thickness = 1.28
-root_thickness = 0.73
-branch_thickness = 0.46
-branch_density = 1.1
-transform = Transform3D(-0.89285386, 0, 0.45034656, 0, 1.4735982, 0, -0.45034656, 0, -0.89285386, -42.629513, 0.4089079, -5.807768)
+trunk_thickness = 2.0
+root_thickness = 1.3
+transform = Transform3D(-2.0362535, 0, 0.15127861, 0, 3.1746678, 0, -0.1551987, 0, -1.9848249, -110.517204, -7.778778, -27.676945)
 material_override = SubResource("ShaderMaterial_ink")
 
 [node name="Water" type="Node3D" parent="." unique_id=1005874902]
 transform = Transform3D(-4.371139e-08, -0.06975647, 0.9975641, 0, 0.9975641, 0.06975647, -1, 3.0491523e-09, -4.360491e-08, -4.931, 11.515, 1.318)
+
+[node name="Terrain3D" type="Terrain3D" parent="." unique_id=812424444]
+data_directory = "res://Map/Map_PckInkValidationData"
+material = SubResource("Terrain3DMaterial_eyjlr")
+assets = SubResource("Terrain3DAssets_a8b33")
+mesh_size = 8
+displacement_sharpness = 0.5
+ocean_enabled = true
+ocean_mesh_size = 64
+ocean_vertex_spacing = 9.1
+ocean_gi_mode = 2
+ocean_material = ExtResource("20_ojfbk")
+top_level = true
+metadata/_edit_lock_ = true
+
+[node name="Terrain3DParticles" parent="." unique_id=1604309898 node_paths=PackedStringArray("terrain") instance=ExtResource("23_eyjlr")]
+rows = 87
+amount = 7569
+terrain = NodePath("../Terrain3D")
+instance_spacing = 0.34375
+cell_width = 30.0
+grid_width = 11
+mesh = SubResource("RibbonTrailMesh_r4sro")
 
 [node name="Rocks" type="Node3D" parent="." unique_id=205567645]
