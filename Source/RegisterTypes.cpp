@@ -27,6 +27,10 @@
 #include "RockGen/ProceduralRock.h"
 #include "RockGen/ProceduralRockEditorPlugin.h"
 #include "RockGen/ProceduralRockParameters.h"
+// Procedural grass clumps (original design — see Docs/ProceduralGrass_Spec.md)
+#include "GrassGen/ProceduralGrass.h"
+#include "GrassGen/ProceduralGrassEditorPlugin.h"
+#include "GrassGen/ProceduralGrassParameters.h"
 
 
 #include <gdextension_interface.h>
@@ -47,6 +51,9 @@ void initialize_abyss_module(ModuleInitializationLevel p_level) {
 
 		GDREGISTER_INTERNAL_CLASS(ProceduralRockEditorPlugin);
 		EditorPlugins::add_by_type<ProceduralRockEditorPlugin>();
+
+		GDREGISTER_INTERNAL_CLASS(ProceduralGrassEditorPlugin);
+		EditorPlugins::add_by_type<ProceduralGrassEditorPlugin>();
 		return;
 	}
 
@@ -90,6 +97,9 @@ void initialize_abyss_module(ModuleInitializationLevel p_level) {
 
 	GDREGISTER_CLASS(ProceduralRockParameters);
 	GDREGISTER_CLASS(ProceduralRock);
+
+	GDREGISTER_CLASS(ProceduralGrassParameters);
+	GDREGISTER_CLASS(ProceduralGrass);
 }
 
 void uninitialize_abyss_module(ModuleInitializationLevel p_level) {

@@ -4,7 +4,7 @@ extends Node3D
 # Same 硬山 geometry, different palettes + per-piece colour mottle.
 # Run: godot --path Game/ res://Develop/StyleShowcase.tscn [-- --out=Name]
 
-const OUT_DIR := "res://Develop/InkShots"
+const ShotOutput := preload("res://Develop/Tools/shot_output.gd")
 
 
 func _ready() -> void:
@@ -56,6 +56,6 @@ func _ready() -> void:
 	await RenderingServer.frame_post_draw
 
 	get_viewport().get_texture().get_image().save_png(
-		ProjectSettings.globalize_path("%s/%s.png" % [OUT_DIR, out]))
+		ShotOutput.file("Ink", "%s.png" % out))
 	print("saved %s" % out)
 	get_tree().quit()

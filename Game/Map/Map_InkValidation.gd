@@ -15,11 +15,11 @@ extends Node3D
 #   —— 动作由 InputActions 自动加载注册（res://Script/input_actions.gd）。
 
 const FlowGraphBuilder := preload("res://Script/PCG/flow_graph_builder.gd")
+const ShotOutput := preload("res://Develop/Tools/shot_output.gd")
 
 const NODE_DIR := "res://addons/ancient_building/nodes"
 const SHADER_DIR := "res://Assets/Shaders/InkPainting"
 const TEX_DIR := "res://Assets/Shaders/InkPainting/Textures"
-const OUT_DIR := "res://Develop/InkShots"
 
 # 纸色。水墨的“白”不是纯白，压一点暖灰才不刺眼。
 const PAPER := Color(0.898, 0.859, 0.824)
@@ -315,7 +315,6 @@ func _build_camera_rig(focus: Vector3) -> void:
 # ---------------------------------------------------------------- 出图
 
 func _shoot() -> void:
-	DirAccess.make_dir_recursive_absolute(ProjectSettings.globalize_path(OUT_DIR))
 	get_viewport().msaa_3d = Viewport.MSAA_8X
 
 	var focus: Node3D = get_node("CameraFocus")
@@ -336,7 +335,7 @@ func _shoot() -> void:
 			await get_tree().process_frame
 		await RenderingServer.frame_post_draw
 		get_viewport().get_texture().get_image().save_png(
-			ProjectSettings.globalize_path("%s/%s.png" % [OUT_DIR, shot["name"]]))
+			ShotOutput.file("Ink", "%s.png" % shot["name"]))
 		var cam := get_viewport().get_camera_3d()
 		print("shot %s  cam=%.1f,%.1f,%.1f" % [shot["name"],
 			cam.global_position.x, cam.global_position.y, cam.global_position.z])
