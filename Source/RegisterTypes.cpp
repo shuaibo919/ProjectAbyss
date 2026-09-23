@@ -31,6 +31,8 @@
 #include "GrassGen/ProceduralGrass.h"
 #include "GrassGen/ProceduralGrassEditorPlugin.h"
 #include "GrassGen/ProceduralGrassParameters.h"
+// Mesh-edge cartoon outlines (port of UnitySimpleCartoonLine, baked variant)
+#include "OutlineGen/CartoonOutlineBuilder.h"
 
 
 #include <gdextension_interface.h>
@@ -100,6 +102,8 @@ void initialize_abyss_module(ModuleInitializationLevel p_level) {
 
 	GDREGISTER_CLASS(ProceduralGrassParameters);
 	GDREGISTER_CLASS(ProceduralGrass);
+
+	GDREGISTER_CLASS(CartoonOutlineBuilder);
 }
 
 void uninitialize_abyss_module(ModuleInitializationLevel p_level) {
