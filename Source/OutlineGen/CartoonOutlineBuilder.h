@@ -23,9 +23,12 @@ protected:
 
 public:
 	// Returns one surface, six non-indexed vertices per edge, POSITION set to the
-	// corner's own endpoint so the AABB matches the source mesh. Empty mesh if the
-	// source has no triangle surfaces.
-	static Ref<ArrayMesh> BuildOutlineMesh(const Ref<Mesh>& p_Source);
+	// corner's own endpoint so the AABB matches the source mesh. Edges are chained
+	// into strokes (Pencil+4-style brush paths): UV carries (arc distance along the
+	// stroke, side), UV2 carries (signed stroke length — negative for closed loops,
+	// per-stroke seed). p_MaxTurnDegrees breaks a stroke at corners sharper than
+	// this angle. Empty mesh if the source has no triangle surfaces.
+	static Ref<ArrayMesh> BuildOutlineMesh(const Ref<Mesh>& p_Source, float p_MaxTurnDegrees = 90.0f);
 };
 
 } // namespace godot

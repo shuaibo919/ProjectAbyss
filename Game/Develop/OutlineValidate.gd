@@ -10,6 +10,7 @@ extends Node3D
 # Run: Engine/bin/godot.windows.editor.x86_64.console.exe --path Game/ res://Develop/OutlineValidate.tscn
 
 const ShotOutput := preload("res://Develop/Tools/shot_output.gd")
+const InkBrush := preload("res://Develop/Tools/ink_brush.gd")
 const OUTLINE_SHADER := preload("res://Assets/Shaders/InkPainting/ink_mesh_edge_outline.gdshader")
 
 # A BoxMesh has 12 triangles / 24 vertices (per-face normals), but welded by
@@ -18,6 +19,10 @@ const BOX_EXPECTED_EDGES := 18
 
 
 func _ready() -> void:
+	# The outline shader's AA is alpha-to-coverage, which needs MSAA on the
+	# viewport; without it the alpha is ignored and lines render fully opaque.
+	get_viewport().msaa_3d = Viewport.MSAA_4X
+
 	var light := DirectionalLight3D.new()
 	light.rotation_degrees = Vector3(-48, -35, 0)
 	light.light_energy = 1.1
@@ -86,6 +91,47 @@ func _ready() -> void:
 	add_child(rock)
 	subjects.append(rock)
 
+	# Open wavy ribbons: every edge is a boundary edge, so the two long sides bake
+	# into two long strokes — the direct demo for stroke parameterization. Three
+	# brush styles stacked vertically: bristle + tapered ends, burnt-ink grain +
+	# dry tail, bristle + pulsing width.
+	var brush_styles := [
+		{"name": "RibbonBristle", "brush": InkBrush.make_brush_texture(), "amount": 0.8,
+			"profile": InkBrush.make_width_profile(&"taper_both")},
+		{"name": "RibbonGrain", "brush": InkBrush.make_grain_texture(), "amount": 0.9,
+			"profile": InkBrush.make_width_profile(&"tail")},
+		{"name": "RibbonPulse", "brush": InkBrush.make_brush_texture(13), "amount": 0.5,
+			"profile": InkBrush.make_width_profile(&"pulse")},
+	]
+	for i in brush_styles.size():
+		var style: Dictionary = brush_styles[i]
+		var ribbon := MeshInstance3D.new()
+		ribbon.name = style["name"]
+		ribbon.mesh = _make_ribbon_mesh()
+		ribbon.position = Vector3(-2.0, 1.3 + i * 0.45, -0.8)
+		ribbon.material_override = _flat_material(Color(0.85, 0.82, 0.75))
+		add_child(ribbon)
+		subjects.append(ribbon)
+		var outline := _attach_outline(ribbon, style["name"], failures)
+		if outline == null:
+			continue
+		var brush_mat := outline.material_override as ShaderMaterial
+		brush_mat.set_shader_parameter("line_width_px", 6.0)
+		brush_mat.set_shader_parameter("width_jitter", 0.3)
+		brush_mat.set_shader_parameter("brush_tex", style["brush"])
+		brush_mat.set_shader_parameter("brush_amount", style["amount"])
+		brush_mat.set_shader_parameter("brush_tile_size", 0.9)
+		brush_mat.set_shader_parameter("width_profile_tex", style["profile"])
+		if i == 0:
+			# Chaining check: single-edge chains would cap u at one segment (~0.14);
+			# the ribbon sides must chain into strokes several units long.
+			var uvs: PackedVector2Array = outline.mesh.surface_get_arrays(0)[Mesh.ARRAY_TEX_UV]
+			var max_u := 0.0
+			for uv in uvs:
+				max_u = max(max_u, uv.x)
+			if max_u < 2.0:
+				failures.append("Ribbon: max stroke arc length %.2f, chaining broken" % max_u)
+
 	var cam := Camera3D.new()
 	cam.position = Vector3(0, 2.2, 4.2)
 	cam.current = true
@@ -135,6 +181,35 @@ func _ready() -> void:
 	f.close()
 
 	get_tree().quit(0 if failures.is_empty() else 1)
+
+
+# Flat sine-wave strip in the XY plane (faces the default camera). Open on all
+# sides, so every edge is a boundary edge and the two long sides chain into two
+# long strokes.
+func _make_ribbon_mesh() -> ArrayMesh:
+	const SEGMENTS := 40
+	const LENGTH := 4.0
+	const HALF_WIDTH := 0.07
+
+	var verts := PackedVector3Array()
+	var indices := PackedInt32Array()
+	for i in SEGMENTS + 1:
+		var t := float(i) / SEGMENTS
+		var x := t * LENGTH
+		var y := sin(t * TAU * 1.5) * 0.35
+		verts.append(Vector3(x, y - HALF_WIDTH, 0))
+		verts.append(Vector3(x, y + HALF_WIDTH, 0))
+	for i in SEGMENTS:
+		var a := i * 2
+		indices.append_array([a, a + 1, a + 2, a + 1, a + 3, a + 2])
+
+	var arrays := []
+	arrays.resize(Mesh.ARRAY_MAX)
+	arrays[Mesh.ARRAY_VERTEX] = verts
+	arrays[Mesh.ARRAY_INDEX] = indices
+	var mesh := ArrayMesh.new()
+	mesh.add_surface_from_arrays(Mesh.PRIMITIVE_TRIANGLES, arrays)
+	return mesh
 
 
 func _flat_material(albedo: Color) -> StandardMaterial3D:
