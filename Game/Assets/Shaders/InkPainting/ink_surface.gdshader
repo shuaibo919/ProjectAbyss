@@ -46,6 +46,10 @@ uniform float light_inline_strength : hint_range(0.0, 2.0) = 0.22;
 // 的"暗部=墨"由主太阳光承担; 补光只负责把阴影抬到可读的深灰, 否则低角度
 // 补光会被 light_ink 判成阴面涂成全墨 (城镇俯拍场景使用, 默认关)。
 uniform vec3 fill_light_dir = vec3(0.0);
+// 第二旁路方向: 低角度水平补光 (南侧), 只提亮竖直面 (地面 NdotL=0 不受影响),
+// 用于把市场摊位等被建筑阴影盖住的竖直面从近黑抬到可读深灰 (2026-09-26
+// round-4 评审: 市场广场中央摊位黑色块)。
+uniform vec3 fill_light_dir2 = vec3(0.0);
 
 // === Vertex colour ===
 // The procedural generators (AncientBuilding, SlowTree/TreeGen) are asset-free: every part's
@@ -106,7 +110,14 @@ void light() {
 	// === Fill light bypass ===
 	// 补光不走墨色闸门, 直接给平面漫反射 (见 uniform fill_light_dir 注释)。
 	vec3 lw = (INV_VIEW_MATRIX * vec4(LIGHT, 0.0)).xyz;
-	if (fill_light_dir != vec3(0.0) && abs(dot(lw, fill_light_dir)) > 0.999) {
+	bool is_fill = (fill_light_dir != vec3(0.0) && abs(dot(lw, fill_light_dir)) > 0.999)
+			|| (fill_light_dir2 != vec3(0.0) && abs(dot(lw, fill_light_dir2)) > 0.999)
+			// 水平补光旁路: 东西向等低角度补光不逐一注册 fill_light_dir, 直接按
+			// 方向高度旁路 (|dir.y|≈0 的平行光只打竖直面, 地面/路面 NdotL=0 不受
+			// 影响)。2026-09-26 round-4 评审续: 南侧 FillLight2 只提亮南北朝向
+			// 立面, 市场东西两侧摊位前脸 (朝东/朝西面) 仍只剩 ambient 的近黑。
+			|| abs(lw.y) < 0.1;
+	if (is_fill) {
 		DIFFUSE_LIGHT += base * clamp(dot(NORMAL, LIGHT), 0.0, 1.0) * LIGHT_COLOR * ATTENUATION;
 	} else {
 		// === Lighting-driven ink area ===

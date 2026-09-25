@@ -16,7 +16,7 @@ class_name PcgTownMeshes
 const ROAD_COL := Color( 0.62, 0.58, 0.52 )    # rammed-earth road, warm grey
 const WALL_COL := Color( 0.55, 0.50, 0.42 )    # rammed-earth wall
 const WALL_DARK := Color( 0.42, 0.38, 0.32 )
-const TIMBER_DARK := Color( 0.30, 0.24, 0.19 )
+const TIMBER_DARK := Color( 0.40, 0.33, 0.26 )   # 提亮: 阴影中只剩 ambient 时不至于近黑 (2026-09-26 round-4)
 const AWNING_COL := Color( 0.76, 0.74, 0.70 )  # pale cloth
 const STONE_COL := Color( 0.52, 0.50, 0.47 )
 

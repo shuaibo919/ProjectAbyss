@@ -92,6 +92,32 @@ func _build_environment() -> void:
 	fill.shadow_enabled = false
 	add_child(fill)
 
+	# 水平低角度南侧补光 (无阴影): 只打亮朝南竖直面 (地面/路面 NdotL=0 不受
+	# 影响), 把被建筑阴影盖住的摊位立面等从近黑抬到可读深灰 (2026-09-26
+	# round-4 评审: 市场广场中央摊位黑色块)。
+	var fill2 := DirectionalLight3D.new()
+	fill2.name = "FillLight2"
+	fill2.rotation_degrees = Vector3(0, 180, 0)
+	fill2.light_energy = 0.3
+	fill2.shadow_enabled = false
+	add_child(fill2)
+
+	# 东西向水平补光 (无阴影, 0.3+0.3): 只打亮朝东/朝西竖直面, 让市场东西两侧
+	# 摊位面向广场的前脸不再只剩 ambient 的近黑。南侧 FillLight2 对东西朝向立面
+	# NdotL=0 无能为力 (2026-09-26 round-4 评审续, shader 侧按 |dir.y|<0.1 旁路)。
+	var fill3 := DirectionalLight3D.new()
+	fill3.name = "FillLightW"  # surface->light dir = (-1,0,0): 打亮朝西面
+	fill3.rotation_degrees = Vector3(0, -90, 0)
+	fill3.light_energy = 0.3
+	fill3.shadow_enabled = false
+	add_child(fill3)
+	var fill4 := DirectionalLight3D.new()
+	fill4.name = "FillLightE"  # surface->light dir = (1,0,0): 打亮朝东面
+	fill4.rotation_degrees = Vector3(0, 90, 0)
+	fill4.light_energy = 0.3
+	fill4.shadow_enabled = false
+	add_child(fill4)
+
 	var env := WorldEnvironment.new()
 	env.name = "InkEnvironment"
 	var e := Environment.new()
@@ -127,6 +153,9 @@ func _make_ink_material() -> ShaderMaterial:
 	var fill := get_node_or_null("FillLight")
 	if fill != null:
 		surface.set_shader_parameter("fill_light_dir", fill.global_transform.basis.z.normalized())
+	var fill2 := get_node_or_null("FillLight2")
+	if fill2 != null:
+		surface.set_shader_parameter("fill_light_dir2", fill2.global_transform.basis.z.normalized())
 
 	var outline0 := ShaderMaterial.new()
 	outline0.shader = load(SHADER_DIR + "/ink_outline_0.gdshader")
@@ -440,6 +469,11 @@ func _shoot() -> void:
 			var near_gnd: float = sin(pa) * (1.0 / tan(pa) - 1.0 / tan(pa + fov_half))
 			var far_gnd: float = sin(pa) * (1.0 / tan(maxf(pa - fov_half, 0.02)) - 1.0 / tan(pa))
 			zoom = maxf(b["size"].x, b["size"].z) * 0.5 / minf(near_gnd, far_gnd) * 1.05
+			# 村镇/聚落的实例散布范围 (道路+田块) 远大于建筑组团: 按包围盒取景会把
+			# 村落拍成画面中央的小块 (2026-09-26 复拍: village_overview 97.5% 留白,
+			# 建筑组团只占 ~17% 画宽)。收紧臂长让组团成为画面主体, 四周留白仍足。
+			if preset in [ "village", "hamlet" ]:
+				zoom *= 0.55
 			var lead: float = b["center"].y / tan(pa)
 			focus_pos = b["center"] + Vector3(
 				sin(yaw_rad) * lead, 0.0, cos(yaw_rad) * lead)
