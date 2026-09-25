@@ -30,6 +30,25 @@ Desktop.ini
 ## Build files
 *.dblite
 *.obj
+*.dll
+*.dylib
+*.so
+*.pdb
+*.ilk
+*.map
+*.exp
+*.lib
+*.a
+*.obj
+*.o
+*.lo
+*.slo
+*.lst
+*.map
+*.sym
+*.debug
+*.uid
+*.TMP
 
 ## Agents
 .claude
