@@ -8,11 +8,17 @@ extends NodeSettings
 @export var mesh_attribute : String = "mesh"
 
 ## How many distinct buildings to generate. Points are assigned one at random, so a village
-## of 40 houses costs 4 meshes rather than 40 — the whole reason to cap this.
-@export_range(1, 24, 1) var variant_count : int = 4
+## of 40 houses costs 4 meshes rather than 40 — the whole reason to cap this. With point
+## overrides enabled this is the cap on distinct parameter combinations instead.
+@export_range(1, 48, 1) var variant_count : int = 4
 
 ## Base seed. Variant i is generated with seed + i.
 @export var seed : int = 0
+
+## When the input carries `ab_*` override streams (width, depth, roof_type...), bake one
+## variant per distinct parameter combination instead of random variants. Points sharing a
+## combination share one mesh — the town generator relies on this for MultiMesh efficiency.
+@export var use_point_overrides : bool = true
 
 @export_group("Plan")
 ## 通面阔. Every other dimension descends from this via the Table 1 module.
@@ -24,8 +30,11 @@ extends NodeSettings
 @export_range(1, 9, 1) var bays_z : int = 2
 
 @export_group("Roof")
-## 硬山 / 歇山 / 庑殿. A square plan with Hip degenerates to a 攒尖 pyramid.
-@export_enum("Flush Gable:0", "Gable and Hip:1", "Hip:2") var roof_type : int = 1
+## All nine C++ roof types (AncientBuildingParameters.ERoofType). A square plan with Hip
+## degenerates to a 攒尖 pyramid (Eq 8).
+@export_enum("硬山 Flush Gable:0", "歇山 Gable and Hip:1", "庑殿 Hip:2",
+	"悬山 Overhanging Gable:3", "卷棚 Round Ridge:4", "盝顶 Hollow:5",
+	"攒尖 Pyramidal:6", "圆攒尖 Round:7", "盔顶 Helmet:8") var roof_type : int = 1
 ## Picks a roof type per variant instead of using roof_type for all of them.
 @export var randomize_roof_type : bool = false
 @export_range(3, 13, 1) var rafter_courses : int = 5

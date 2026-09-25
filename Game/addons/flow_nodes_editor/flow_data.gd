@@ -183,8 +183,12 @@ class TransformsStream:
 		return FlowData.eulerToBasis( eulers[id] )
 
 	func atIndex( id: int ) -> Transform3D:
+		# Scale in the ROTATED frame (R*S). basis.scaled() would apply the size
+		# along WORLD axes (S*R), which swaps the x/z extents of yaw-90 strips
+		# (roads/walls) and distorts any rotated non-uniform instance.
+		# This matches node_draw_debug, which already uses scaled_local().
 		var basis := basisAt( id )
-		return Transform3D( basis.scaled( sizes[id] ), positions[id] )
+		return Transform3D( basis, positions[id] ).scaled_local( sizes[id] )
 
 	func atIndexAbsScale( id: int, scale: float ) -> Transform3D:
 		var basis := basisAt( id )

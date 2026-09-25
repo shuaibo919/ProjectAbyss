@@ -11,6 +11,10 @@ const REL_ROOT := "../Reference/Shots"
 
 
 static func dir(subdir: String) -> String:
+	# SHOT_SUBDIR env redirects the whole batch (e.g. to a versioned dir while a
+	# review agent still reads the previous set).
+	if OS.has_environment("SHOT_SUBDIR"):
+		subdir = OS.get_environment("SHOT_SUBDIR")
 	var path := ProjectSettings.globalize_path("res://").path_join(REL_ROOT).path_join(subdir).simplify_path()
 	DirAccess.make_dir_recursive_absolute(path)
 	return path

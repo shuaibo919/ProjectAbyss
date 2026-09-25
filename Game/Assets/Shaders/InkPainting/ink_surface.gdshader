@@ -41,6 +41,12 @@ uniform float light_cun_power : hint_range(0.1, 5.0) = 1.0;
 uniform float light_ran_power : hint_range(0.1, 5.0) = 1.25;
 uniform float light_inline_strength : hint_range(0.0, 2.0) = 0.22;
 
+// === Fill light bypass ===
+// 与 fill_light_dir 同向的平行光直接给平面漫反射, 不走墨色闸门。墨水风格
+// 的"暗部=墨"由主太阳光承担; 补光只负责把阴影抬到可读的深灰, 否则低角度
+// 补光会被 light_ink 判成阴面涂成全墨 (城镇俯拍场景使用, 默认关)。
+uniform vec3 fill_light_dir = vec3(0.0);
+
 // === Vertex colour ===
 // The procedural generators (AncientBuilding, SlowTree/TreeGen) are asset-free: every part's
 // basecolor rides on COLOR, and each tree or hall is now a SINGLE surface, so there is no way to
@@ -91,58 +97,77 @@ void fragment() {
 
 void light() {
 	// === Base color (watercolor tint from texture) ===
-	vec3 base = base_color.rgb * texture(base_color_tex, v_uv).rgb * v_vertex_color;
+	// 顶点色已折进 fragment 的 ALBEDO (fragment 里 vertex→fragment varying 正常)。
+	// 本 fork 的 D3D12 渲染器不把 varying 插值进 light() —— v_vertex_color/v_uv
+	// 在 light() 里永远是默认白, 导致所有顶点色网格 (道路/城墙/建筑/摊位/树)
+	// 都渲染成白纸 (2026-09-26 城市道路缺失调查: m3/m4 探针证实)。
+	vec3 base = ALBEDO;
 
-	// === Lighting-driven ink area ===
-	float NdotL = clamp(dot(NORMAL, LIGHT), 0.0, 1.0);
-	float light_ink = clamp((1.0 - NdotL) + (1.0 - ATTENUATION) * shadow_influence, 0.0, 1.0);
-	float area0 = clamp(pow(light_ink, light_cun_power), 0.0, 1.0);
-	float area1 = clamp(pow(light_ink, light_ran_power), 0.0, 1.0);
+	// === Fill light bypass ===
+	// 补光不走墨色闸门, 直接给平面漫反射 (见 uniform fill_light_dir 注释)。
+	vec3 lw = (INV_VIEW_MATRIX * vec4(LIGHT, 0.0)).xyz;
+	if (fill_light_dir != vec3(0.0) && abs(dot(lw, fill_light_dir)) > 0.999) {
+		DIFFUSE_LIGHT += base * clamp(dot(NORMAL, LIGHT), 0.0, 1.0) * LIGHT_COLOR * ATTENUATION;
+	} else {
+		// === Lighting-driven ink area ===
+		float NdotL = clamp(dot(NORMAL, LIGHT), 0.0, 1.0);
+		float light_ink = clamp((1.0 - NdotL) + (1.0 - ATTENUATION) * shadow_influence, 0.0, 1.0);
+		float area0 = clamp(pow(light_ink, light_cun_power), 0.0, 1.0);
+		float area1 = clamp(pow(light_ink, light_ran_power), 0.0, 1.0);
 
-	// Ink gates: brush strokes belong in the shaded part only. A uniformly lit plane
-	// (area0 ~ 0.26 for our sun) must stay clean paper, or the texture tiling reads as
-	// stained patchwork — this gate is what keeps big clean surfaces clean.
-	float ink_gate0 = smoothstep(0.32, 0.55, area0);
-	float ink_gate1 = smoothstep(0.38, 0.62, area1);
+		// Ink gates: brush strokes belong in the shaded part only. A uniformly lit plane
+		// (area0 ~ 0.26 for our sun) must stay clean paper, or the texture tiling reads as
+		// stained patchwork — this gate is what keeps big clean surfaces clean.
+		float ink_gate0 = smoothstep(0.32, 0.55, area0);
+		float ink_gate1 = smoothstep(0.38, 0.62, area1);
 
-	// === Texture sampling ===
-	float remap_val = texture(color_remap_tex, vec2(area1, area1)).r;
-	vec3 remap = remap_val * outline_color.rgb * 2.0;
+		// === Texture sampling ===
+		float remap_val = texture(color_remap_tex, vec2(area1, area1)).r;
+		vec3 remap = remap_val * outline_color.rgb * 2.0;
 
-	float stroke_cun_0 = texture(stroke_tex, v_ws_uv / stroke_ctrl.x).a;
-	float noise_val = texture(noise_tex, v_ws_uv / noise_ctrl.x).b;
-	// Gate the fine noise: below the gate it contributes nothing, so clean lit areas
-	// stay clean instead of picking up specks everywhere.
-	noise_val = smoothstep(0.45, 0.95, noise_val);
-	float stroke_ran = texture(stroke_tex, v_ws_uv / 16.0).r;
-	float stroke_cun_1 = texture(stroke_tex, v_ws_uv / stroke_ctrl.x * 1.6).a;
-	float in_line = smoothstep(0.55, 0.95, area0) * mix(0.8, 1.0, noise_val) * light_inline_strength;
+		float stroke_cun_0 = texture(stroke_tex, v_ws_uv / stroke_ctrl.x).a;
+		float noise_val = texture(noise_tex, v_ws_uv / noise_ctrl.x).b;
+		// Gate the fine noise: below the gate it contributes nothing, so clean lit areas
+		// stay clean instead of picking up specks everywhere.
+		noise_val = smoothstep(0.45, 0.95, noise_val);
+		float stroke_ran = texture(stroke_tex, v_ws_uv / 16.0).r;
+		float stroke_cun_1 = texture(stroke_tex, v_ws_uv / stroke_ctrl.x * 1.6).a;
+		float in_line = smoothstep(0.55, 0.95, area0) * mix(0.8, 1.0, noise_val) * light_inline_strength;
 
-	// === Compositing (watercolor style: base texture shows through, ink strokes darken) ===
+		// === Compositing (watercolor style: base texture shows through, ink strokes darken) ===
 
-	// Start with watercolor base (texture color instead of pure paper white)
-	vec3 col = base;
+		// Start with watercolor base (texture color instead of pure paper white)
+		vec3 col = base;
 
-	// 1. Cun stroke 0 (皴)
-	float cun_factor = clamp((area0 - stroke_cun_0 * stroke_ctrl.y - noise_val * noise_ctrl.y) * 2.0, 0.0, 1.0);
-	col = mix(col, remap, cun_factor * ink_gate0);
-	col = clamp(col, vec3(0.0), vec3(1.0));
+		// 1. Cun stroke 0 (皴)
+		float cun_factor = clamp((area0 - stroke_cun_0 * stroke_ctrl.y - noise_val * noise_ctrl.y) * 2.0, 0.0, 1.0);
+		col = mix(col, remap, cun_factor * ink_gate0);
+		col = clamp(col, vec3(0.0), vec3(1.0));
 
-	// 2. Inline (内轮廓)
-	col = mix(col, remap, in_line * ink_gate0);
-	col = clamp(col, vec3(0.0), vec3(1.0));
+		// 2. Inline (内轮廓)
+		col = mix(col, remap, in_line * ink_gate0);
+		col = clamp(col, vec3(0.0), vec3(1.0));
 
-	// 3. Ca stroke (擦)
-	float k = (area1 - stroke_ctrl.z) / max(1.0 - stroke_ctrl.z, 0.001);
-	float z = noise_ctrl.z;
-	col = mix(col, remap, clamp((k - stroke_cun_1 * 1.2 - noise_val * z) * 1.5, 0.0, 1.0) * ink_gate1);
+		// 3. Ca stroke (擦)
+		float k = (area1 - stroke_ctrl.z) / max(1.0 - stroke_ctrl.z, 0.001);
+		float z = noise_ctrl.z;
+		col = mix(col, remap, clamp((k - stroke_cun_1 * 1.2 - noise_val * z) * 1.5, 0.0, 1.0) * ink_gate1);
 
-	// 4. Ran (染/墨晕)
-	float r_val = stroke_ctrl.w;
-	float n_val = clamp(noise_ctrl.w, 0.5, 10.0);
-	k = (area1 - r_val) / max(1.0 - r_val, 0.001) * mix(ran_close, ran_far, area1);
-	col = col * (1.0 - clamp(k * 1.3 - stroke_ran * 0.75 - noise_val * n_val, 0.0, 1.0) * 0.42);
+		// 4. Ran (染/墨晕)
+		float r_val = stroke_ctrl.w;
+		float n_val = clamp(noise_ctrl.w, 0.5, 10.0);
+		k = (area1 - r_val) / max(1.0 - r_val, 0.001) * mix(ran_close, ran_far, area1);
+		col = col * (1.0 - clamp(k * 1.3 - stroke_ran * 0.75 - noise_val * n_val, 0.0, 1.0) * 0.42);
 
-	// Output: write ink color to diffuse, attenuated by shadow
-	DIFFUSE_LIGHT += col * ATTENUATION;
+		// Output: write ink color to diffuse, attenuated by shadow.
+		// NdotL × LIGHT_COLOR 必须显式乘上 (自定义 light() 不会自动套朗伯):
+		// 旧代码 col*ATTEN 每盏灯都把整个 base 叠上来, 日照面 ≈ 1.0+ambient+fill
+		// ≈ 1.9×base, 任何 base>0.52 的表面直接 clamp 到 255 —— 2026-09-26 v4
+		// 实测: 朱雀大街日照面 (255,255,246) 全白, 同一条路的阴影段 (146,127,115)
+		// 正常。乘上 NdotL 后纸面回到可读的纸白, 墨色过渡也更陡 (更像水墨)。
+		// 注意 LIGHT_COLOR 已含 color×energy (forward_clustered 调用 light_compute
+		// 时传入 color*energy, ATTENUATION 只装阴影); 本 fork 空间 light() 没有
+		// LIGHT_ENERGY built-in (那是 2D canvas 才有)。
+		DIFFUSE_LIGHT += col * NdotL * LIGHT_COLOR * ATTENUATION;
+	}
 }
