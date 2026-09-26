@@ -92,6 +92,7 @@ func _initialize() -> void:
 	legacy_pin.generate_walls = false
 	legacy_pin.column_sides = 10
 	legacy_pin.smooth_columns = false
+	legacy_pin.eave_rafter_style = 0
 	var pin_arrays: Array = bake(legacy_pin).surface_get_arrays(0)
 	check(pin_arrays[Mesh.ARRAY_VERTEX].size() == 44704,
 		"legacy baseline vertices drifted: %d" % pin_arrays[Mesh.ARRAY_VERTEX].size())

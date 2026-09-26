@@ -492,6 +492,96 @@ void MeshAccumulator::AddQuadSmooth(
 	}
 }
 
+void BuildingGen::AddEaveRafterHeads(
+	MeshAccumulator& Mesh,
+	const BuildingSpec& Spec,
+	const std::vector<Vector3>& Points,
+	const std::vector<Vector2>& Inward,
+	float TangentSlope,
+	const CornerFlip* Flip,
+	const Color& Tint)
+{
+	if (Spec.EaveRafterStyle <= 0 || Points.size() < 2 || Points.size() != Inward.size() || Spec.Module <= 0.0f)
+	{
+		return;
+	}
+
+	const bool bFly = Spec.EaveRafterStyle >= 2;
+
+	// The shared 檐口断面, sized off the module D: the lower wide step is the 檐椽头, the
+	// upper narrow step the 飞椽头 laid on its back. Contour Y is up, X across the eave.
+	const float W1 = Spec.Module * 0.30f; // 檐椽 width
+	const float H1 = Spec.Module * 0.26f; // 檐椽 depth below the soffit
+	const float W2 = Spec.Module * 0.21f; // 飞椽 width
+	const float H2 = Spec.Module * 0.18f; // 飞椽 height above the 檐椽
+	const float Length = Spec.Module * 1.8f;
+
+	std::vector<Vector2> Contour;
+	if (bFly)
+	{
+		Contour.push_back(Vector2(-W1 * 0.5f, 0.0f));
+		Contour.push_back(Vector2(W1 * 0.5f, 0.0f));
+		Contour.push_back(Vector2(W1 * 0.5f, H1));
+		Contour.push_back(Vector2(W2 * 0.5f, H1));
+		Contour.push_back(Vector2(W2 * 0.5f, H1 + H2));
+		Contour.push_back(Vector2(-W2 * 0.5f, H1 + H2));
+		Contour.push_back(Vector2(-W2 * 0.5f, H1));
+		Contour.push_back(Vector2(-W1 * 0.5f, H1));
+	}
+	else
+	{
+		Contour.push_back(Vector2(-W1 * 0.5f, 0.0f));
+		Contour.push_back(Vector2(W1 * 0.5f, 0.0f));
+		Contour.push_back(Vector2(W1 * 0.5f, H1));
+		Contour.push_back(Vector2(-W1 * 0.5f, H1));
+	}
+
+	// The 望板 soffit at the eave sits one board thickness below the roof base along the
+	// panel normal. The section stands square to the rafter axis, so its frame Up leans with
+	// the eave slope and a contour-Y of H only rises H * CosTheta in the world — the knot
+	// sits that much higher so the section's top edge still kisses the soffit exactly, and
+	// the whole row stays clear of the 连檐 tucked above it.
+	const float CosTheta = 1.0f / std::sqrt(1.0f + TangentSlope * TangentSlope);
+	const float SoffitY = Spec.RoofBase - GetBoardThickness(Spec) * CosTheta;
+	const float KnotY = SoffitY - (bFly ? H1 + H2 : H1) * CosTheta;
+
+	SweepSettings Settings;
+	Settings.Contour = Contour;
+	Settings.bClosedContour = true;
+	Settings.UpReference = Vector3(0, 1, 0);
+
+	for (size_t Index = 0; Index < Points.size(); ++Index)
+	{
+		const Vector2& In = Inward[Index];
+		if (In.length_squared() < 1e-12f || !std::isfinite(TangentSlope))
+		{
+			continue;
+		}
+
+		// The rafter axis follows the eave tangent: rising along the plan inward direction at
+		// the eave slope. A straight timber, parallel to the curve where it starts.
+		const Vector3 Tangent = Vector3(In.x, TangentSlope, In.y).normalized();
+
+		std::vector<Vector3> Knots;
+		Knots.push_back(Vector3(Points[Index].x, KnotY, Points[Index].z));
+		Knots.push_back(Knots[0] + Tangent * Length);
+
+		// Each knot flips with its own weight, so a corner head lifts and extends with the
+		// eave — the same 翼角起翘 that lifts the ring it hangs from.
+		if (Flip)
+		{
+			Knots[0] = Flip->Apply(Knots[0]);
+			Knots[1] = Flip->Apply(Knots[1]);
+		}
+
+		SweepResult Sweep;
+		if (BuildSweep(Knots, Settings, Sweep))
+		{
+			Mesh.AddSweep(Sweep, Tint);
+		}
+	}
+}
+
 // ==================== Corner flip (翼角起翘) ====================
 namespace
 {
@@ -1193,6 +1283,10 @@ namespace
 		}
 	}
 
+	static void AddGableSlopeRafters(
+		MeshAccumulator& Mesh, const BuildingSpec& Spec, const std::vector<Vector2>& Profile,
+		float Sign, float HalfWidth, float RoofBase);
+
 	/**
 	 * One flush-gable slope: boarding, tile courses swept along per-course sub-splines, and
 	 * the eave drip course. Follows section 7's construction — a surface between ridge curves,
@@ -1256,6 +1350,7 @@ namespace
 		}
 
 		// Tile skin. Cr measures coverage down from the ridge, so drop the lower knots.
+		AddGableSlopeRafters(Mesh, Spec, Profile, Sign, HalfWidth, RoofBase);
 		const int32_t Courses = std::max(int32_t((HalfWidth * 2.0f) / std::fmax(Spec.TileCourseWidth, 0.02f)), 1);
 		const float Pitch = (HalfWidth * 2.0f) / float(Courses);
 		const size_t KeepFrom = RoofCoverageStart(Spec, Profile, HalfSpan);
@@ -1339,7 +1434,34 @@ namespace
 		}
 	}
 
-	/** How far the hipped shell has closed in at a profile distance: 0 at the eave, 1 at the break. */
+	// Eave rafter heads under this slope, from the shared eave section: even spacing along
+	// the eave line, each head a straight timber running back up the slope along the eave
+	// tangent.
+	static void AddGableSlopeRafters(
+		MeshAccumulator& Mesh, const BuildingSpec& Spec, const std::vector<Vector2>& Profile,
+		float Sign, float HalfWidth, float RoofBase)
+	{
+		const float TangentSlope = (Profile[1].y - Profile[0].y)
+			/ std::fmax(Profile[0].x - Profile[1].x, BUILD_EPSILON);
+		const float Pitch = Spec.Module * 0.7f;
+		const int32_t Count = std::max(int32_t((HalfWidth * 2.0f) / std::fmax(Pitch, 0.05f)), 1);
+		const float Step = (HalfWidth * 2.0f) / float(Count);
+
+		std::vector<Vector3> Points;
+		std::vector<Vector2> Inward;
+		Points.reserve(size_t(Count));
+		Inward.reserve(size_t(Count));
+		for (int32_t Index = 0; Index < Count; ++Index)
+		{
+			const float X = -HalfWidth + (float(Index) + 0.5f) * Step;
+			Points.push_back(Vector3(X, RoofBase, Sign * Profile.front().x));
+			Inward.push_back(Vector2(0.0f, -Sign));
+		}
+
+		AddEaveRafterHeads(Mesh, Spec, Points, Inward, TangentSlope, nullptr, Spec.TimberColor * 1.28f);
+	}
+
+/** How far the hipped shell has closed in at a profile distance: 0 at the eave, 1 at the break. */
 	float SkirtInsetFraction(float Distance, float Inset)
 	{
 		return 1.0f - std::fmin(Distance / std::fmax(Inset, BUILD_EPSILON), 1.0f);
@@ -1873,6 +1995,7 @@ namespace
 			// Inset and dropped rather than sitting on the eave line, where at full size it used to
 			// stand in front of the tile ends and hide every 瓦当 and 滴水 behind it.
 			const float Back = Spec.Module * 0.26f;
+
 			const std::vector<Vector2> Plan = BuildRing(HalfWidthEave - Back, HalfDepthEave - Back);
 			std::vector<Vector3> Knots;
 			for (const Vector2& Point : Plan)
@@ -1891,6 +2014,29 @@ namespace
 			{
 				Mesh.AddSweep(Sweep, Spec.RidgeColor);
 			}
+		}
+
+		// Eave rafter heads under the eave ring, at the ring sample midpoints so the corners
+		// fan like real corner rafters; the ridge sweeps cover the seam where the fan converges.
+		{
+			const std::vector<Vector2> Ring = BuildRing(HalfWidthEave, HalfDepthEave);
+			const float TangentSlope = (SkirtProfile[1].y - SkirtProfile[0].y)
+				/ std::fmax(SkirtProfile[0].x - SkirtProfile[1].x, BUILD_EPSILON);
+
+			std::vector<Vector3> Points;
+			std::vector<Vector2> Inward;
+			for (size_t Index = 0; Index + 1 < Ring.size(); ++Index)
+			{
+				const Vector2 Mid = (Ring[Index] + Ring[Index + 1]) * 0.5f;
+				if (Mid.length_squared() < 1e-12f)
+				{
+					continue;
+				}
+				Points.push_back(Vector3(Mid.x, RoofBase, Mid.y));
+				Inward.push_back(-Mid.normalized());
+			}
+
+			AddEaveRafterHeads(Mesh, Spec, Points, Inward, TangentSlope, &Flip, Spec.TimberColor * 1.28f);
 		}
 	}
 
@@ -2070,6 +2216,29 @@ namespace
 				Points.push_back(Vector3(X, RoofBase + Step.y, Step.x));
 			}
 			Mesh.AddPolygon(Points, Vector3(float(Side), 0.0f, 0.0f), Spec.PlasterColor * 0.94f);
+		}
+
+		// Eave rafter heads under both eaves, sharing the section and spacing of every roof.
+		for (int32_t Sign = -1; Sign <= 1; Sign += 2)
+		{
+			const float TangentSlope = (Profile[1].y - Profile[0].y)
+				/ std::fmax(Profile[0].x - Profile[1].x, BUILD_EPSILON);
+			const float Pitch = Spec.Module * 0.7f;
+			const int32_t Count = std::max(int32_t((HalfWidth * 2.0f) / std::fmax(Pitch, 0.05f)), 1);
+			const float Step = (HalfWidth * 2.0f) / float(Count);
+
+			std::vector<Vector3> Points;
+			std::vector<Vector2> Inward;
+			Points.reserve(size_t(Count));
+			Inward.reserve(size_t(Count));
+			for (int32_t Index = 0; Index < Count; ++Index)
+			{
+				const float X = -HalfWidth + (float(Index) + 0.5f) * Step;
+				Points.push_back(Vector3(X, RoofBase, float(Sign) * HalfSpan));
+				Inward.push_back(Vector2(0.0f, -float(Sign)));
+			}
+
+			AddEaveRafterHeads(Mesh, Spec, Points, Inward, TangentSlope, nullptr, Spec.TimberColor * 1.28f);
 		}
 	}
 

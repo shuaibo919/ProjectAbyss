@@ -432,6 +432,48 @@ void BuildingGen::BuildCentralisedRoof(
 		}
 	}
 
+	// Eave rafter heads under the eave polygon, fanning toward the apex like the courses: one
+	// head per eave sample midpoint, from the same section as the rectangular roofs.
+	{
+		const std::vector<Vector2> Corners = PlanPolygon(EaveApothem, Sides);
+		std::vector<Vector3> Ring;
+		Ring.reserve(size_t(Sides * PerSide));
+		for (int32_t Side = 0; Side < Sides; ++Side)
+		{
+			const Vector2& From = Corners[size_t(Side)];
+			const Vector2& To = Corners[size_t((Side + 1) % Sides)];
+			for (int32_t Step = 0; Step < PerSide; ++Step)
+			{
+				const float T = float(Step) / float(PerSide);
+				const Vector2 Plan = From + (To - From) * T;
+				Ring.push_back(Vector3(Plan.x, Spec.RoofBase, Plan.y));
+			}
+		}
+
+		// The central profile is sampled densely, so the first pair gives the eave tangent.
+		const float TangentSlope = (Shape[1].y * Spec.RoofHeight)
+			/ std::fmax((Shape[0].x - Shape[1].x) * EaveApothem, POLY_EPSILON);
+
+		std::vector<Vector3> Points;
+		std::vector<Vector2> Inward;
+		Points.reserve(Ring.size());
+		Inward.reserve(Ring.size());
+		for (size_t Index = 0; Index < Ring.size(); ++Index)
+		{
+			const Vector3& A = Ring[Index];
+			const Vector3& B = Ring[(Index + 1) % Ring.size()];
+			const Vector2 Mid((A.x + B.x) * 0.5f, (A.z + B.z) * 0.5f);
+			if (Mid.length_squared() < 1e-12f)
+			{
+				continue;
+			}
+			Points.push_back(Vector3(Mid.x, Spec.RoofBase, Mid.y));
+			Inward.push_back(-Mid.normalized());
+		}
+
+		AddEaveRafterHeads(OutMesh, Spec, Points, Inward, TangentSlope, &Flip, Spec.TimberColor * 1.28f);
+	}
+
 	BuildFinialBase(Spec, Apex, EaveApothem * TILE_APEX_CUTOFF, OutMesh);
 	BuildFinial(Spec, Apex, OutMesh);
 }

@@ -205,6 +205,11 @@ void AncientBuildingParameters::_bind_methods()
 	ADD_PROPERTY(
 		PropertyInfo(Variant::INT, "roof_curve_mode", PROPERTY_HINT_ENUM, "Legacy,Continuous"),
 		"set_roof_curve_mode", "get_roof_curve_mode");
+	ClassDB::bind_method(D_METHOD("set_eave_rafter_style", "value"), &AncientBuildingParameters::SetEaveRafterStyle);
+	ClassDB::bind_method(D_METHOD("get_eave_rafter_style"), &AncientBuildingParameters::GetEaveRafterStyle);
+	ADD_PROPERTY(
+		PropertyInfo(Variant::INT, "eave_rafter_style", PROPERTY_HINT_ENUM, "None,Rafter Heads,Rafters + Flying Rafters"),
+		"set_eave_rafter_style", "get_eave_rafter_style");
 	ANCIENT_BIND_RANGE(Variant::FLOAT, "roof_chord_error", RoofChordError, "0.001,0.05,0.001")
 	ANCIENT_BIND_RANGE(Variant::FLOAT, "roof_max_segment", RoofMaxSegment, "0.05,2,0.001")
 	ANCIENT_BIND_RANGE(Variant::FLOAT, "tile_course_width", TileCourseWidth, "0.05,2,0.001")

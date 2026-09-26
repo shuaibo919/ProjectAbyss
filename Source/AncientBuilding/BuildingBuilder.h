@@ -100,6 +100,8 @@ namespace BuildingGen
 		/** Continuous-mode sampling quality; see RoofCurve.h. */
 		float RoofChordError = 0.005f;
 		float RoofMaxSegment = 0.5f;
+	/** 檐下椽飞 style: 0 none, 1 檐椽头, 2 檐椽头 + 飞椽 step (v2 P4). */
+		int32_t EaveRafterStyle = 2;
 		float TileCourseWidth = 0.34f;
 		float TileCoverage = 1.0f;
 		float RidgeScale = 1.0f;
@@ -261,6 +263,30 @@ namespace BuildingGen
 		const Color& Tint,
 		const Color& SoffitTint,
 		const Vector3* VertexNormals = nullptr);
+
+	struct CornerFlip;
+
+	/**
+	 * 檐下椽飞: one shared 檐口断面 under an eave line — a row of rafter heads, each a single
+	 * sweep along the eave tangent with a stepped section (lower wide step = 檐椽头, upper
+	 * narrow step = 飞椽头; style 1 drops the step to a plain square). Every eave-bearing
+	 * builder passes points on its own eave line, so all roofs share the same section,
+	 * spacing and hang depth. Points are pre-flip eave positions at RoofBase height, each
+	 * paired with a horizontal unit inward direction (the rafter's plan direction); every
+	 * knot passes through Flip, so the 翼角起翘 lifts the corner heads with the eave.
+	 * Heads hang with the section top kissing the 望板 soffit and pass behind the 连檐
+	 * at the eave edge. TangentSlope is the profile's rise per unit plan run at the eave.
+	 * The section stands square to the rafter axis (a real 檐椽头 end is cut perpendicular),
+	 * so its upper outer corner leans out over the eave line by H * sin(theta).
+	 */
+	void AddEaveRafterHeads(
+		MeshAccumulator& Mesh,
+		const BuildingSpec& Spec,
+		const std::vector<Vector3>& Points,
+		const std::vector<Vector2>& Inward,
+		float TangentSlope,
+		const CornerFlip* Flip,
+		const Color& Tint);
 
 	/**
 	 * 翼角起翘. Structurally the corner rafter is longer and tilts up, dragging the eave with

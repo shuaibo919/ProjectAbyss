@@ -131,6 +131,7 @@ void AncientBuilding::CollectSpec(BuildingGen::BuildingSpec& OutSpec) const
 	OutSpec.RoofCurveMode = P->GetRoofCurveMode();
 	OutSpec.RoofChordError = P->GetRoofChordError();
 	OutSpec.RoofMaxSegment = P->GetRoofMaxSegment();
+	OutSpec.EaveRafterStyle = P->GetEaveRafterStyle();
 	OutSpec.TileCourseWidth = P->GetTileCourseWidth();
 	OutSpec.TileCoverage = P->GetTileCoverage();
 	OutSpec.RidgeScale = P->GetRidgeScale();

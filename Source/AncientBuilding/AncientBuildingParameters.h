@@ -135,6 +135,12 @@ namespace godot
 		float RoofChordError = 0.005f;
 		/** Continuous-mode sampling quality: longest allowed sample segment, in metres. */
 		float RoofMaxSegment = 0.5f;
+		/**
+		 * 檐下椽飞 — the rafter heads under the eave (v2 P4). 0 = none, 1 = 檐椽头 row,
+		 * 2 = 檐椽头 with the 飞椽 step on top (the default). The heads share one 檐口断面
+		 * across every roof type, anchored to the eave line and the curve's eave tangent.
+		 */
+		int32_t EaveRafterStyle = 2;
 		/** 瓦垄 spacing along the ridge. */
 		float TileCourseWidth = 0.34f;
 		/** Table's Cr: fraction of the slope covered by tiles, measured from the ridge. */
@@ -203,6 +209,7 @@ namespace godot
 		ANCIENT_ACCESSORS(float, RidgeRiseRatio)
 		ANCIENT_ACCESSORS(float, RoofHeightScale)
 		ANCIENT_ACCESSORS(int32_t, RoofCurveMode)
+		ANCIENT_ACCESSORS(int32_t, EaveRafterStyle)
 		ANCIENT_ACCESSORS(float, RoofChordError)
 		ANCIENT_ACCESSORS(float, RoofMaxSegment)
 		ANCIENT_ACCESSORS(float, TileCourseWidth)
