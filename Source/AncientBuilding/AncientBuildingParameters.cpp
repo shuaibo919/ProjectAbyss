@@ -1,6 +1,9 @@
 #include "AncientBuilding/AncientBuildingParameters.h"
 
+#include "AncientBuilding/RoofCurve.h"
+
 #include <godot_cpp/core/class_db.hpp>
+#include <godot_cpp/variant/packed_vector2_array.hpp>
 
 using namespace godot;
 
@@ -134,6 +137,28 @@ void AncientBuildingParameters::ApplyMaterialStyle(int32_t Value)
 	}
 }
 
+PackedVector2Array AncientBuildingParameters::SampleRoofCurve(
+	float EaveRiseRatio, float RidgeRiseRatio, float RoofHeight, float HalfSpan,
+	float ChordError, float MaxSegment)
+{
+	BuildingGen::BuildingSpec Spec;
+	Spec.EaveRiseRatio = EaveRiseRatio;
+	Spec.RidgeRiseRatio = RidgeRiseRatio;
+	Spec.RoofChordError = ChordError;
+	Spec.RoofMaxSegment = MaxSegment;
+
+	const std::vector<BuildingGen::Vector2> Profile = BuildingGen::SampleRoofCurve(Spec, HalfSpan, RoofHeight);
+
+	PackedVector2Array Result;
+	Result.resize(int64_t(Profile.size()));
+	for (size_t Index = 0; Index < Profile.size(); ++Index)
+	{
+		Result[int64_t(Index)] = Profile[Index];
+	}
+
+	return Result;
+}
+
 void AncientBuildingParameters::_bind_methods()
 {
 	ADD_GROUP("Plan", "");
@@ -164,6 +189,8 @@ void AncientBuildingParameters::_bind_methods()
 	ANCIENT_BIND_FLAG("generate_walls", SetGenerateWalls, ShouldGenerateWalls, "should_generate_walls")
 	ANCIENT_BIND_RANGE(Variant::FLOAT, "column_radius_scale", ColumnRadiusScale, "0.05,2,0.001")
 	ANCIENT_BIND_RANGE(Variant::INT, "column_sides", ColumnSides, "3,24,1")
+	ANCIENT_BIND(Variant::BOOL, "smooth_columns", SmoothColumns)
+	ANCIENT_BIND_RANGE(Variant::FLOAT, "column_base_height_scale", ColumnBaseHeightScale, "0,2,0.01")
 	ANCIENT_BIND_RANGE(Variant::FLOAT, "bracket_height_scale", BracketHeightScale, "0,4,0.01")
 
 	ADD_GROUP("Roof", "");
@@ -172,6 +199,14 @@ void AncientBuildingParameters::_bind_methods()
 	ANCIENT_BIND_RANGE(Variant::FLOAT, "eave_rise_ratio", EaveRiseRatio, "0.1,2,0.001")
 	ANCIENT_BIND_RANGE(Variant::FLOAT, "ridge_rise_ratio", RidgeRiseRatio, "0.1,2,0.001")
 	ANCIENT_BIND_RANGE(Variant::FLOAT, "roof_height_scale", RoofHeightScale, "0.1,4,0.001")
+
+	ClassDB::bind_method(D_METHOD("set_roof_curve_mode", "value"), &AncientBuildingParameters::SetRoofCurveMode);
+	ClassDB::bind_method(D_METHOD("get_roof_curve_mode"), &AncientBuildingParameters::GetRoofCurveMode);
+	ADD_PROPERTY(
+		PropertyInfo(Variant::INT, "roof_curve_mode", PROPERTY_HINT_ENUM, "Legacy,Continuous"),
+		"set_roof_curve_mode", "get_roof_curve_mode");
+	ANCIENT_BIND_RANGE(Variant::FLOAT, "roof_chord_error", RoofChordError, "0.001,0.05,0.001")
+	ANCIENT_BIND_RANGE(Variant::FLOAT, "roof_max_segment", RoofMaxSegment, "0.05,2,0.001")
 	ANCIENT_BIND_RANGE(Variant::FLOAT, "tile_course_width", TileCourseWidth, "0.05,2,0.001")
 	ANCIENT_BIND_RANGE(Variant::FLOAT, "tile_coverage", TileCoverage, "0,1,0.001")
 	ANCIENT_BIND_RANGE(Variant::FLOAT, "ridge_scale", RidgeScale, "0.1,4,0.001")
@@ -236,6 +271,9 @@ void AncientBuildingParameters::_bind_methods()
 		&AncientBuildingParameters::GetStyleNameLocalized);
 	ClassDB::bind_static_method("AncientBuildingParameters",
 		D_METHOD("get_style_mottle", "style"), &AncientBuildingParameters::GetStyleMottle);
+	ClassDB::bind_static_method("AncientBuildingParameters",
+		D_METHOD("sample_roof_curve", "eave_rise_ratio", "ridge_rise_ratio", "roof_height", "half_span", "chord_error", "max_segment"),
+		&AncientBuildingParameters::SampleRoofCurve);
 
 	BIND_ENUM_CONSTANT(ROOF_FLUSH_GABLE);
 	BIND_ENUM_CONSTANT(ROOF_GABLE_AND_HIP);

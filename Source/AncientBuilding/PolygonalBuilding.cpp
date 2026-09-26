@@ -1,5 +1,6 @@
 #include "AncientBuilding/BuildingBuilder.h"
 
+#include "AncientBuilding/RoofCurve.h"
 #include "AncientBuilding/TileSkin.h"
 
 // The centralised roof family (攒尖 / 圆攒尖 / 盔顶) and the polygonal plan it needs.
@@ -242,15 +243,58 @@ void BuildingGen::BuildCentralisedRoof(
 		{
 			const size_t Next = (Index + 1) % Count;
 
-			Vector3 Normal = (Low[Next] - Low[Index]).cross(High[Index] - Low[Index]);
-			if (Normal.length_squared() < 1e-12f)
+			Vector3 Normal;
+			Vector3 VertexNormals[4];
+			if (Spec.RoofCurveMode == 1)
 			{
-				continue;
+				// Central-difference slope of the dense central profile at each ring's span,
+				// scaled into world units and tilted outward by each corner's own azimuth.
+				// The profile is already an analytic curve sampled densely, so this carries
+				// the curve's smooth shading onto the loft and adjacent rings share their
+				// boundary values; the legacy path kept the exact planar normal of each
+				// quad, which is what faceted the cone.
+				const auto LevelNormal = [&](size_t L) -> Vector2
+				{
+					const size_t Prev = (L > 0) ? L - 1 : 0;
+					const size_t NextLevel = std::min(L + 1, Shape.size() - 1);
+					const float DR = Shape[Prev].x - Shape[NextLevel].x;
+					const float DH = Shape[NextLevel].y - Shape[Prev].y;
+					return (DR > 1e-9f)
+						? Vector2(DH * Spec.RoofHeight, DR * EaveApothem).normalized()
+						: Vector2(0.0f, 1.0f);
+				};
+				const Vector2 N2Low = LevelNormal(Level);
+				const Vector2 N2High = LevelNormal(Level + 1);
+				const Vector3 Corners[4] = { Low[Index], Low[Next], High[Next], High[Index] };
+				const Vector2* LevelNormals[4] = { &N2Low, &N2Low, &N2High, &N2High };
+				for (int32_t K = 0; K < 4; ++K)
+				{
+					const Vector2 P(Corners[K].x, Corners[K].z);
+					if (P.length_squared() > 1e-12f)
+					{
+						const Vector2 Dir = P.normalized();
+						VertexNormals[K] = Vector3(
+							Dir.x * LevelNormals[K]->x, LevelNormals[K]->y, Dir.y * LevelNormals[K]->x);
+					}
+					else
+					{
+						VertexNormals[K] = Vector3(0.0f, 1.0f, 0.0f);
+					}
+				}
+				Normal = (VertexNormals[0] + VertexNormals[1] + VertexNormals[2] + VertexNormals[3]).normalized();
 			}
-			Normal = Normal.normalized();
-			if (Normal.y < 0.0f)
+			else
 			{
-				Normal = -Normal;
+				Normal = (Low[Next] - Low[Index]).cross(High[Index] - Low[Index]);
+				if (Normal.length_squared() < 1e-12f)
+				{
+					continue;
+				}
+				Normal = Normal.normalized();
+				if (Normal.y < 0.0f)
+				{
+					Normal = -Normal;
+				}
 			}
 
 			AddRoofPanel(
@@ -258,7 +302,8 @@ void BuildingGen::BuildCentralisedRoof(
 				Low[Index], Low[Next], High[Next], High[Index],
 				Normal, BoardThickness,
 				Level == 0 ? ERoofPanelEdges::Lower : ERoofPanelEdges::None,
-				BoardColor, SoffitColor);
+				BoardColor, SoffitColor,
+				Spec.RoofCurveMode == 1 ? VertexNormals : nullptr);
 		}
 	}
 
@@ -270,8 +315,10 @@ void BuildingGen::BuildCentralisedRoof(
 			int32_t(SideLength / std::fmax(Spec.TileCourseWidth, 0.05f)), 1);
 		const float Pitch = SideLength / float(Courses);
 
-		const size_t KeepFrom = size_t(std::floor(
-			float(Shape.size() - 1) * (1.0f - std::fmin(std::fmax(Spec.TileCoverage, 0.0f), 1.0f))));
+		// Shape.x is already a radius fraction, so the coverage boundary sits at x = coverage.
+		const size_t KeepFrom = RoofCoverageStart(Spec, Shape, 1.0f);
+		Vector2 CoverageBoundary;
+		const bool bCoverageBoundary = RoofCoverageBoundary(Spec, Shape, 1.0f, KeepFrom, CoverageBoundary);
 
 		for (int32_t Side = 0; Side < Sides; ++Side)
 		{
@@ -287,12 +334,19 @@ void BuildingGen::BuildCentralisedRoof(
 				0.0f,
 				Pitch,
 				Courses,
-				[&Shape, &From, &To, &Flip, &Spec, SideLength, KeepFrom](float Across) -> std::vector<Vector3>
+				[&Shape, &From, &To, &Flip, &Spec, SideLength, KeepFrom, bCoverageBoundary, &CoverageBoundary](float Across) -> std::vector<Vector3>
 				{
 					const float Fraction = Across / std::fmax(SideLength, 1e-6f);
 
 					std::vector<Vector3> Points;
-					Points.reserve(Shape.size() - KeepFrom);
+					Points.reserve(Shape.size() - KeepFrom + 1);
+					// The exact coverage edge, unless it falls inside the finial's masonry cutoff.
+					if (bCoverageBoundary && CoverageBoundary.x >= TILE_APEX_CUTOFF)
+					{
+						const Vector2 Plan = (From + (To - From) * Fraction) * CoverageBoundary.x;
+						Points.push_back(Flip.Apply(Vector3(
+							Plan.x, Spec.RoofBase + CoverageBoundary.y * Spec.RoofHeight, Plan.y)));
+					}
 					for (size_t Index = KeepFrom; Index < Shape.size(); ++Index)
 					{
 						const Vector2& Step = Shape[Index];
@@ -432,11 +486,10 @@ void BuildingGen::BuildPolygonalBuilding(
 
 	if (Spec.bGenerateColumns)
 	{
-		for (const Vector2& Point : BodyPlan)
+		for (size_t I = 0; I < BodyPlan.size(); ++I)
 		{
-			OutMesh.AddColumn(
-				Vector3(Point.x, Base, Point.y), Spec.ColumnHeight,
-				Spec.ColumnRadius, Spec.ColumnRadius * 0.88f, Spec.ColumnSides, Spec.TimberColor);
+			const Vector2& Point = BodyPlan[I];
+			AddBuildingColumn(Spec, OutMesh, Vector3(Point.x, Base, Point.y), 0x200000u + uint32_t(I));
 		}
 	}
 

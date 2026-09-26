@@ -116,6 +116,8 @@ void AncientBuilding::CollectSpec(BuildingGen::BuildingSpec& OutSpec) const
 	OutSpec.bGenerateWalls = P->ShouldGenerateWalls();
 	OutSpec.ColumnRadius = P->GetColumnRadius();
 	OutSpec.ColumnSides = std::max(P->GetColumnSides(), 3);
+	OutSpec.bSmoothColumns = P->GetSmoothColumns();
+	OutSpec.ColumnBaseHeight = std::max(P->GetColumnBaseHeightScale(), 0.0f) * OutSpec.Module;
 	OutSpec.ColumnHeight = P->GetColumnHeight();
 	OutSpec.EaveHeight = P->GetEaveHeight();
 	OutSpec.BracketHeight = P->GetBracketHeight();
@@ -126,6 +128,9 @@ void AncientBuilding::CollectSpec(BuildingGen::BuildingSpec& OutSpec) const
 	OutSpec.RafterCourses = std::max(P->GetRafterCourses(), 3);
 	OutSpec.EaveRiseRatio = P->GetEaveRiseRatio();
 	OutSpec.RidgeRiseRatio = P->GetRidgeRiseRatio();
+	OutSpec.RoofCurveMode = P->GetRoofCurveMode();
+	OutSpec.RoofChordError = P->GetRoofChordError();
+	OutSpec.RoofMaxSegment = P->GetRoofMaxSegment();
 	OutSpec.TileCourseWidth = P->GetTileCourseWidth();
 	OutSpec.TileCoverage = P->GetTileCoverage();
 	OutSpec.RidgeScale = P->GetRidgeScale();

@@ -82,6 +82,8 @@ namespace BuildingGen
 		bool bGenerateWalls = true;
 		float ColumnRadius = 0.0f;
 		int32_t ColumnSides = 10;
+		bool bSmoothColumns = true;
+		float ColumnBaseHeight = 0.0f;
 		float ColumnHeight = 0.0f;
 		float EaveHeight = 0.0f;
 		float BracketHeight = 0.0f;
@@ -93,6 +95,11 @@ namespace BuildingGen
 		int32_t RafterCourses = 7;
 		float EaveRiseRatio = 0.5f;
 		float RidgeRiseRatio = 0.9f;
+		/** 0 = legacy course polyline (bit-identical output), 1 = continuous curve (v2 P1). */
+		int32_t RoofCurveMode = 0;
+		/** Continuous-mode sampling quality; see RoofCurve.h. */
+		float RoofChordError = 0.005f;
+		float RoofMaxSegment = 0.5f;
 		float TileCourseWidth = 0.34f;
 		float TileCoverage = 1.0f;
 		float RidgeScale = 1.0f;
@@ -154,8 +161,14 @@ namespace BuildingGen
 			const Vector3& NormalA, const Vector3& NormalB, const Vector3& NormalC, const Vector3& NormalD,
 			const Color& Tint);
 		void AddSweep(const SweepResult& Sweep, const Color& Tint);
-		/** Tapered prism about a vertical axis; used for columns. */
-		void AddColumn(const Vector3& Base, float Height, float BottomRadius, float TopRadius, int32_t Sides, const Color& Tint);
+		/** Tapered shaft; smooth mode has analytic normals, metre-scale UVs and hard end caps. */
+		void AddColumn(const Vector3& Base, float Height, float BottomRadius, float TopRadius, int32_t Sides,
+			const Color& Tint, bool bSmooth = true, uint32_t ComponentId = 0);
+		/** Radius/height profile, smooth around each ring, hard across profile corners. Closed ends. */
+		void AddRevolvedProfile(const Vector3& Base, const std::vector<Vector2>& Profile,
+			int32_t Sides, const Color& Tint);
+		/** Stable for a semantic component, independent of tessellation and emission order. */
+		Color ComponentColor(const Color& Tint, uint32_t ComponentId) const;
 
 		/** Per-piece colour variation amplitude. 0 disables it. */
 		void SetMottle(float Amount) { MottleAmount = Amount; }
@@ -175,6 +188,9 @@ namespace BuildingGen
 		float MottleAmount = 0.05f;
 		uint32_t PieceCounter = 0;
 	};
+
+	/** Shared rectangular/polygonal support. The plinth replaces the bottom of the shaft. */
+	void AddBuildingColumn(const BuildingSpec& Spec, MeshAccumulator& Mesh, const Vector3& Base, uint32_t ComponentId);
 
 	/**
 	 * The 举架 down-slope profile, from the eave up to the ridge. Each entry is
@@ -229,6 +245,12 @@ namespace BuildingGen
 	 * The soffit is the same quad pushed back along the surface normal and wound to face the other
 	 * way. Corners are passed in the same order as AddQuadOriented: A-B along the lower edge,
 	 * D-C along the upper.
+	 *
+	 * When VertexNormals is non-null it carries one shading normal per corner (A, B, C, D), and the
+	 * panel is smooth-shaded with those instead of the facet normal — callers sample the roof curve
+	 * at the corner span coordinates so adjacent bands share their boundary values and the 望板
+	 * reads as one continuous surface. The single Normal is still used for the winding of the rim
+	 * faces and as the soffit normal when VertexNormals is null.
 	 */
 	void AddRoofPanel(
 		MeshAccumulator& Mesh,
@@ -237,7 +259,8 @@ namespace BuildingGen
 		float Thickness,
 		ERoofPanelEdges OpenEdges,
 		const Color& Tint,
-		const Color& SoffitTint);
+		const Color& SoffitTint,
+		const Vector3* VertexNormals = nullptr);
 
 	/**
 	 * 翼角起翘. Structurally the corner rafter is longer and tilts up, dragging the eave with

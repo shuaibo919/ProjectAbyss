@@ -1,5 +1,6 @@
 #include "AncientBuilding/BuildingBuilder.h"
 
+#include "AncientBuilding/RoofCurve.h"
 #include "AncientBuilding/TileSkin.h"
 
 #include <algorithm>
@@ -257,16 +258,21 @@ void MeshAccumulator::AddColumn(
 	float BottomRadius,
 	float TopRadius,
 	int32_t Sides,
-	const Color& Tint)
+	const Color& Tint, bool bSmooth, uint32_t ComponentId)
 {
-	const int32_t SideCount = std::max(Sides, 3);
+	const int32_t SideCount = std::clamp(Sides, 3, 128);
 	if (Height <= 0.0f || BottomRadius <= 0.0f)
 	{
 		return;
 	}
 
 	// One mottle per column: the whole shaft reads as one timber.
-	const Color Col = MottleColor(Tint);
+	const Color Col = ComponentId ? ComponentColor(Tint, ComponentId) : MottleColor(Tint);
+	if (bSmooth)
+	{
+		AddRevolvedProfile(Base, { Vector2(BottomRadius, 0.0f), Vector2(TopRadius, Height) }, SideCount, Col);
+		return;
+	}
 
 	for (int32_t Index = 0; Index < SideCount; ++Index)
 	{
@@ -282,10 +288,110 @@ void MeshAccumulator::AddColumn(
 	}
 }
 
+Color MeshAccumulator::ComponentColor(const Color& Tint, uint32_t ComponentId) const
+{
+	uint32_t Hash = ComponentId * 2654435761u;
+	Hash ^= Hash >> 16;
+	Hash *= 2246822519u;
+	Hash ^= Hash >> 13;
+	const float Scale = 1.0f + (float(Hash & 0xFFFF) / 65535.0f * 2.0f - 1.0f) * MottleAmount;
+	return Color(std::clamp(Tint.r * Scale, 0.0f, 1.0f), std::clamp(Tint.g * Scale, 0.0f, 1.0f),
+		std::clamp(Tint.b * Scale, 0.0f, 1.0f), Tint.a);
+}
+
+void MeshAccumulator::AddRevolvedProfile(const Vector3& Base, const std::vector<Vector2>& Profile,
+	int32_t Sides, const Color& Tint)
+{
+	if (Profile.size() < 2) return;
+	const int32_t Count = std::clamp(Sides, 3, 128);
+	// Validate the whole profile before emitting anything. Vertical and horizontal bands are legal.
+	for (size_t J = 0; J < Profile.size(); ++J)
+	{
+		if (!std::isfinite(Profile[J].x) || !std::isfinite(Profile[J].y) || Profile[J].x <= 0.0f
+			|| (J && Profile[J].y < Profile[J - 1].y)) return;
+	}
+	for (size_t J = 1; J < Profile.size(); ++J)
+	{
+		const Vector2 P = Profile[J - 1], Q = Profile[J];
+		const float DR = Q.x - P.x, DY = Q.y - P.y;
+		if (DR * DR + DY * DY < BUILD_EPSILON * BUILD_EPSILON) continue;
+		const int32_t First = int32_t(Vertices.size());
+		for (int32_t I = 0; I <= Count; ++I)
+		{
+			// Exact duplicate seam position/normal, with separate UVs.
+			const float Angle = I == Count ? 0.0f : BUILD_TAU * float(I) / float(Count);
+			const float C = std::cos(Angle), S = std::sin(Angle);
+			const Vector3 Normal = Vector3(DY * C, -DR, DY * S).normalized();
+			for (const Vector2& Ring : { P, Q })
+			{
+				Vertices.push_back(Base + Vector3(Ring.x * C, Ring.y, Ring.x * S));
+				Normals.push_back(Normal);
+				UVs.push_back(Vector2(BUILD_TAU * Profile.front().x * float(I) / float(Count), Ring.y));
+				Colors.push_back(Tint);
+			}
+		}
+		for (int32_t I = 0; I < Count; ++I)
+		{
+			const int32_t A = First + I * 2;
+			for (int32_t K : { A, A + 2, A + 3, A, A + 3, A + 1 }) Indices.push_back(K);
+		}
+	}
+	// Independent cap vertices keep the rim hard. No per-face colour changes.
+	for (int32_t End = 0; End < 2; ++End)
+	{
+		const Vector2 P = End ? Profile.back() : Profile.front();
+		const Vector3 Normal(0, End ? 1.0f : -1.0f, 0);
+		const int32_t First = int32_t(Vertices.size());
+		Vertices.push_back(Base + Vector3(0, P.y, 0));
+		Normals.push_back(Normal); UVs.push_back(Vector2()); Colors.push_back(Tint);
+		for (int32_t I = 0; I < Count; ++I)
+		{
+			const float Angle = BUILD_TAU * float(I) / float(Count);
+			const Vector2 At(P.x * std::cos(Angle), P.x * std::sin(Angle));
+			Vertices.push_back(Base + Vector3(At.x, P.y, At.y));
+			Normals.push_back(Normal); UVs.push_back(At); Colors.push_back(Tint);
+		}
+		for (int32_t I = 0; I < Count; ++I)
+		{
+			const int32_t A = First + 1 + I, B = First + 1 + (I + 1) % Count;
+			Indices.push_back(First); Indices.push_back(End ? A : B); Indices.push_back(End ? B : A);
+		}
+	}
+}
+
+void BuildingGen::AddBuildingColumn(const BuildingSpec& Spec, MeshAccumulator& Mesh,
+	const Vector3& Base, uint32_t ComponentId)
+{
+	const float R = Spec.ColumnRadius;
+	if (R <= 0.0f || Spec.ColumnHeight <= 0.0f) return;
+	const float H = std::clamp(Spec.ColumnBaseHeight, 0.0f, Spec.ColumnHeight * 0.15f);
+	if (H > BUILD_EPSILON)
+	{
+		// A restrained engineering plinth: foot bevel, drum, shoulder and neck.
+		// Profile corners stay crisp while each circular ring shades continuously.
+		const std::vector<Vector2> Profile = {
+			{ R * 1.48f, 0 }, { R * 1.60f, H * 0.12f }, { R * 1.60f, H * 0.28f },
+			{ R * 1.40f, H * 0.42f }, { R * 1.30f, H * 0.72f },
+			{ R * 1.12f, H * 0.88f }, { R * 1.12f, H }
+		};
+		Mesh.AddRevolvedProfile(Base, Profile, Spec.ColumnSides,
+			Mesh.ComponentColor(Spec.StoneColor, ComponentId ^ 0x40000000u));
+	}
+	// Preserve the original taper at the joint as well as the original column top.
+	const float BottomRadius = R * (1.0f - 0.12f * H / Spec.ColumnHeight);
+	Mesh.AddColumn(Base + Vector3(0, H, 0), Spec.ColumnHeight - H,
+		BottomRadius, R * 0.88f, Spec.ColumnSides, Spec.TimberColor, Spec.bSmoothColumns, ComponentId);
+}
+
 // ==================== Roof profile ====================
 
 std::vector<Vector2> BuildingGen::BuildRoofProfile(const BuildingSpec& Spec, float HalfSpan)
 {
+	if (Spec.RoofCurveMode == 1)
+	{
+		return SampleRoofCurve(Spec, HalfSpan, Spec.RoofHeight);
+	}
+
 	const int32_t Courses = std::max(Spec.RafterCourses, 3);
 	const float Run = HalfSpan / float(Courses);
 
@@ -458,6 +564,11 @@ Vector3 CornerFlip::Apply(const Vector3& Point) const
 std::vector<Vector2> BuildingGen::BuildRoofProfileScaled(
 	const BuildingSpec& Spec, float HalfSpan, float TargetRise)
 {
+	if (Spec.RoofCurveMode == 1)
+	{
+		return SampleRoofCurve(Spec, HalfSpan, TargetRise);
+	}
+
 	BuildingSpec Scaled = Spec;
 	Scaled.RoofHeight = TargetRise;
 
@@ -478,9 +589,19 @@ void BuildingGen::AddRoofPanel(
 	float Thickness,
 	ERoofPanelEdges OpenEdges,
 	const Color& Tint,
-	const Color& SoffitTint)
+	const Color& SoffitTint,
+	const Vector3* VertexNormals)
 {
-	Mesh.AddQuadOriented(A, B, C, D, Normal, Tint);
+	if (VertexNormals != nullptr)
+	{
+		Mesh.AddQuadSmooth(
+			A, B, C, D, VertexNormals[0], VertexNormals[1], VertexNormals[2], VertexNormals[3],
+			Tint);
+	}
+	else
+	{
+		Mesh.AddQuadOriented(A, B, C, D, Normal, Tint);
+	}
 
 	if (Thickness <= 0.0f)
 	{
@@ -498,7 +619,18 @@ void BuildingGen::AddRoofPanel(
 	const Vector3 UnderC = C + Drop;
 	const Vector3 UnderD = D + Drop;
 
-	Mesh.AddQuadOriented(UnderA, UnderB, UnderC, UnderD, -Normal, SoffitTint);
+	if (VertexNormals != nullptr)
+	{
+		// The underside mirrors the top face's curvature, so it shades with the negated normals.
+		Mesh.AddQuadSmooth(
+			UnderA, UnderB, UnderC, UnderD,
+			-VertexNormals[0], -VertexNormals[1], -VertexNormals[2], -VertexNormals[3],
+			SoffitTint);
+	}
+	else
+	{
+		Mesh.AddQuadOriented(UnderA, UnderB, UnderC, UnderD, -Normal, SoffitTint);
+	}
 
 	// Closing an open edge is also what stops the eave reading as a knife edge.
 	if (HasEdge(OpenEdges, ERoofPanelEdges::Lower))
@@ -930,10 +1062,12 @@ namespace
 		// column's pivot" used as the body frame.
 		if (Spec.bGenerateColumns)
 		{
-			for (const float X : XPositions)
+			for (size_t XI = 0; XI < XPositions.size(); ++XI)
 			{
-				for (const float Z : ZPositions)
+				const float X = XPositions[XI];
+				for (size_t ZI = 0; ZI < ZPositions.size(); ++ZI)
 				{
+					const float Z = ZPositions[ZI];
 					const bool bOnPerimeter =
 						std::abs(std::abs(X) - HalfWidth) < BUILD_EPSILON ||
 						std::abs(std::abs(Z) - HalfDepth) < BUILD_EPSILON;
@@ -942,14 +1076,8 @@ namespace
 						continue;
 					}
 
-					Mesh.AddColumn(
-						Vector3(X, Base, Z),
-						Spec.ColumnHeight,
-						Spec.ColumnRadius,
-						// 收分: columns taper slightly towards the top.
-						Spec.ColumnRadius * 0.88f,
-						Spec.ColumnSides,
-						Spec.TimberColor);
+					AddBuildingColumn(Spec, Mesh, Vector3(X, Base, Z),
+						0x100000u + uint32_t(XI * ZPositions.size() + ZI));
 				}
 			}
 		}
@@ -1078,6 +1206,7 @@ namespace
 		MeshAccumulator& Mesh)
 	{
 		const float RoofBase = Spec.RoofBase;
+		const float HalfSpan = Profile.front().x;
 		const float Thickness = GetBoardThickness(Spec);
 		const Color BoardColor = Spec.TileColor * 0.7f;
 		const Color SoffitColor = Spec.TimberColor * 1.15f;
@@ -1093,25 +1222,45 @@ namespace
 			const Vector3 C(HalfWidth, RoofBase + High.y, Sign * High.x);
 			const Vector3 D(-HalfWidth, RoofBase + High.y, Sign * High.x);
 
-			// Up-slope means z decreases, so the surface normal is up and outward along Sign.
-			const Vector3 Up = (Vector3(0.0f, High.y - Low.y, Sign * (High.x - Low.x)));
-			Vector3 Normal = Vector3(1.0f, 0.0f, 0.0f).cross(Up).normalized();
-			if (Normal.y < 0.0f)
+			Vector3 Normal;
+			Vector3 VertexNormals[4];
+			if (Spec.RoofCurveMode == 1)
 			{
-				Normal = -Normal;
+				// The analytic curve normal sampled at each band's two span coordinates and tilted
+				// into this slope's face. Adjacent bands share their boundary values, so the 望板
+				// shades as one continuous surface instead of stepping per course.
+				const Vector2 N2Low = RoofCurveNormalAtX(Spec, HalfSpan, Spec.RoofHeight, Low.x);
+				const Vector2 N2High = RoofCurveNormalAtX(Spec, HalfSpan, Spec.RoofHeight, High.x);
+				VertexNormals[0] = Vector3(0.0f, N2Low.y, Sign * N2Low.x);
+				VertexNormals[1] = VertexNormals[0];
+				VertexNormals[2] = Vector3(0.0f, N2High.y, Sign * N2High.x);
+				VertexNormals[3] = VertexNormals[2];
+				Normal = (VertexNormals[0] + VertexNormals[2]).normalized();
+			}
+			else
+			{
+				// Up-slope means z decreases, so the surface normal is up and outward along Sign.
+				const Vector3 Up = Vector3(0.0f, High.y - Low.y, Sign * (High.x - Low.x));
+				Normal = Vector3(1.0f, 0.0f, 0.0f).cross(Up).normalized();
+				if (Normal.y < 0.0f)
+				{
+					Normal = -Normal;
+				}
 			}
 
 			AddRoofPanel(
 				Mesh, A, B, C, D, Normal, Thickness,
 				Index == 0 ? ERoofPanelEdges::Lower : ERoofPanelEdges::None,
-				BoardColor, SoffitColor);
+				BoardColor, SoffitColor,
+				Spec.RoofCurveMode == 1 ? VertexNormals : nullptr);
 		}
 
 		// Tile skin. Cr measures coverage down from the ridge, so drop the lower knots.
 		const int32_t Courses = std::max(int32_t((HalfWidth * 2.0f) / std::fmax(Spec.TileCourseWidth, 0.02f)), 1);
 		const float Pitch = (HalfWidth * 2.0f) / float(Courses);
-		const size_t KeepFrom = size_t(
-			std::floor(float(Profile.size() - 1) * (1.0f - std::fmin(std::fmax(Spec.TileCoverage, 0.0f), 1.0f))));
+		const size_t KeepFrom = RoofCoverageStart(Spec, Profile, HalfSpan);
+		Vector2 CoverageBoundary;
+		const bool bCoverageBoundary = RoofCoverageBoundary(Spec, Profile, HalfSpan, KeepFrom, CoverageBoundary);
 
 		{
 			std::vector<TileSkinColumn> Columns;
@@ -1119,10 +1268,16 @@ namespace
 				-HalfWidth,
 				Pitch,
 				Courses,
-				[&Profile, RoofBase, Sign, KeepFrom](float X) -> std::vector<Vector3>
+				[&Profile, RoofBase, Sign, KeepFrom, bCoverageBoundary, &CoverageBoundary](float X) -> std::vector<Vector3>
 				{
 					std::vector<Vector3> Points;
-					Points.reserve(Profile.size() - KeepFrom);
+					Points.reserve(Profile.size() - KeepFrom + 1);
+					// The exact coverage boundary sits on the curve, not on a sample, so the bare
+					// edge of the roof stays put however the sampling density changes.
+					if (bCoverageBoundary)
+					{
+						Points.push_back(Vector3(X, RoofBase + CoverageBoundary.y, Sign * CoverageBoundary.x));
+					}
 					for (size_t Index = KeepFrom; Index < Profile.size(); ++Index)
 					{
 						Points.push_back(Vector3(X, RoofBase + Profile[Index].y, Sign * Profile[Index].x));
@@ -1405,16 +1560,49 @@ namespace
 			{
 				const size_t Next = (Index + 1) % Count;
 
-				Vector3 Normal = (Low[Next] - Low[Index]).cross(High[Index] - Low[Index]);
-				if (Normal.length_squared() < 1e-12f)
+				Vector3 Normal;
+				Vector3 VertexNormals[4];
+				if (Spec.RoofCurveMode == 1)
 				{
-					continue;
+					// The analytic profile normal at each ring's span coordinate, tilted outward by
+					// each corner's own azimuth. Adjacent bands share their boundary values, so the
+					// skirt shades continuously instead of stepping per course. The corner wedges
+					// get the same tilt with their diagonal azimuth — an approximation, since their
+					// true normal also picks up the ring curvature, but the 戗脊 covers the seam.
+					const Vector2 N2Low = RoofCurveNormalAtX(Spec, Inset, BreakHeight, SkirtProfile[Level].x);
+					const Vector2 N2High = RoofCurveNormalAtX(
+						Spec, Inset, BreakHeight, SkirtProfile[Level + 1].x);
+					const Vector3 Corners[4] = { Low[Index], Low[Next], High[Next], High[Index] };
+					const Vector2* LevelNormals[4] = { &N2Low, &N2Low, &N2High, &N2High };
+					for (int32_t K = 0; K < 4; ++K)
+					{
+						const Vector2 P(Corners[K].x, Corners[K].z);
+						if (P.length_squared() > 1e-12f)
+						{
+							const Vector2 Dir = P.normalized();
+							VertexNormals[K] = Vector3(
+								Dir.x * LevelNormals[K]->x, LevelNormals[K]->y, Dir.y * LevelNormals[K]->x);
+						}
+						else
+						{
+							VertexNormals[K] = Vector3(0.0f, 1.0f, 0.0f);
+						}
+					}
+					Normal = (VertexNormals[0] + VertexNormals[1] + VertexNormals[2] + VertexNormals[3]).normalized();
 				}
-				Normal = Normal.normalized();
-				// A roof surface always faces upward.
-				if (Normal.y < 0.0f)
+				else
 				{
-					Normal = -Normal;
+					Normal = (Low[Next] - Low[Index]).cross(High[Index] - Low[Index]);
+					if (Normal.length_squared() < 1e-12f)
+					{
+						continue;
+					}
+					Normal = Normal.normalized();
+					// A roof surface always faces upward.
+					if (Normal.y < 0.0f)
+					{
+						Normal = -Normal;
+					}
 				}
 
 				AddRoofPanel(
@@ -1422,7 +1610,8 @@ namespace
 					Low[Index], Low[Next], High[Next], High[Index],
 					Normal, Thickness,
 					Level == 0 ? ERoofPanelEdges::Lower : ERoofPanelEdges::None,
-					BoardColor, SoffitColor);
+					BoardColor, SoffitColor,
+					Spec.RoofCurveMode == 1 ? VertexNormals : nullptr);
 			}
 		}
 
@@ -1471,8 +1660,9 @@ namespace
 		// ---- Gabled tier above the break ----
 
 		const float TierBase = RoofBase + BreakHeight;
+		const float TierRise = std::fmax(Spec.RoofHeight - BreakHeight, 0.01f);
 		const std::vector<Vector2> TierProfile = (Top == HIP_TOP_GABLED_TIER)
-			? BuildRoofProfileScaled(Spec, HalfDepthBreak, std::fmax(Spec.RoofHeight - BreakHeight, 0.01f))
+			? BuildRoofProfileScaled(Spec, HalfDepthBreak, TierRise)
 			: std::vector<Vector2>();
 
 		for (int32_t Sign = -1; Sign <= 1 && Top == HIP_TOP_GABLED_TIER; Sign += 2)
@@ -1487,28 +1677,55 @@ namespace
 				const Vector3 C(HalfWidthBreak, TierBase + High.y, float(Sign) * High.x);
 				const Vector3 D(-HalfWidthBreak, TierBase + High.y, float(Sign) * High.x);
 
+				// Continuous mode smooth-shades the tier with the analytic curve normal sampled at
+				// each band's two span coordinates. Legacy shade came from the per-band geometric
+				// facets, so the tier read as a stack of flat courses.
+				Vector3 Normal;
+				Vector3 VertexNormals[4];
+				if (Spec.RoofCurveMode == 1)
+				{
+					const Vector2 N2Low = RoofCurveNormalAtX(Spec, HalfDepthBreak, TierRise, Low.x);
+					const Vector2 N2High = RoofCurveNormalAtX(Spec, HalfDepthBreak, TierRise, High.x);
+					VertexNormals[0] = Vector3(0.0f, N2Low.y, float(Sign) * N2Low.x);
+					VertexNormals[1] = VertexNormals[0];
+					VertexNormals[2] = Vector3(0.0f, N2High.y, float(Sign) * N2High.x);
+					VertexNormals[3] = VertexNormals[2];
+					Normal = (VertexNormals[0] + VertexNormals[2]).normalized();
+				}
+				else
+				{
+					Normal = Vector3(0.0f, 1.0f, float(Sign)).normalized();
+				}
+
 				// The tier's lower edge lands on the skirt below it, so there is no open eave to cap.
 				AddRoofPanel(
-					Mesh, A, B, C, D,
-					Vector3(0.0f, 1.0f, float(Sign)).normalized(),
-					Thickness, ERoofPanelEdges::None, BoardColor, SoffitColor);
+					Mesh, A, B, C, D, Normal,
+					Thickness, ERoofPanelEdges::None, BoardColor, SoffitColor,
+					Spec.RoofCurveMode == 1 ? VertexNormals : nullptr);
 			}
 
 			const int32_t Courses = std::max(
 				int32_t(HalfWidthBreak * 2.0f / std::fmax(Spec.TileCourseWidth, 0.05f)), 1);
 			const float Pitch = HalfWidthBreak * 2.0f / float(Courses);
-			const size_t KeepFrom = size_t(std::floor(
-				float(TierProfile.size() - 1) * (1.0f - std::fmin(std::fmax(Spec.TileCoverage, 0.0f), 1.0f))));
+			const size_t KeepFrom = RoofCoverageStart(Spec, TierProfile, HalfDepthBreak);
+			Vector2 CoverageBoundary;
+			const bool bCoverageBoundary = RoofCoverageBoundary(
+				Spec, TierProfile, HalfDepthBreak, KeepFrom, CoverageBoundary);
 
 			std::vector<TileSkinColumn> Columns;
 			LayTileCourses(
 				-HalfWidthBreak,
 				Pitch,
 				Courses,
-				[&TierProfile, TierBase, Sign, KeepFrom](float X) -> std::vector<Vector3>
+				[&TierProfile, TierBase, Sign, KeepFrom, bCoverageBoundary, &CoverageBoundary](float X) -> std::vector<Vector3>
 				{
 					std::vector<Vector3> Points;
-					Points.reserve(TierProfile.size() - KeepFrom);
+					Points.reserve(TierProfile.size() - KeepFrom + 1);
+					if (bCoverageBoundary)
+					{
+						Points.push_back(Vector3(
+							X, TierBase + CoverageBoundary.y, float(Sign) * CoverageBoundary.x));
+					}
 					for (size_t Index = KeepFrom; Index < TierProfile.size(); ++Index)
 					{
 						Points.push_back(Vector3(
@@ -1686,10 +1903,10 @@ namespace
 	{
 		const float RoofBase = Spec.RoofBase;
 		const float Roll = std::fmin(Spec.RollRadius, std::fmin(HalfSpan * 0.5f, Spec.RoofHeight * 0.6f));
+		const float SlopeRise = std::fmax(Spec.RoofHeight - Roll, 0.01f);
 
 		// Slope from the eave up to where the roll begins.
-		const std::vector<Vector2> Slope = BuildRoofProfileScaled(
-			Spec, HalfSpan - Roll, std::fmax(Spec.RoofHeight - Roll, 0.01f));
+		const std::vector<Vector2> Slope = BuildRoofProfileScaled(Spec, HalfSpan - Roll, SlopeRise);
 
 		// Continuous profile: +Z slope, the roll, then the mirrored -Z slope.
 		std::vector<Vector2> Profile;
@@ -1727,7 +1944,37 @@ namespace
 			const Vector3 D(-HalfWidth, RoofBase + To.y, To.x);
 
 			// Outward is up and away from the centreline, which flips sign over the roll.
-			const Vector3 Outward = Vector3(0.0f, 1.0f, (From.x + To.x) * 0.5f).normalized();
+			Vector3 Outward;
+			Vector3 VertexNormals[4];
+			if (Spec.RoofCurveMode == 1)
+			{
+				// One normal per corner, sampled at the corner's own span: the slope region uses
+				// the curve normal on the unshifted slope span (the mirrored -Z side shares the
+				// span coordinate; the sign rides on X), the roll region uses the semicircle's
+				// radial normal.
+				const auto CornerNormal = [&](float X, float Y) -> Vector3
+				{
+					if (std::abs(X) >= Roll)
+					{
+						const Vector2 N2 = RoofCurveNormalAtX(Spec, HalfSpan - Roll, SlopeRise, std::abs(X) - Roll);
+						return Vector3(0.0f, N2.y, (X >= 0.0f ? N2.x : -N2.x));
+					}
+
+					const Vector2 N2 = Vector2(
+						X / std::fmax(Roll, BUILD_EPSILON),
+						(Y - RollCentre) / std::fmax(Roll, BUILD_EPSILON)).normalized();
+					return Vector3(0.0f, N2.y, N2.x);
+				};
+				VertexNormals[0] = CornerNormal(From.x, From.y);
+				VertexNormals[1] = VertexNormals[0];
+				VertexNormals[2] = CornerNormal(To.x, To.y);
+				VertexNormals[3] = VertexNormals[2];
+				Outward = (VertexNormals[0] + VertexNormals[2]).normalized();
+			}
+			else
+			{
+				Outward = Vector3(0.0f, 1.0f, (From.x + To.x) * 0.5f).normalized();
+			}
 
 			ERoofPanelEdges Edges = ERoofPanelEdges::None;
 			if (Index == 0)
@@ -1739,7 +1986,9 @@ namespace
 				Edges = Edges | ERoofPanelEdges::Upper;
 			}
 
-			AddRoofPanel(Mesh, A, B, C, D, Outward, Thickness, Edges, BoardColor, SoffitColor);
+			AddRoofPanel(
+				Mesh, A, B, C, D, Outward, Thickness, Edges, BoardColor, SoffitColor,
+				Spec.RoofCurveMode == 1 ? VertexNormals : nullptr);
 		}
 
 		// Tile skin running the full span, eave to eave over the roll.

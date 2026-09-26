@@ -109,6 +109,9 @@ namespace godot
 		/** Column radius as a fraction of the module D. */
 		float ColumnRadiusScale = 0.42f;
 		int32_t ColumnSides = 10;
+		bool SmoothColumns = true;
+		/** Optional stone plinth height in modules; zero preserves the original footprint. */
+		float ColumnBaseHeightScale = 0.0f;
 		/** Bracket band height as a multiple of D. Stands in for 斗拱 until phase 3. */
 		float BracketHeightScale = 0.85f;
 
@@ -121,6 +124,17 @@ namespace godot
 		float EaveRiseRatio = 0.5f;
 		float RidgeRiseRatio = 0.9f;
 		float RoofHeightScale = 1.0f;
+		/**
+		 * Roof profile mode (v2 P1). 0 = Legacy: the old course polyline, kept bit-identical so
+		 * existing resources bake to the same mesh. 1 = Continuous: the analytic integral of the
+		 * rise-ratio ramp, adaptively sampled (see RoofCurve.h). Missing on old resources, which
+		 * therefore default to Legacy.
+		 */
+		int32_t RoofCurveMode = 0;
+		/** Continuous-mode sampling quality: maximum distance from the curve to a sample chord. */
+		float RoofChordError = 0.005f;
+		/** Continuous-mode sampling quality: longest allowed sample segment, in metres. */
+		float RoofMaxSegment = 0.5f;
 		/** 瓦垄 spacing along the ridge. */
 		float TileCourseWidth = 0.34f;
 		/** Table's Cr: fraction of the slope covered by tiles, measured from the ridge. */
@@ -166,6 +180,8 @@ namespace godot
 		static void _bind_methods();
 
 	public:
+		ANCIENT_ACCESSORS(bool, SmoothColumns)
+		ANCIENT_ACCESSORS(float, ColumnBaseHeightScale)
 		ANCIENT_ACCESSORS(float, Width)
 		ANCIENT_ACCESSORS(float, Depth)
 		ANCIENT_ACCESSORS(int32_t, BaysX)
@@ -186,6 +202,9 @@ namespace godot
 		ANCIENT_ACCESSORS(float, EaveRiseRatio)
 		ANCIENT_ACCESSORS(float, RidgeRiseRatio)
 		ANCIENT_ACCESSORS(float, RoofHeightScale)
+		ANCIENT_ACCESSORS(int32_t, RoofCurveMode)
+		ANCIENT_ACCESSORS(float, RoofChordError)
+		ANCIENT_ACCESSORS(float, RoofMaxSegment)
 		ANCIENT_ACCESSORS(float, TileCourseWidth)
 		ANCIENT_ACCESSORS(float, TileCoverage)
 		ANCIENT_ACCESSORS(float, RidgeScale)
@@ -232,6 +251,15 @@ namespace godot
 		 * rammed earth are naturally weathered pieces (0.12 / 0.09).
 		 */
 		static float GetStyleMottle(int32_t Value);
+
+		/**
+		 * Test/debug entry to the continuous roof curve (v2 P1.2): samples the analytic
+		 * rise-ratio integral between (HalfSpan, 0) and (0, RoofHeight) with the given chord
+		 * error and maximum segment length. Eave first, ridge last.
+		 */
+		static PackedVector2Array SampleRoofCurve(
+			float EaveRiseRatio, float RidgeRiseRatio, float RoofHeight, float HalfSpan,
+			float ChordError, float MaxSegment);
 
 		void SetGenerateFence(bool bValue) { bGenerateFence = bValue; emit_changed(); }
 		bool ShouldGenerateFence() const { return bGenerateFence; }
