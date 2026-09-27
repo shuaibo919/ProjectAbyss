@@ -1,6 +1,25 @@
-[gd_scene load_steps=2 format=3]
+[gd_scene format=3 uid="uid://bdcwrogl4itta"]
 
-[ext_resource type="Script" path="res://Develop/StyleShowcase.gd" id="1_style"]
+[ext_resource type="Script" uid="uid://bve1silev2h7g" path="res://Develop/StyleShowcase.gd" id="1_style"]
 
-[node name="StyleShowcase" type="Node3D"]
+[sub_resource type="AncientBuildingParameters" id="AncientBuildingParameters_2k415"]
+width = 9.2
+generate_fence = false
+platform_top_joints = true
+platform_edge_lip = true
+paving = true
+paving_joint_geometry = true
+step_side_cheek = true
+column_base_height_scale = 0.4
+column_base_square = true
+roof_height_scale = 0.63
+roof_curve_mode = 1
+eave_rafter_style = 0
+tile_detail = 1
+ridge_detail = 1
+
+[node name="StyleShowcase" type="Node3D" unique_id=1822747877]
 script = ExtResource("1_style")
+
+[node name="AncientBuilding" type="AncientBuilding" parent="." unique_id=1163191404]
+parameters = SubResource("AncientBuildingParameters_2k415")
