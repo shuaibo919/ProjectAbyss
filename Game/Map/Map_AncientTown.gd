@@ -27,6 +27,36 @@ const TEX_DIR := "res://Assets/Shaders/InkPainting/Textures"
 
 const PAPER := Color(0.898, 0.859, 0.824)
 
+# ---------------------------------------------------------------------------
+# 「民居样板」形制 —— **缺省档**（2026-09-27 起不再是主路径）
+#
+# 形制的主路径已经**固化进 PCG 数据流**：`town_lots` 按地块等级写 `ab_platform` /
+# `ab_dado_height_ratio` / … 等 10 条 `ab_*` 流，Ancient Building 节点逐点读取并把它们
+# **并入组合键**（见 `addons/ancient_building/nodes/ancient_building.gd` 的 `_combo_key`）。
+# 因此每栋建筑可以有**自己的**台基/台面/下碱砖带，而不是全城一律。
+#
+# 本字典现在只作**流缺席时的节点级缺省**（例如别的图接了同一节点但没写这些流）。
+# 城镇里它已被流覆盖；改它不会影响本图的观感 —— 要调城镇的形制，改 `town_lots.gd`
+# 里那段按等级分档的逻辑。
+#
+# 值取自手册 `20_墙体 R15` 与 `60_台基地面 R6·R9·R12`。**除 `column_base_height_scale`
+# 外全部是 新增参数，默认关/0。**
+# 作用域 `dwelling_style_scope`：仅在**没有流**时生效；1 = 只给民居屋顶，2 = 全部，0 = 关。
+# ---------------------------------------------------------------------------
+const MINGJU_STYLE := {
+	"dwelling_style_scope": 1,
+	"dado_height_ratio": 0.25,      # 下碱高 ÷ 墙高（0 = 旧行为）
+	"dado_top_trim": 1.0,           # 分界带高，单位 = 模数 D（0 = 关）
+	"platform_top_joints": true,    # 台基顶面接缝网格
+	"platform_edge_lip": true,      # 台基边缘凸出沿口
+	"paving": true,                 # 方砖铺地
+	"paving_joint_geometry": true,  # 铺地几何板缝（关 = 顶点色缝）
+	"step_side_cheek": true,        # 踏步两侧侧挡
+	"column_base_square": true,     # 方形石础（关 = 旧车削圆础盘）
+	"column_base_height_scale": 0.35,
+	"ridge_detail": 1,              # 分层圆脊 + 山尖连续接头（2026-09-27 用户裁定为默认）
+}
+
 var _ink_material: ShaderMaterial
 var _towns: Array[Dictionary] = []
 var _env: Environment
@@ -263,12 +293,14 @@ func _town_graph(entry: Dictionary) -> FlowGraphResource:
 	}, Vector2(0, 0))
 
 	# Buildings: per-point ab_* overrides bake one mesh per parameter combo.
-	var buildings := builder.AddNode("ancient_building", {
+	var ab_settings := {
 		"mesh_attribute": "mesh",
 		"variant_count": 24,
 		"seed": entry.seed + 7,
 		"size_jitter": 0.06,
-	}, Vector2(300, 0), { "Points": 0 })
+	}
+	ab_settings.merge(MINGJU_STYLE, true)   # 民居形制，见文件上方 MINGJU_STYLE
+	var buildings := builder.AddNode("ancient_building", ab_settings, Vector2(300, 0), { "Points": 0 })
 	var spawn_b := builder.AddNode("spawn_meshes", {
 		"clear_previous_instances": true,
 		"mesh_attribute": "mesh",

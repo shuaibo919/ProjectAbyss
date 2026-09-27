@@ -50,6 +50,57 @@ extends NodeSettings
 ## Larger tiles mean fewer 瓦垄 sweeps, which is the main cost knob.
 @export_range(0.1, 2.0, 0.01) var tile_course_width : float = 0.34
 
+@export_group("民居形制 (2026-09-26)")
+## 下方形制参数**作用到哪些建筑**。城里有民居也有庙宇，如果全城一律套用，
+## 庑殿/歇山这些官式建筑也会长出民居的下碱与柱础 —— 所以默认只作用到民居屋顶。
+@export_enum("关闭:0", "仅民居屋顶 硬山/悬山/卷棚:1", "全部建筑:2")
+var dwelling_style_scope : int = 1
+## 下列参数由 「民居样板」新增（Source/AncientBuilding/）。**全部默认 = 旧行为**，
+## 所以资源不动就不会改变任何现有产物的外观。
+## 注：它们目前是**节点级设置（全城统一）**，尚未接成 `ab_*` 点属性；要让每栋不同，
+## 需接入 `_collect_overrides` + `_combo_key`（见 05 契约 §一：影响网格的语义必须入键）。
+## 老 DLL 上这些属性不存在，赋值走 `_apply_if_present` 守卫，不会报错。
+
+## 台基有无（地基）。**默认 true = 旧行为**。关掉时不生成台基块、踏步与栏杆，
+## 且整栋下移落到地面（PlatformHeight 参与柱底/墙底/屋顶基准的派生）。
+@export var generate_platform : bool = true
+## 下碱高 ÷ 墙高（20_墙体 R15）。0 = 关闭（旧行为）。>0 时墙体分区：
+## 上部抹灰 + 下部砌块带，砖缝几何只在下碱带内生成。
+@export_range(0.0, 0.9, 0.01) var dado_height_ratio : float = 0.0
+## 分界带高，单位 = 模数 D。0 = 关闭（旧行为）。
+@export_range(0.0, 2.0, 0.01) var dado_top_trim : float = 0.0
+## 台基顶面接缝网格（60_台基地面 R6）。默认关。
+@export var platform_top_joints : bool = false
+## 台基边缘凸出沿口（60 R6）。默认关。
+@export var platform_edge_lip : bool = false
+## 方砖铺地（60 R9）。默认关。
+@export var paving : bool = false
+## 铺地**几何板缝**（仅 `paving` 开时生效）。默认关 = 顶点色缝。
+@export var paving_joint_geometry : bool = false
+## 踏步两侧简单侧挡（60 R8）。默认关。
+@export var step_side_cheek : bool = false
+## 方形石础（60 R12；关 = 旧的车削圆础盘）。高度仍由 `column_base_height_scale` 给。
+@export var column_base_square : bool = false
+## 柱础高 = 该值 × D（既有参数，非新增）。0 = 无础（旧行为）。
+@export_range(0.0, 2.0, 0.01) var column_base_height_scale : float = 0.0
+
+@export_group("瓦作 / 距离档 ()")
+## 瓦作 detail level（30_瓦作 §2）。**0 = 旧行为**（既有资源字节不变）。
+## 1 = 排垄与叠压；2 = 1 + 檐口件（瓦当/滴水）与泥背层。
+@export_enum("旧 Legacy:0", "排垄与叠压:1", "檐口件与泥背:2") var tile_detail : int = 0
+## 泥背层厚（米，R17）。**0 = 旧行为**（瓦面直接坐在望板上）。
+## 它抬升的是整张瓦面，因此**所有脊的高度链都由它决定** —— 不同值不能共用网格。
+@export_range(0.0, 0.2, 0.001) var tile_bedding_thickness : float = 0.0
+## 距离档。**0 = 近景 / 旧行为**；中景与远景会丢掉细节（含脊断面降为占位块）。
+@export_enum("近景:0", "中景:1", "远景:2") var lod_level : int = 0
+## 脊体截面与接头（2026-09-27 起**默认 1**，用户裁定）。
+## 1 = 收分脊身、圆弧盖脊、山尖连续接头（正脊与垂脊不再互相穿插）；0 = 旧 7 点断面，
+## 仅作**回归基线**保留 —— C++ 侧的参数默认值仍是 0，所以既有资源与 4 套测试的字节锚点
+## 不受影响；"默认"在这里、在消费方。
+@export_enum("旧 Legacy (回归基线):0", "分层圆脊 / 连续接头:1") var ridge_detail : int = 1
+## 以上四项可由点属性 `ab_tile_detail` / `ab_tile_bedding_thickness` / `ab_lod_level` / `ab_ridge_detail` 逐点覆盖
+## （地形/地块生成器写了流就以流为准）。**写了流的点位会进 `ab_*` 组合键**，所以不同档不共享网格。
+
 @export_group("Material")
 ## 官式 / 茅草 / 土木. Selecting 茅草 or 土木 overwrites the colour palette below; hand-tune
 ## afterwards as needed. The geometry (硬山) is unchanged.

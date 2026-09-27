@@ -14,7 +14,7 @@ extends FlowNodeBase
 #   Out 4 "Trees":     tree placement points (size stream carries per-tree scale).
 #
 # Layout language (Hu & Qin 2020 component grammars + Qin et al. 2023 city
-# layout + Müller 2006 CGA mass models, see Docs/AncientBuilding_ExecutionPlan):
+# layout + Müller 2006 CGA mass models, see ProjectAbyssWiki/documentation/systems/AncientBuilding_ExecutionPlan):
 #   - 聚落: a winding lane walk with houses alternating on both sides.
 #   - 村镇: main street + side lanes, temple at the vista end, 牌坊 at the entry.
 #   - 市集: 3x3 blocks around a central market square crossed by two main streets.
@@ -836,6 +836,17 @@ func _pack_buildings() -> FlowData.Data:
 	var walls := PackedByteArray()
 	var steps := PackedByteArray()
 	var lambda := PackedInt32Array()
+	# 民居形制 (2026-09-27)：逐点写流 ⇒ 形制固化在 PCG 数据里，而不是靠脚本往节点灌设置。
+	var dado := PackedFloat32Array()
+	var dado_trim := PackedFloat32Array()
+	var col_base := PackedFloat32Array()
+	var plat := PackedByteArray()
+	var p_top_joints := PackedByteArray()
+	var p_edge_lip := PackedByteArray()
+	var paving := PackedByteArray()
+	var paving_joints := PackedByteArray()
+	var step_cheek := PackedByteArray()
+	var col_square := PackedByteArray()
 	var level := PackedInt32Array()
 	var lot_type := PackedInt32Array()
 	var ward := PackedInt32Array()
@@ -846,6 +857,9 @@ func _pack_buildings() -> FlowData.Data:
 	material.resize(n); courses.resize(n); coverage.resize(n); tcw.resize(n); corner.resize(n)
 	fence.resize(n); walls.resize(n); steps.resize(n); lambda.resize(n)
 	level.resize(n); lot_type.resize(n); ward.resize(n); tint.resize(n); seeds.resize(n)
+	dado.resize(n); dado_trim.resize(n); col_base.resize(n)
+	plat.resize(n); p_top_joints.resize(n); p_edge_lip.resize(n)
+	paving.resize(n); paving_joints.resize(n); step_cheek.resize(n); col_square.resize(n)
 
 	for i in n:
 		var lot: Dictionary = _lots[i]
@@ -868,6 +882,21 @@ func _pack_buildings() -> FlowData.Data:
 		steps[i] = 1 if p.steps else 0
 		lambda[i] = p.fence_lambda
 		level[i] = lot.level
+
+		# 形制按等级分档（**起点策略，按需调整**）：台基/台面/铺地对所有等级开——
+		# 没有台基不成建筑；民居（≤2）另有下碱砖带、踏步侧挡与方形柱础；官式（3）本轮
+		# 没有对应参考依据，这几项先关，等资料到位再补。
+		var b_dwelling: bool = lot.level <= 2
+		plat[i] = 1
+		p_top_joints[i] = 1
+		p_edge_lip[i] = 1
+		paving[i] = 1
+		paving_joints[i] = 1
+		step_cheek[i] = 1 if b_dwelling else 0
+		col_square[i] = 1 if b_dwelling else 0
+		dado[i] = 0.25 if b_dwelling else 0.0
+		dado_trim[i] = 1.0 if b_dwelling else 0.0
+		col_base[i] = 0.35 if b_dwelling else 0.0
 		lot_type[i] = lot.lot_type
 		ward[i] = lot.ward
 		tint[i] = lot.tint
@@ -890,6 +919,17 @@ func _pack_buildings() -> FlowData.Data:
 	d.registerStream("ab_walls", walls, FlowData.DataType.Bool)
 	d.registerStream("ab_steps", steps, FlowData.DataType.Bool)
 	d.registerStream("ab_fence_lambda", lambda, FlowData.DataType.Int)
+	# 民居形制：读到这些流的 Ancient Building 节点会按点烘焙，并把它们并入组合键。
+	d.registerStream("ab_platform", plat, FlowData.DataType.Bool)
+	d.registerStream("ab_platform_top_joints", p_top_joints, FlowData.DataType.Bool)
+	d.registerStream("ab_platform_edge_lip", p_edge_lip, FlowData.DataType.Bool)
+	d.registerStream("ab_paving", paving, FlowData.DataType.Bool)
+	d.registerStream("ab_paving_joint_geometry", paving_joints, FlowData.DataType.Bool)
+	d.registerStream("ab_step_side_cheek", step_cheek, FlowData.DataType.Bool)
+	d.registerStream("ab_column_base_square", col_square, FlowData.DataType.Bool)
+	d.registerStream("ab_dado_height_ratio", dado, FlowData.DataType.Float)
+	d.registerStream("ab_dado_top_trim", dado_trim, FlowData.DataType.Float)
+	d.registerStream("ab_column_base_height_scale", col_base, FlowData.DataType.Float)
 	d.registerStream("level", level, FlowData.DataType.Int)
 	d.registerStream("lot_type", lot_type, FlowData.DataType.Int)
 	d.registerStream("ward", ward, FlowData.DataType.Int)

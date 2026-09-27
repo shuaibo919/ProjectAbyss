@@ -5,7 +5,7 @@ extends FlowNodeBase
 # incoming point.
 #
 # The heavy lifting is the `abyss` GDExtension (Source/AncientBuilding/, a port of Hu & Qin
-# 2020 — see Docs/AncientBuilding_Spec.md). This node only drives it and writes the results
+# 2020 — see ProjectAbyssWiki/documentation/systems/AncientBuilding_Spec.md). This node only drives it and writes the results
 # into a Resource stream, so the existing `spawn_meshes` node can instance them into a
 # MultiMeshInstance3D exactly as it does for any other mesh attribute.
 #
@@ -24,10 +24,35 @@ const ROOF_TYPE_COUNT := 9
 
 # Streams the town generator may carry, read as per-point parameter overrides.
 const OVERRIDE_FLOATS := ["ab_width", "ab_depth", "ab_tile_coverage",
-	"ab_tile_course_width", "ab_corner_rise_scale"]
+	"ab_tile_course_width", "ab_corner_rise_scale",
+	# 民居形制 (2026-09-27). Absent ⇒ the node-level `settings.*` value is used instead,
+	# so graphs that don't write these streams keep the old behaviour.
+	"ab_dado_height_ratio", "ab_dado_top_trim", "ab_column_base_height_scale",
+	# 瓦作逐点 (2026-09-27 复审 §3.2 同款缺陷): 泥背厚 changes the 瓦面 height, which is what every
+	# 脊's 高度链 is measured from, so two points with different bedding must not share a mesh.
+	"ab_tile_bedding_thickness"]
 const OVERRIDE_INTS := ["ab_roof_type", "ab_bays_x", "ab_bays_z",
-	"ab_material_style", "ab_rafter_courses", "ab_fence_lambda"]
-const OVERRIDE_BOOLS := ["ab_fence", "ab_walls", "ab_steps"]
+	"ab_material_style", "ab_rafter_courses", "ab_fence_lambda",
+	# 瓦作 detail 与距离档: both change the baked mesh (叠压 / 檐口件 / 泥背; and the far tier's
+	# coarser section), so they are part of a variant's identity, not node-level garnish.
+	"ab_tile_detail", "ab_lod_level", "ab_ridge_detail"]
+const OVERRIDE_BOOLS := ["ab_fence", "ab_walls", "ab_steps",
+	# 民居形制. 地基 (ab_platform) is the "does this building stand on a 台基 at all" switch.
+	"ab_platform", "ab_platform_top_joints", "ab_platform_edge_lip",
+	"ab_paving", "ab_paving_joint_geometry", "ab_step_side_cheek", "ab_column_base_square"]
+
+# 形制字段入 `_combo_key` 的口径（见该函数）。连续量按步长量化后再入键。
+const FORM_BOOLS := ["ab_platform", "ab_platform_top_joints", "ab_platform_edge_lip",
+	"ab_paving", "ab_paving_joint_geometry", "ab_step_side_cheek", "ab_column_base_square"]
+const FORM_FLOATS := [
+	["ab_dado_height_ratio", 0.05],
+	["ab_dado_top_trim", 0.25],
+	["ab_column_base_height_scale", 0.05],
+	# 泥背厚 is a metre-scale thickness; 5 cm is finer than any value a layout would author.
+	["ab_tile_bedding_thickness", 0.05],
+]
+# 整型形制字段入 `_combo_key` 的口径同 FORM_BOOLS：只按原值入键（档位是离散的）。
+const FORM_INTS := ["ab_tile_detail", "ab_lod_level", "ab_ridge_detail"]
 
 const ROOF_NAMES := ["硬山", "歇山", "庑殿", "悬山", "卷棚", "盝顶", "攒尖", "圆攒尖", "盔顶"]
 
@@ -171,14 +196,32 @@ func _execute_overrides(in_data: FlowData.Data, point_count: int, overrides: Arr
 
 
 func _combo_key(ov: Dictionary, quantum: float) -> String:
-	# Only footprint + roof + material define the shared mesh. Bays, tile tweaks,
-	# fences etc. stay in the per-point override but the baked mesh follows the
-	# first sample of the combo — those details are invisible at town scale.
+	# Footprint + roof + material have always defined the shared mesh. Bays, tile tweaks and
+	# fences stay per-point because they are invisible at town scale.
+	#
+	# 民居形制 (2026-09-27) is NOT that kind of detail: 地基 / 台面 / 下碱砖带 change the
+	# silhouette and the wall surface, so they must split the combo — otherwise two houses with
+	# different 形制 would share the first sample's mesh (review R2 §3.2, the exact defect the
+	# rollback came from).
+	#
+	# Rule: a field contributes **only when the graph actually wrote its stream**. Graphs that
+	# don't carry the form streams therefore produce exactly the old keys and keep the old
+	# variant grouping; when a town does write them, the form is part of the mesh identity.
 	var parts := []
 	parts.append(str(int(round(ov.ab_width / quantum))))
 	parts.append(str(int(round(ov.ab_depth / quantum))))
 	parts.append(str(int(ov.ab_roof_type)))
 	parts.append(str(int(ov.ab_material_style)))
+	for stream in FORM_BOOLS:
+		if ov.has(stream):
+			parts.append("b:%s=%d" % [stream, 1 if ov[stream] else 0])
+	for stream in FORM_INTS:
+		if ov.has(stream):
+			parts.append("i:%s=%d" % [stream, int(ov[stream])])
+	for entry in FORM_FLOATS:
+		if ov.has(entry[0]):
+			# 连续量先量化再入键：同一格内的差异不分裂变体。
+			parts.append("f:%s=%d" % [entry[0], int(round(float(ov[entry[0]]) / float(entry[1])))])
 	return ",".join(parts)
 
 
@@ -283,6 +326,10 @@ func _build_variants() -> Array[Mesh]:
 		params.fence_lambda = settings.fence_lambda
 		params.material_style = settings.material_style
 
+		# 无覆盖路径没有 `ov`：传空字典 ⇒ 走节点级 settings 缺省。
+		_apply_dwelling_style(params, roof, {})
+		_apply_tile_detail(params, {})
+
 		params.stone_color = settings.stone_color
 		params.timber_color = settings.timber_color
 		params.plaster_color = settings.plaster_color
@@ -303,6 +350,64 @@ func _build_variants() -> Array[Mesh]:
 
 ## Bakes one mesh from an explicit override parameter set (`ab_*` values), with
 ## size jitter drawn from the given deterministic rng.
+## 属性存在才赋值。新增的 AncientBuildingParameters 属性在老 DLL 上不存在，
+## 直接赋值会让烘焙报错并中断整张图。
+func _apply_if_present(params: Object, prop: String, value) -> void:
+	if prop in params:
+		params.set(prop, value)
+
+
+## 「民居样板」形制（2026-09-26）。两条烘焙路径（overrides / legacy）共用，
+## 免得同一份设置只在城镇生效、在无 `ab_*` 流的场景里失效。
+## 作用域由 `dwelling_style_scope` 控制：默认只给民居屋顶（硬山 0 / 悬山 3 /
+## 卷棚 4），免得官式庙宇也长出民居的下碱带与柱础。
+func _apply_dwelling_style(params: Object, roof_type: int, ov: Dictionary) -> void:
+	# **流存在 ⇒ 以流为准**（"固化进 PCG 数据流"的含义）。地块生成器写了形制，每一栋的
+	# 形制就是那一栋自己的事，不再受节点级作用域限制 —— 官式建筑也可以按流拿到台基。
+	# 流缺席 ⇒ 退回节点级缺省 + 作用域守卫（保护没写流的图，例如墨线验证场景）。
+	var has_streams: bool = ov.has("ab_platform") or ov.has("ab_dado_height_ratio")
+	if not has_streams:
+		var scope: int = settings.dwelling_style_scope
+		if scope == 0:
+			return
+		if scope == 1 and not (roof_type in [0, 3, 4]):
+			return
+	# **流优先，settings 缺省**：城镇按地块写 `ab_*` 时以流为准；不写流的图沿用节点级设置，
+	# 于是"形制"真正固化在 PCG 数据流里，而不是靠脚本往节点上灌。
+	_apply_if_present(params, "generate_platform", _form_value(ov, "ab_platform", settings.generate_platform))
+	_apply_if_present(params, "dado_height_ratio", _form_value(ov, "ab_dado_height_ratio", settings.dado_height_ratio))
+	_apply_if_present(params, "dado_top_trim", _form_value(ov, "ab_dado_top_trim", settings.dado_top_trim))
+	_apply_if_present(params, "platform_top_joints", _form_value(ov, "ab_platform_top_joints", settings.platform_top_joints))
+	_apply_if_present(params, "platform_edge_lip", _form_value(ov, "ab_platform_edge_lip", settings.platform_edge_lip))
+	_apply_if_present(params, "paving", _form_value(ov, "ab_paving", settings.paving))
+	_apply_if_present(params, "paving_joint_geometry", _form_value(ov, "ab_paving_joint_geometry", settings.paving_joint_geometry))
+	_apply_if_present(params, "step_side_cheek", _form_value(ov, "ab_step_side_cheek", settings.step_side_cheek))
+	_apply_if_present(params, "column_base_square", _form_value(ov, "ab_column_base_square", settings.column_base_square))
+	_apply_if_present(params, "column_base_height_scale", _form_value(ov, "ab_column_base_height_scale", settings.column_base_height_scale))
+
+
+## Stream value if the graph wrote it, otherwise the node-level setting.
+func _form_value(ov: Dictionary, stream: String, fallback):
+	return ov[stream] if ov.has(stream) else fallback
+
+
+## 瓦作 detail / 泥背厚 / 距离档（复审 §3.2 同款缺陷的修复）。
+##
+## 这三项**改变烘焙出来的网格**（叠压与檐口件、瓦面抬升、断面档），却一直只由节点级设置给出、
+## 且**不在 `_combo_key` 里**——不同档的点会共用同一份缓存网格。现在：写了 `ab_*` 流就以流为准
+## 并入键，没写流的图既用节点缺省、键也不变（分组不变）。
+## 没有作用域守卫：瓦作 detail 与屋顶形制无关，官式庙宇也照样是同一档瓦。
+func _apply_tile_detail(params: Object, ov: Dictionary) -> void:
+	_apply_if_present(params, "ridge_detail",
+		int(_form_value(ov, "ab_ridge_detail", settings.ridge_detail)))
+	_apply_if_present(params, "tile_detail",
+		int(_form_value(ov, "ab_tile_detail", settings.tile_detail)))
+	_apply_if_present(params, "tile_bedding_thickness",
+		float(_form_value(ov, "ab_tile_bedding_thickness", settings.tile_bedding_thickness)))
+	_apply_if_present(params, "lod_level",
+		int(_form_value(ov, "ab_lod_level", settings.lod_level)))
+
+
 func _bake_from_params(ov: Dictionary, rng: RandomNumberGenerator) -> Mesh:
 	var params := ClassDB.instantiate("AncientBuildingParameters")
 
@@ -323,6 +428,9 @@ func _bake_from_params(ov: Dictionary, rng: RandomNumberGenerator) -> Mesh:
 	params.generate_walls = ov.ab_walls
 	params.fence_lambda = int(ov.ab_fence_lambda)
 	params.material_style = int(ov.ab_material_style)
+
+	_apply_dwelling_style(params, int(ov.ab_roof_type), ov)
+	_apply_tile_detail(params, ov)
 
 	params.stone_color = settings.stone_color
 	params.timber_color = settings.timber_color
