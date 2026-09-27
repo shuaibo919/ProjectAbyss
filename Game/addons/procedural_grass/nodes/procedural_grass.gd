@@ -5,7 +5,7 @@ extends FlowNodeBase
 # point.
 #
 # The heavy lifting is the `abyss` GDExtension (Source/GrassGen/, an original
-# clump/blade generator — see Docs/ProceduralGrass_Spec.md). This node only drives it
+# clump/blade generator — see ProjectAbyssWiki/documentation/systems/ProceduralGrass_Spec.md). This node only drives it
 # and writes the results into a Resource stream, so the existing `spawn_meshes` node
 # can instance them into a MultiMeshInstance3D exactly as it does for any other mesh
 # attribute.

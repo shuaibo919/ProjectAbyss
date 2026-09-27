@@ -2,7 +2,7 @@ extends Node3D
 
 # Validation + visual check for ProceduralGrass (Source/GrassGen/). Instantiates all
 # four species side by side, asserts the invariants noted in
-# Docs/ProceduralGrass_Spec.md §6, and screenshots each species plus an overview to
+# ProjectAbyssWiki/documentation/systems/ProceduralGrass_Spec.md §6, and screenshots each species plus an overview to
 # Reference/Shots/Grass/ via the shared ShotOutput helper (dev renders must not land
 # under Game/ — see Game/Develop/Tools/shot_output.gd).
 #

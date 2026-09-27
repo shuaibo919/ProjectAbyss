@@ -337,7 +337,7 @@ METASEQUOIA = '\n'.join([
 # SOLITARY OR IN PAIRS and opening BEFORE THE LEAVES; bark dark grey with horizontal lenticels,
 # young twigs reddish; "branches tend to droop over time".
 #
-# Architecture: run Halle's key (Docs/PlantBotany_ForPCG.md section 2) - axes homogeneous and
+# Architecture: run Halle's key (ProjectAbyssWiki/documentation/systems/PlantBotany_ForPCG.md section 2) - axes homogeneous and
 # orthotropic, inflorescences LATERAL (axillary buds on one-year wood, so branches are monopodial),
 # trunk growth rhythmic -> couplet 21a -> **Rauh's model**. The documented drooping is secondary
 # gravity bending as in Champagnat's model, which is exactly SlowTree's `gravity`.

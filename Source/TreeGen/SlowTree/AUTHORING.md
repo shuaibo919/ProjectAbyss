@@ -348,7 +348,7 @@ Twig `:867`、Roots `:959`、Spine `:1211`，四处都生效。
 
 ---
 
-**生物学依据见 `Docs/PlantBotany_ForPCG.md`** —— 顶端优势为什么导致单轴/合轴分化、
+**生物学依据见 `ProjectAbyssWiki/documentation/systems/PlantBotany_ForPCG.md`** —— 顶端优势为什么导致单轴/合轴分化、
 达·芬奇分枝律给出的 `radiusScale` 理论值、叶序分数对应的 `rotateOffset` 物种表、
 复叶类型决定用 LeafCluster 还是 Spine→Frond。本文管"怎么填"，那篇管"为什么"。
 
@@ -359,7 +359,7 @@ SlowTree **没有"花"这个节点**。做法是在同一根细枝上挂**两个
 
 ### 结构（由植物学推出，不是试出来的）
 
-维基 "Peach" 给的事实 → 走 Hallé 判别键（`Docs/PlantBotany_ForPCG.md` §2）：
+维基 "Peach" 给的事实 → 走 Hallé 判别键（`ProjectAbyssWiki/documentation/systems/PlantBotany_ForPCG.md` §2）：
 
 | 事实 | 推论 |
 |---|---|
