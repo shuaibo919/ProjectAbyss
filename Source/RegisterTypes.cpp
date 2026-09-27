@@ -18,7 +18,7 @@
 #include "TreeGen/SlowTree/SlowTreeCompute.h"
 #include "TreeGen/SlowTree/SlowTreeGenerator.h"
 #include "TreeGen/SlowTree/SlowTreeSelfTest.h"
-// Ancient Chinese architecture (port of Hu & Qin 2020 — see Docs/AncientBuilding_Spec.md)
+// Ancient Chinese architecture (port of Hu & Qin 2020 — see ProjectAbyssWiki/documentation/systems/AncientBuilding_Spec.md)
 #include "AncientBuilding/AncientBuilding.h"
 #include "AncientBuilding/AncientBuildingEditorPlugin.h"
 #include "AncientBuilding/AncientBuildingParameters.h"
@@ -27,7 +27,7 @@
 #include "RockGen/ProceduralRock.h"
 #include "RockGen/ProceduralRockEditorPlugin.h"
 #include "RockGen/ProceduralRockParameters.h"
-// Procedural grass clumps (original design — see Docs/ProceduralGrass_Spec.md)
+// Procedural grass clumps (original design — see ProjectAbyssWiki/documentation/systems/ProceduralGrass_Spec.md)
 #include "GrassGen/ProceduralGrass.h"
 #include "GrassGen/ProceduralGrassEditorPlugin.h"
 #include "GrassGen/ProceduralGrassParameters.h"

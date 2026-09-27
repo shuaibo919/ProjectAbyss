@@ -29,6 +29,95 @@ namespace
 
 		return Result;
 	}
+
+	/** One vertex-coloured triangle surface, whether it holds a whole mesh or one slot of it. */
+	Array MakeSurfaceArrays(
+		const std::vector<Vector3>& Vertices,
+		const std::vector<Vector3>& Normals,
+		const std::vector<Vector2>& UVs,
+		const std::vector<Color>& Colors,
+		const std::vector<int32_t>& Indices)
+	{
+		Array Arrays;
+		Arrays.resize(Mesh::ARRAY_MAX);
+		Arrays[Mesh::ARRAY_VERTEX] = ToPacked<PackedVector3Array>(Vertices);
+		Arrays[Mesh::ARRAY_NORMAL] = ToPacked<PackedVector3Array>(Normals);
+		Arrays[Mesh::ARRAY_TEX_UV] = ToPacked<PackedVector2Array>(UVs);
+		Arrays[Mesh::ARRAY_COLOR] = ToPacked<PackedColorArray>(Colors);
+		Arrays[Mesh::ARRAY_INDEX] = ToPacked<PackedInt32Array>(Indices);
+
+		return Arrays;
+	}
+
+	/** Slot names, so the enum's order is readable from GDScript without hard-coded numbers. */
+	struct SlotConstant
+	{
+		const char* Name;
+		BuildingGen::EMaterialSlot Slot;
+	};
+
+	const SlotConstant MATERIAL_SLOT_CONSTANTS[] = {
+		{ "SLOT_TILE", BuildingGen::EMaterialSlot::Tile },
+		{ "SLOT_TIMBER", BuildingGen::EMaterialSlot::Timber },
+		{ "SLOT_STONE", BuildingGen::EMaterialSlot::Stone },
+		{ "SLOT_WALL", BuildingGen::EMaterialSlot::Wall },
+		{ "SLOT_RIDGE", BuildingGen::EMaterialSlot::Ridge },
+		{ "SLOT_GABLE", BuildingGen::EMaterialSlot::Gable },
+	};
+
+	/** 脊饰 class names, for the property bindings and the enum constants below. */
+	struct RidgeKindConstant
+	{
+		const char* Constant;
+		const char* Property;
+		BuildingGen::ERidgeOrnamentKind Kind;
+	};
+
+	const RidgeKindConstant RIDGE_KIND_CONSTANTS[] = {
+		{ "RIDGE_ORNAMENT_FINIAL", "ridge_finial_mesh", BuildingGen::ERidgeOrnamentKind::Finial },
+		{ "RIDGE_ORNAMENT_BEAST", "ridge_beast_mesh", BuildingGen::ERidgeOrnamentKind::Beast },
+		{ "RIDGE_ORNAMENT_WALKER", "ridge_walker_mesh", BuildingGen::ERidgeOrnamentKind::Walker },
+	};
+
+	/** Packed array -> plain vector, for handing a Godot mesh to the geometry layer. */
+	template <typename TElement>
+	std::vector<TElement> ToVectors(const Variant& Source)
+	{
+		const PackedVector3Array Packed = Source;
+		std::vector<TElement> Result(size_t(Packed.size()));
+		for (int64_t Index = 0; Index < Packed.size(); ++Index)
+		{
+			Result[size_t(Index)] = Packed[Index];
+		}
+
+		return Result;
+	}
+
+	template <>
+	std::vector<Vector2> ToVectors<Vector2>(const Variant& Source)
+	{
+		const PackedVector2Array Packed = Source;
+		std::vector<Vector2> Result(size_t(Packed.size()));
+		for (int64_t Index = 0; Index < Packed.size(); ++Index)
+		{
+			Result[size_t(Index)] = Packed[Index];
+		}
+
+		return Result;
+	}
+
+	template <>
+	std::vector<int32_t> ToVectors<int32_t>(const Variant& Source)
+	{
+		const PackedInt32Array Packed = Source;
+		std::vector<int32_t> Result(size_t(Packed.size()));
+		for (int64_t Index = 0; Index < Packed.size(); ++Index)
+		{
+			Result[size_t(Index)] = Packed[Index];
+		}
+
+		return Result;
+	}
 } // namespace
 
 void AncientBuilding::_bind_methods()
@@ -46,6 +135,55 @@ void AncientBuilding::_bind_methods()
 	ClassDB::bind_method(D_METHOD("should_auto_regenerate"), &AncientBuilding::ShouldAutoRegenerate);
 	ADD_PROPERTY(PropertyInfo(Variant::BOOL, "auto_regenerate"), "set_auto_regenerate", "should_auto_regenerate");
 
+	// 按类别的材质槽. The slot indices are BuildingGen::EMaterialSlot, in the order the constants
+	// below name; a null entry means "keep the generated vertex-colour material".
+	for (const SlotConstant& Constant : MATERIAL_SLOT_CONSTANTS)
+	{
+		ClassDB::bind_integer_constant(
+			get_class_static(), StringName("MaterialSlot"), StringName(Constant.Name), int64_t(Constant.Slot));
+	}
+
+	ClassDB::bind_method(D_METHOD("set_slot_material", "slot", "material"), &AncientBuilding::SetSlotMaterial);
+	ClassDB::bind_method(D_METHOD("get_slot_material", "slot"), &AncientBuilding::GetSlotMaterial);
+	ClassDB::bind_method(D_METHOD("set_slot_materials", "materials"), &AncientBuilding::SetSlotMaterials);
+	ClassDB::bind_method(D_METHOD("get_slot_materials"), &AncientBuilding::GetSlotMaterials);
+	ADD_PROPERTY(
+		PropertyInfo(Variant::ARRAY, "slot_materials", PROPERTY_HINT_ARRAY_TYPE, "Material"),
+		"set_slot_materials", "get_slot_materials");
+
+	ClassDB::bind_method(D_METHOD("get_slot_count"), &AncientBuilding::GetSlotCount);
+	ClassDB::bind_method(D_METHOD("get_slot_triangle_count", "slot"), &AncientBuilding::GetSlotTriangleCount);
+
+	// 脊饰 mesh slots: null keeps the generator's cube placeholder. The class constants are the
+	// BuildingGen::ERidgeOrnamentKind indices, in the order RIDGE_KIND_CONSTANTS names them.
+	ClassDB::bind_method(D_METHOD("set_ridge_ornament_mesh", "kind", "mesh"),
+		&AncientBuilding::SetRidgeOrnamentMesh);
+	ClassDB::bind_method(D_METHOD("get_ridge_ornament_mesh", "kind"),
+		&AncientBuilding::GetRidgeOrnamentMesh);
+	ClassDB::bind_method(D_METHOD("get_ridge_ornament_slot_count"), &AncientBuilding::GetRidgeOrnamentSlotCount);
+	for (const RidgeKindConstant& Constant : RIDGE_KIND_CONSTANTS)
+	{
+		ClassDB::bind_integer_constant(
+			get_class_static(), StringName("RidgeOrnamentKind"), StringName(Constant.Constant),
+			int64_t(Constant.Kind));
+	}
+
+	ClassDB::bind_method(D_METHOD("set_ridge_finial_mesh", "mesh"), &AncientBuilding::SetRidgeFinialMesh);
+	ClassDB::bind_method(D_METHOD("get_ridge_finial_mesh"), &AncientBuilding::GetRidgeFinialMesh);
+	ADD_PROPERTY(
+		PropertyInfo(Variant::OBJECT, "ridge_finial_mesh", PROPERTY_HINT_RESOURCE_TYPE, "Mesh"),
+		"set_ridge_finial_mesh", "get_ridge_finial_mesh");
+	ClassDB::bind_method(D_METHOD("set_ridge_beast_mesh", "mesh"), &AncientBuilding::SetRidgeBeastMesh);
+	ClassDB::bind_method(D_METHOD("get_ridge_beast_mesh"), &AncientBuilding::GetRidgeBeastMesh);
+	ADD_PROPERTY(
+		PropertyInfo(Variant::OBJECT, "ridge_beast_mesh", PROPERTY_HINT_RESOURCE_TYPE, "Mesh"),
+		"set_ridge_beast_mesh", "get_ridge_beast_mesh");
+	ClassDB::bind_method(D_METHOD("set_ridge_walker_mesh", "mesh"), &AncientBuilding::SetRidgeWalkerMesh);
+	ClassDB::bind_method(D_METHOD("get_ridge_walker_mesh"), &AncientBuilding::GetRidgeWalkerMesh);
+	ADD_PROPERTY(
+		PropertyInfo(Variant::OBJECT, "ridge_walker_mesh", PROPERTY_HINT_RESOURCE_TYPE, "Mesh"),
+		"set_ridge_walker_mesh", "get_ridge_walker_mesh");
+
 	ClassDB::bind_method(D_METHOD("get_vertex_count"), &AncientBuilding::GetVertexCount);
 	ClassDB::bind_method(D_METHOD("get_triangle_count"), &AncientBuilding::GetTriangleCount);
 }
@@ -55,6 +193,24 @@ void AncientBuilding::_validate_property(PropertyInfo& Property) const
 	if (Property.name == StringName("mesh"))
 	{
 		Property.usage &= ~uint32_t(PROPERTY_USAGE_STORAGE);
+	}
+	else if (Property.name == StringName("slot_materials") && !HasAnySlotMaterial())
+	{
+		Property.usage &= ~uint32_t(PROPERTY_USAGE_STORAGE);
+	}
+	else
+	{
+		// A 脊饰 slot that was never filled leaves no trace in the scene, exactly as a null
+		// `slot_materials` entry does not.
+		for (const RidgeKindConstant& Constant : RIDGE_KIND_CONSTANTS)
+		{
+			if (Property.name == StringName(Constant.Property)
+				&& RidgeOrnamentMeshes[int32_t(Constant.Kind)].is_null())
+			{
+				Property.usage &= ~uint32_t(PROPERTY_USAGE_STORAGE);
+				break;
+			}
+		}
 	}
 }
 
@@ -101,7 +257,14 @@ void AncientBuilding::CollectSpec(BuildingGen::BuildingSpec& OutSpec) const
 
 	OutSpec.Module = P->GetModule();
 
-	OutSpec.PlatformHeight = P->GetPlatformHeight();
+	OutSpec.bGeneratePlatform = P->ShouldGeneratePlatform();
+	// No platform ⇒ the building stands on the ground. `PlatformHeight` drives the column base
+	// and the wall base directly, and `EaveHeight` / `RoofBase` (below) carry it too — so every
+	// quantity that includes it comes down by the same amount and the whole building drops onto
+	// the ground plane instead of floating or leaving a gap under the eave.
+	const float FullPlatformHeight = P->GetPlatformHeight();
+	const float HeightShift = OutSpec.bGeneratePlatform ? 0.0f : FullPlatformHeight;
+	OutSpec.PlatformHeight = OutSpec.bGeneratePlatform ? FullPlatformHeight : 0.0f;
 	OutSpec.PlatformHalfWidth = P->GetPlatformHalfWidth();
 	OutSpec.PlatformHalfDepth = P->GetPlatformHalfDepth();
 	OutSpec.bGenerateFence = P->ShouldGenerateFence();
@@ -111,17 +274,29 @@ void AncientBuilding::CollectSpec(BuildingGen::BuildingSpec& OutSpec) const
 	OutSpec.StepRunCount = P->GetStepRunCount();
 	OutSpec.StepCount = std::max(P->GetStepCount(), 1);
 	OutSpec.StepRunDepth = P->GetStepRunDepth();
+	OutSpec.bPlatformTopJoints = P->ShouldGeneratePlatformTopJoints();
+	OutSpec.bPlatformEdgeLip = P->ShouldGeneratePlatformEdgeLip();
+	OutSpec.bPaving = P->ShouldGeneratePaving();
+	OutSpec.bPavingJointGeometry = P->ShouldGeneratePavingJointGeometry();
+	OutSpec.bStepSideCheek = P->ShouldGenerateStepSideCheek();
 
 	OutSpec.bGenerateColumns = P->ShouldGenerateColumns();
 	OutSpec.bGenerateWalls = P->ShouldGenerateWalls();
+	OutSpec.DadoHeightRatio = std::fmax(P->GetDadoHeightRatio(), 0.0f);
+	OutSpec.DadoTopTrim = std::fmax(P->GetDadoTopTrim(), 0.0f);
 	OutSpec.ColumnRadius = P->GetColumnRadius();
+	OutSpec.bColumnBaseSquare = P->ShouldGenerateColumnBaseSquare();
 	OutSpec.ColumnSides = std::max(P->GetColumnSides(), 3);
 	OutSpec.bSmoothColumns = P->GetSmoothColumns();
 	OutSpec.ColumnBaseHeight = std::max(P->GetColumnBaseHeightScale(), 0.0f) * OutSpec.Module;
 	OutSpec.ColumnHeight = P->GetColumnHeight();
-	OutSpec.EaveHeight = P->GetEaveHeight();
+	// `GetEaveHeight()` / `GetRoofBase()` are derived on the parameter side and both include the
+	// full platform height (檐高 = 台基 + 柱 + 斗拱). When the platform is switched off we zeroed
+	// `OutSpec.PlatformHeight`, so these two must come down by the same amount — otherwise the
+	// body drops to the ground while the roof stays up, leaving a gap between wall top and eave.
+	OutSpec.EaveHeight = P->GetEaveHeight() - HeightShift;
 	OutSpec.BracketHeight = P->GetBracketHeight();
-	OutSpec.RoofBase = P->GetRoofBase();
+	OutSpec.RoofBase = P->GetRoofBase() - HeightShift;
 
 	OutSpec.EaveOverhang = P->GetEaveOverhang();
 	OutSpec.RoofHeight = P->GetRoofHeight();
@@ -133,8 +308,26 @@ void AncientBuilding::CollectSpec(BuildingGen::BuildingSpec& OutSpec) const
 	OutSpec.RoofMaxSegment = P->GetRoofMaxSegment();
 	OutSpec.EaveRafterStyle = P->GetEaveRafterStyle();
 	OutSpec.TileCourseWidth = P->GetTileCourseWidth();
+	OutSpec.TileDetail = P->GetTileDetail();
+	OutSpec.TileBeddingThickness = P->GetTileBeddingThickness();
+	OutSpec.LODLevel = std::max(P->GetLODLevel(), 0);
 	OutSpec.TileCoverage = P->GetTileCoverage();
 	OutSpec.RidgeScale = P->GetRidgeScale();
+	OutSpec.RidgeDetail = std::max(P->GetRidgeDetail(), 0);
+	OutSpec.bRidgeOrnaments = P->ShouldGenerateRidgeOrnaments();
+	// Sizes stay in modules D here; the generator is what knows the module.
+	OutSpec.RidgeFinialSize = std::fmax(P->GetRidgeFinialSize(), 0.0f);
+	OutSpec.RidgeBeastSize = std::fmax(P->GetRidgeBeastSize(), 0.0f);
+	OutSpec.RidgeWalkerSize = std::fmax(P->GetRidgeWalkerSize(), 0.0f);
+	OutSpec.RidgeWalkerCount = std::max(P->GetRidgeWalkerCount(), 0);
+	for (int32_t Kind = 0; Kind < BuildingGen::RIDGE_ORNAMENT_KIND_COUNT; ++Kind)
+	{
+		if (RidgeOrnamentMeshes[Kind].is_valid())
+		{
+			OutSpec.RidgeOrnamentMeshMask |= BuildingGen::RidgeOrnamentBit(
+				BuildingGen::ERidgeOrnamentKind(Kind));
+		}
+	}
 	OutSpec.GableRatio = P->GetGableRatio();
 	OutSpec.GableOverhang = P->GetGableOverhang();
 	OutSpec.RollRadius = P->GetRollRadius();
@@ -168,6 +361,18 @@ void AncientBuilding::Generate()
 	Accumulated.SetMottle(Spec.ColorMottle);
 	BuildingGen::BuildBuilding(Spec, Accumulated);
 
+	// 脊饰 with a mesh of their own: the generator left the placeholder out for those classes and
+	// recorded where they go, so the swap happens here and the geometry layer stays mesh-free.
+	PlaceRidgeOrnamentMeshes(Accumulated, BuildingGen::RidgeOrnamentColor(Spec));
+
+	// The slot partition is reported whether or not the mesh gets split by it, so a caller can
+	// always ask what the building is made of.
+	for (int32_t Slot = 0; Slot < MATERIAL_SLOT_COUNT; ++Slot)
+	{
+		LastSlotTriangleCounts[Slot] =
+			Accumulated.GetSlotTriangleCount(BuildingGen::EMaterialSlot(Slot));
+	}
+
 	if (Accumulated.Indices.empty())
 	{
 		set_mesh(Ref<ArrayMesh>());
@@ -176,21 +381,187 @@ void AncientBuilding::Generate()
 		return;
 	}
 
-	Array Arrays;
-	Arrays.resize(Mesh::ARRAY_MAX);
-	Arrays[Mesh::ARRAY_VERTEX] = ToPacked<PackedVector3Array>(Accumulated.Vertices);
-	Arrays[Mesh::ARRAY_NORMAL] = ToPacked<PackedVector3Array>(Accumulated.Normals);
-	Arrays[Mesh::ARRAY_TEX_UV] = ToPacked<PackedVector2Array>(Accumulated.UVs);
-	Arrays[Mesh::ARRAY_COLOR] = ToPacked<PackedColorArray>(Accumulated.Colors);
-	Arrays[Mesh::ARRAY_INDEX] = ToPacked<PackedInt32Array>(Accumulated.Indices);
-
 	Ref<ArrayMesh> Result(memnew(ArrayMesh));
-	Result->add_surface_from_arrays(Mesh::PRIMITIVE_TRIANGLES, Arrays);
-	Result->surface_set_material(0, BuildingMaterial);
+
+	if (HasAnySlotMaterial())
+	{
+		// One surface per category, each carrying its own material. Vertices are re-indexed inside
+		// their surface, so a slot is free to be textured on its own.
+		std::vector<BuildingGen::SurfaceData> Surfaces;
+		Accumulated.BuildSurfaces(Surfaces);
+
+		for (const BuildingGen::SurfaceData& Surface : Surfaces)
+		{
+			const Array Arrays = MakeSurfaceArrays(
+				Surface.Vertices, Surface.Normals, Surface.UVs, Surface.Colors, Surface.Indices);
+			Result->add_surface_from_arrays(Mesh::PRIMITIVE_TRIANGLES, Arrays);
+
+			// A slot with no material of its own keeps the generated vertex-colour material, so
+			// asking for a 山花 texture does not strip the colour off the 瓦面 beside it.
+			const Ref<Material>& SlotMaterial = SlotMaterials[int32_t(Surface.Slot)];
+			Result->surface_set_material(
+				Result->get_surface_count() - 1,
+				SlotMaterial.is_valid() ? SlotMaterial : Ref<Material>(BuildingMaterial));
+		}
+	}
+	else
+	{
+		// No slot material anywhere: emit the mesh exactly as it has always been emitted, one
+		// surface over the whole vertex table. The geometry regression tests read surface 0 as the
+		// entire building, and this keeps that true — and keeps the default bytes untouched.
+		const Array Arrays = MakeSurfaceArrays(
+			Accumulated.Vertices, Accumulated.Normals, Accumulated.UVs, Accumulated.Colors,
+			Accumulated.Indices);
+		Result->add_surface_from_arrays(Mesh::PRIMITIVE_TRIANGLES, Arrays);
+		Result->surface_set_material(0, BuildingMaterial);
+	}
+
 	set_mesh(Result);
 
 	LastVertexCount = int32_t(Accumulated.Vertices.size());
 	LastTriangleCount = Accumulated.GetTriangleCount();
+}
+
+void AncientBuilding::PlaceRidgeOrnamentMeshes(
+	BuildingGen::MeshAccumulator& Accumulated, const Color& Tint) const
+{
+	if (Accumulated.RidgeOrnaments.empty())
+	{
+		return;
+	}
+
+	// The 脊饰 ride on the 脊 material slot, exactly as their placeholder cubes did.
+	Accumulated.SetSlot(BuildingGen::EMaterialSlot::Ridge);
+
+	for (const BuildingGen::RidgeOrnamentPlacement& Placement : Accumulated.RidgeOrnaments)
+	{
+		const Ref<Mesh>& Source = RidgeOrnamentMeshes[int32_t(Placement.Kind)];
+		if (Source.is_null())
+		{
+			continue;
+		}
+
+		for (int32_t Surface = 0; Surface < Source->get_surface_count(); ++Surface)
+		{
+			const Array Arrays = Source->surface_get_arrays(Surface);
+			const std::vector<Vector3> Vertices = ToVectors<Vector3>(Arrays[Mesh::ARRAY_VERTEX]);
+			const std::vector<Vector3> Normals = ToVectors<Vector3>(Arrays[Mesh::ARRAY_NORMAL]);
+			const std::vector<Vector2> UVs = ToVectors<Vector2>(Arrays[Mesh::ARRAY_TEX_UV]);
+			std::vector<int32_t> Indices = ToVectors<int32_t>(Arrays[Mesh::ARRAY_INDEX]);
+			if (Indices.empty())
+			{
+				// A surface authored without an index buffer is still a triangle list.
+				Indices.resize(Vertices.size());
+				for (size_t Index = 0; Index < Indices.size(); ++Index)
+				{
+					Indices[Index] = int32_t(Index);
+				}
+			}
+
+			Accumulated.AddPlacedTriangles(
+				Vertices, Normals, UVs, Indices,
+				Placement.Origin, Placement.AxisX, Placement.AxisY, Placement.AxisZ,
+				Placement.Size, Tint);
+		}
+	}
+}
+
+bool AncientBuilding::HasAnySlotMaterial() const
+{
+	for (const Ref<Material>& SlotMaterial : SlotMaterials)
+	{
+		if (SlotMaterial.is_valid())
+		{
+			return true;
+		}
+	}
+
+	return false;
+}
+
+void AncientBuilding::SetSlotMaterial(int32_t Slot, const Ref<Material>& Value)
+{
+	if (Slot < 0 || Slot >= MATERIAL_SLOT_COUNT || SlotMaterials[Slot] == Value)
+	{
+		return;
+	}
+
+	SlotMaterials[Slot] = Value;
+	RequestRegenerate();
+}
+
+Ref<Material> AncientBuilding::GetSlotMaterial(int32_t Slot) const
+{
+	if (Slot < 0 || Slot >= MATERIAL_SLOT_COUNT)
+	{
+		return Ref<Material>();
+	}
+
+	return SlotMaterials[Slot];
+}
+
+void AncientBuilding::SetSlotMaterials(const Array& Values)
+{
+	bool bChanged = false;
+	for (int32_t Slot = 0; Slot < MATERIAL_SLOT_COUNT; ++Slot)
+	{
+		const Ref<Material> Value =
+			(Slot < Values.size()) ? Ref<Material>(Values[Slot]) : Ref<Material>();
+		if (SlotMaterials[Slot] != Value)
+		{
+			SlotMaterials[Slot] = Value;
+			bChanged = true;
+		}
+	}
+
+	if (bChanged)
+	{
+		RequestRegenerate();
+	}
+}
+
+Array AncientBuilding::GetSlotMaterials() const
+{
+	Array Result;
+	Result.resize(MATERIAL_SLOT_COUNT);
+	for (int32_t Slot = 0; Slot < MATERIAL_SLOT_COUNT; ++Slot)
+	{
+		Result[Slot] = SlotMaterials[Slot];
+	}
+
+	return Result;
+}
+
+void AncientBuilding::SetRidgeOrnamentMesh(int32_t Kind, const Ref<Mesh>& Value)
+{
+	if (Kind < 0 || Kind >= BuildingGen::RIDGE_ORNAMENT_KIND_COUNT
+		|| RidgeOrnamentMeshes[Kind] == Value)
+	{
+		return;
+	}
+
+	RidgeOrnamentMeshes[Kind] = Value;
+	RequestRegenerate();
+}
+
+Ref<Mesh> AncientBuilding::GetRidgeOrnamentMesh(int32_t Kind) const
+{
+	if (Kind < 0 || Kind >= BuildingGen::RIDGE_ORNAMENT_KIND_COUNT)
+	{
+		return Ref<Mesh>();
+	}
+
+	return RidgeOrnamentMeshes[Kind];
+}
+
+int32_t AncientBuilding::GetSlotTriangleCount(int32_t Slot) const
+{
+	if (Slot < 0 || Slot >= MATERIAL_SLOT_COUNT)
+	{
+		return 0;
+	}
+
+	return LastSlotTriangleCounts[Slot];
 }
 
 Ref<ArrayMesh> AncientBuilding::BakeMesh()

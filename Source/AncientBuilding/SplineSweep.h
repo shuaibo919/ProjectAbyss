@@ -1,6 +1,6 @@
 #pragma once
 
-// Spline mesh generation from Hu & Qin 2020, section 3.1 (see Docs/AncientBuilding_Spec.md).
+// Spline mesh generation from Hu & Qin 2020, section 3.1 (see ProjectAbyssWiki/documentation/systems/AncientBuilding_Spec.md).
 //
 // The paper's contribution is easy to mis-read as "sweep a contour along a spline". It is
 // not. The contour is placed once, on the plane of the first knot, and is never
@@ -34,6 +34,8 @@ namespace BuildingGen
 		 * anything — see Fig 5a/5b versus 5c.
 		 */
 		Frame,
+		/** Reconstruct each miter from its adjacent segments, without accumulated projection drift. */
+		LocalMiter,
 	};
 
 	struct SweepSettings
@@ -66,6 +68,12 @@ namespace BuildingGen
 
 		/** Close the two ends. Only meaningful for a closed contour. */
 		bool bGenerateCaps = true;
+		/** Ear-clip concave profiles; opt-in so legacy sweep arrays stay unchanged. */
+		bool bTriangulateCaps = false;
+		/** Correct the legacy inward side normals without changing archived mesh arrays by default. */
+		bool bCorrectSurfaceNormals = false;
+		/** Smooth only adjacent edges entirely above this section height (rounded crown). */
+		float SmoothContourMinY = 1e30f;
 	};
 
 	struct SweepResult

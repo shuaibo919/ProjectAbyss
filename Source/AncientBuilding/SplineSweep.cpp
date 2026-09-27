@@ -1,5 +1,7 @@
 #include "AncientBuilding/SplineSweep.h"
 
+#include <godot_cpp/classes/geometry2d.hpp>
+
 #include <algorithm>
 #include <cmath>
 
@@ -159,6 +161,17 @@ bool BuildingGen::BuildSweep(
 	std::vector<KnotFrame> Frames;
 	std::vector<Vector3> SegmentDirections;
 	BuildFrames(Knots, Settings.UpReference, Frames, SegmentDirections);
+	const bool bClosedPath = Settings.Mode == ESweepMode::LocalMiter
+		&& Knots.front().distance_squared_to(Knots.back()) < LENGTH_EPSILON * LENGTH_EPSILON;
+	if (bClosedPath)
+	{
+		// The duplicated closing station has the same bisector/frame at both ends.
+		KnotFrame& F = Frames.front();
+		F.Tangent = (SegmentDirections.back() + SegmentDirections.front()).normalized();
+		F.Normal = Settings.UpReference.cross(F.Tangent).normalized();
+		F.Bitangent = F.Tangent.cross(F.Normal).normalized();
+		Frames.back() = F;
+	}
 
 	// ---- Propagate the contour along the spline (equation 1, or the naive alternative) ----
 
@@ -171,16 +184,29 @@ bool BuildingGen::BuildSweep(
 		Rings[J] = Knots[0] + Frames[0].Normal * Point.x + Frames[0].Bitangent * Point.y;
 	}
 
-	if (Settings.Mode == ESweepMode::Frame)
+	if (Settings.Mode == ESweepMode::Frame || Settings.Mode == ESweepMode::LocalMiter)
 	{
-		// Re-place the contour in every knot's own frame. Cheap, and wrong at sharp corners.
-		for (size_t I = 1; I < KnotCount; ++I)
+		// Frame mode just re-places the section; LocalMiter also stretches the bend-plane offset.
+		for (size_t I = Settings.Mode == ESweepMode::LocalMiter ? 0 : 1; I < KnotCount; ++I)
 		{
+			float MiterScale = 1.0f;
+			Vector3 Bend;
+			if (Settings.Mode == ESweepMode::LocalMiter && (bClosedPath || (I > 0 && I + 1 < KnotCount)))
+			{
+				const Vector3& Before = SegmentDirections[I == 0 ? SegmentDirections.size() - 1 : I - 1];
+				const Vector3& After = SegmentDirections[I + 1 == KnotCount ? 0 : I];
+				Bend = (After - Before).normalized();
+				// Limit very acute gable joins: the verge must remain beneath the main crown.
+				// At the supported ridge proportions, 2 * 0.525 * 0.85 < 0.75 * 1.35.
+				MiterScale = 1.0f / std::fmax(Frames[I].Tangent.dot(After), 0.5f);
+			}
 			for (size_t J = 0; J < ContourCount; ++J)
 			{
 				const Vector2& Point = Settings.Contour[J];
+				Vector3 Offset = Frames[I].Normal * Point.x + Frames[I].Bitangent * Point.y;
+				Offset += Bend * (Offset.dot(Bend) * (MiterScale - 1.0f));
 				Rings[I * ContourCount + J] =
-					Knots[I] + Frames[I].Normal * Point.x + Frames[I].Bitangent * Point.y;
+					Knots[I] + Offset;
 			}
 		}
 	}
@@ -322,6 +348,7 @@ bool BuildingGen::BuildSweep(
 				(Rings[Prev * ContourCount + J0] + Rings[Prev * ContourCount + J1]);
 
 			Vector3 Normal = AlongSpline.cross(B - A);
+			if (Settings.bCorrectSurfaceNormals) { Normal = -Normal; }
 			Normal = (Normal.length_squared() > LENGTH_EPSILON) ? Normal.normalized() : Frames[I].Normal;
 
 			const float V = SplineU[I] / SplineLength;
@@ -353,6 +380,26 @@ bool BuildingGen::BuildSweep(
 		}
 	}
 
+	// Keep moulding ledges hard; only the rounded crown shares normals across its facets.
+	for (size_t J = 0; J < ContourCount && Settings.bClosedContour; ++J)
+	{
+		const size_t Prev = (J + ContourCount - 1) % ContourCount;
+		const size_t Next = (J + 1) % ContourCount;
+		if (Settings.Contour[Prev].y < Settings.SmoothContourMinY
+			|| Settings.Contour[J].y < Settings.SmoothContourMinY
+			|| Settings.Contour[Next].y < Settings.SmoothContourMinY)
+		{
+			continue;
+		}
+		for (size_t I = 0; I < KnotCount; ++I)
+		{
+			const size_t A = Prev * KnotCount * 2 + I * 2 + 1;
+			const size_t B = J * KnotCount * 2 + I * 2;
+			const Vector3 N = (OutResult.Normals[A] + OutResult.Normals[B]).normalized();
+			OutResult.Normals[A] = OutResult.Normals[B] = N;
+		}
+	}
+
 	// ---- Caps ----
 
 	if (Settings.bGenerateCaps && Settings.bClosedContour)
@@ -362,6 +409,36 @@ bool BuildingGen::BuildSweep(
 			const size_t I = (End == 0) ? 0 : KnotCount - 1;
 			// Outward is away from the body of the sweep at each end.
 			const Vector3 Normal = (End == 0) ? -Frames[I].Tangent : Frames[I].Tangent;
+
+			if (Settings.bTriangulateCaps)
+			{
+				godot::PackedVector2Array Polygon;
+				for (const Vector2& Point : Settings.Contour)
+				{
+					Polygon.push_back(Point);
+				}
+				const godot::PackedInt32Array Triangles = godot::Geometry2D::get_singleton()->triangulate_polygon(Polygon);
+				const int32_t Base = int32_t(OutResult.Vertices.size());
+				for (size_t J = 0; J < ContourCount; ++J)
+				{
+					OutResult.Vertices.push_back(Rings[I * ContourCount + J]);
+					OutResult.Normals.push_back(Normal);
+					OutResult.UVs.push_back(Settings.Contour[J]);
+				}
+				for (int32_t T = 0; T + 2 < Triangles.size(); T += 3)
+				{
+					const int32_t A = Base + Triangles[T];
+					int32_t B = Base + Triangles[T + 1];
+					int32_t C = Base + Triangles[T + 2];
+					if (-(OutResult.Vertices[B] - OutResult.Vertices[A]).cross(
+						OutResult.Vertices[C] - OutResult.Vertices[A]).dot(Normal) < 0.0f)
+					{
+						std::swap(B, C);
+					}
+					OutResult.Indices.insert(OutResult.Indices.end(), { A, B, C });
+				}
+				continue;
+			}
 
 			Vector3 Centre(0, 0, 0);
 			for (size_t J = 0; J < ContourCount; ++J)

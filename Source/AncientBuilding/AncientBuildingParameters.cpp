@@ -183,14 +183,32 @@ void AncientBuildingParameters::_bind_methods()
 	ANCIENT_BIND_RANGE(Variant::FLOAT, "fence_gap_override", FenceGapOverride, "0,20,0.01")
 	ANCIENT_BIND_FLAG("generate_steps", SetGenerateSteps, ShouldGenerateSteps, "should_generate_steps")
 	ANCIENT_BIND_RANGE(Variant::INT, "step_count", StepCount, "1,24,1")
+	// 60_台基地面 R6/R8/R9. All four default to the legacy output.
+	ANCIENT_BIND_FLAG("generate_platform", SetGeneratePlatform, ShouldGeneratePlatform,
+		"should_generate_platform")
+	ANCIENT_BIND_FLAG("platform_top_joints", SetPlatformTopJoints, ShouldGeneratePlatformTopJoints,
+		"should_generate_platform_top_joints")
+	ANCIENT_BIND_FLAG("platform_edge_lip", SetPlatformEdgeLip, ShouldGeneratePlatformEdgeLip,
+		"should_generate_platform_edge_lip")
+	ANCIENT_BIND_FLAG("paving", SetPaving, ShouldGeneratePaving, "should_generate_paving")
+	ANCIENT_BIND_FLAG("paving_joint_geometry", SetPavingJointGeometry, ShouldGeneratePavingJointGeometry,
+		"should_generate_paving_joint_geometry")
+	ANCIENT_BIND_FLAG("step_side_cheek", SetStepSideCheek, ShouldGenerateStepSideCheek,
+		"should_generate_step_side_cheek")
 
 	ADD_GROUP("Body", "");
 	ANCIENT_BIND_FLAG("generate_columns", SetGenerateColumns, ShouldGenerateColumns, "should_generate_columns")
 	ANCIENT_BIND_FLAG("generate_walls", SetGenerateWalls, ShouldGenerateWalls, "should_generate_walls")
+	// 20_墙体 R15. Both default to the legacy output.
+	ANCIENT_BIND_RANGE(Variant::FLOAT, "dado_height_ratio", DadoHeightRatio, "0,1,0.001")
+	ANCIENT_BIND_RANGE(Variant::FLOAT, "dado_top_trim", DadoTopTrim, "0,2,0.01")
 	ANCIENT_BIND_RANGE(Variant::FLOAT, "column_radius_scale", ColumnRadiusScale, "0.05,2,0.001")
 	ANCIENT_BIND_RANGE(Variant::INT, "column_sides", ColumnSides, "3,24,1")
 	ANCIENT_BIND(Variant::BOOL, "smooth_columns", SmoothColumns)
 	ANCIENT_BIND_RANGE(Variant::FLOAT, "column_base_height_scale", ColumnBaseHeightScale, "0,2,0.01")
+	// 60_台基地面 R12: the square 石础, off so the turned drum stays the legacy output.
+	ANCIENT_BIND_FLAG("column_base_square", SetColumnBaseSquare, ShouldGenerateColumnBaseSquare,
+		"should_generate_column_base_square")
 	ANCIENT_BIND_RANGE(Variant::FLOAT, "bracket_height_scale", BracketHeightScale, "0,4,0.01")
 
 	ADD_GROUP("Roof", "");
@@ -213,8 +231,31 @@ void AncientBuildingParameters::_bind_methods()
 	ANCIENT_BIND_RANGE(Variant::FLOAT, "roof_chord_error", RoofChordError, "0.001,0.05,0.001")
 	ANCIENT_BIND_RANGE(Variant::FLOAT, "roof_max_segment", RoofMaxSegment, "0.05,2,0.001")
 	ANCIENT_BIND_RANGE(Variant::FLOAT, "tile_course_width", TileCourseWidth, "0.05,2,0.001")
+	// 瓦作 (30_瓦作 §3): 0 = legacy, so every resource written before reads back unchanged.
+	ClassDB::bind_method(D_METHOD("set_tile_detail", "value"), &AncientBuildingParameters::SetTileDetail);
+	ClassDB::bind_method(D_METHOD("get_tile_detail"), &AncientBuildingParameters::GetTileDetail);
+	ADD_PROPERTY(PropertyInfo(Variant::INT, "tile_detail", PROPERTY_HINT_ENUM,
+		"Legacy,排垄与叠压,檐口件与泥背"), "set_tile_detail", "get_tile_detail");
+	ANCIENT_BIND_RANGE(Variant::FLOAT, "tile_bedding_thickness", TileBeddingThickness, "0,0.2,0.001")
+	// 距离档 : 0 = 近景 full = byte-compatible with every resource written before it existed.
+	ClassDB::bind_method(D_METHOD("set_lod_level", "value"), &AncientBuildingParameters::SetLODLevel);
+	ClassDB::bind_method(D_METHOD("get_lod_level"), &AncientBuildingParameters::GetLODLevel);
+	ADD_PROPERTY(PropertyInfo(Variant::INT, "lod_level", PROPERTY_HINT_ENUM,
+		"近景,中景,远景"), "set_lod_level", "get_lod_level");
 	ANCIENT_BIND_RANGE(Variant::FLOAT, "tile_coverage", TileCoverage, "0,1,0.001")
 	ANCIENT_BIND_RANGE(Variant::FLOAT, "ridge_scale", RidgeScale, "0.1,4,0.001")
+	// 50_脊饰 §3. 0 = the legacy seven-point ridge, so every resource written before this existed
+	// bakes to exactly the mesh it baked to then.
+	ClassDB::bind_method(D_METHOD("set_ridge_detail", "value"), &AncientBuildingParameters::SetRidgeDetail);
+	ClassDB::bind_method(D_METHOD("get_ridge_detail"), &AncientBuildingParameters::GetRidgeDetail);
+	ADD_PROPERTY(PropertyInfo(Variant::INT, "ridge_detail", PROPERTY_HINT_ENUM,
+		"Legacy 7-point,分层 当沟条+脊身+盖脊筒"), "set_ridge_detail", "get_ridge_detail");
+	ANCIENT_BIND_FLAG("ridge_ornaments", SetRidgeOrnaments, ShouldGenerateRidgeOrnaments,
+		"should_generate_ridge_ornaments")
+	ANCIENT_BIND_RANGE(Variant::FLOAT, "ridge_finial_size", RidgeFinialSize, "0,4,0.01")
+	ANCIENT_BIND_RANGE(Variant::FLOAT, "ridge_beast_size", RidgeBeastSize, "0,4,0.01")
+	ANCIENT_BIND_RANGE(Variant::FLOAT, "ridge_walker_size", RidgeWalkerSize, "0,4,0.01")
+	ANCIENT_BIND_RANGE(Variant::INT, "ridge_walker_count", RidgeWalkerCount, "0,12,1")
 	ANCIENT_BIND_RANGE(Variant::FLOAT, "gable_ratio", GableRatio, "0.05,0.9,0.001")
 	ANCIENT_BIND_RANGE(Variant::FLOAT, "gable_overhang_scale", GableOverhangScale, "0,8,0.001")
 	ANCIENT_BIND_RANGE(Variant::FLOAT, "roll_radius_scale", RollRadiusScale, "0.05,6,0.001")

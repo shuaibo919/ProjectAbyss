@@ -19,11 +19,11 @@ namespace
 {
 	/**
 	 * Dock order groups the nine types by generator, which is also how they group visually:
-	 * gabled, then hipped, then centralised. See Docs/AncientBuilding_Spec.md section 2.
+	 * gabled, then hipped, then centralised. See ProjectAbyssWiki/documentation/systems/AncientBuilding_Spec.md section 2.
 	 */
 	/**
 	 * Picker order groups the nine types by generator, which is also how they group visually:
-	 * gabled, then hipped, then centralised. See Docs/AncientBuilding_Spec.md section 2.
+	 * gabled, then hipped, then centralised. See ProjectAbyssWiki/documentation/systems/AncientBuilding_Spec.md section 2.
 	 *
 	 * The labels themselves come from AncientBuildingParameters, so the Chinese terms live in one
 	 * bound place instead of being duplicated as literals here.

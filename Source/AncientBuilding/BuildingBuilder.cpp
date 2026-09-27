@@ -5,6 +5,7 @@
 
 #include <algorithm>
 #include <cmath>
+#include <limits>
 
 using namespace BuildingGen;
 
@@ -28,6 +29,211 @@ namespace
 
 		return Contour;
 	}
+
+	/**
+	 * The far tier's ridge: a placeholder block ( tier 2, "脊饰降为占位块").
+	 *
+	 * Same footprint and soffit as the profiled section, so the ridge still covers exactly what it
+	 * covered — the silhouette at the distance the tier exists for is a bar with a shoulder, and the
+	 * three intermediate contour points of the crown buy nothing there.
+	 */
+	std::vector<Vector2> MakeRidgeContourBlock(float Scale)
+	{
+		std::vector<Vector2> Contour;
+		Contour.push_back(Vector2(-0.5f, -0.10f) * Scale);
+		Contour.push_back(Vector2(0.5f, -0.10f) * Scale);
+		Contour.push_back(Vector2(0.5f, 0.30f) * Scale);
+		Contour.push_back(Vector2(-0.5f, 0.30f) * Scale);
+
+		return Contour;
+	}
+
+	// ---- 分层断面 (RidgeDetail = 1, 50_脊饰 §2) ----
+	//
+	// The three members the handbook names — 当沟条 at the bottom, 脊身 in the middle, 盖脊筒 on top —
+	// as three bands separated by real ledges, so the silhouette reads as a stack of members rather
+	// than as one half-round bar. No 雕花: at this project's scale the carving is the material's job
+	// (user decision 2026-09-27), and the mesh only has to get the 剪影/断面层次 right.
+	//
+	// Project proportions, not historical measurements: keep the tile-covering foot at
+	// +/-0.50 and -0.10, recess the body to +/-0.29, and use a circular coping (r=0.29).
+	// The main crown stays at 0.75. Verge profiles reduce positive heights by 30%, keeping
+	// the full-width foot and its soffit for the existing tile clipping contract.
+
+	/** Fine section: 23 points, including an eight-facet circular crown. */
+	std::vector<Vector2> MakeRidgeContourTiered()
+	{
+		std::vector<Vector2> Contour;
+		Contour.push_back(Vector2(-0.50f, -0.10f));   // soffit, left
+		Contour.push_back(Vector2(0.50f, -0.10f));    // soffit, right
+		Contour.push_back(Vector2(0.50f, 0.035f));    // broad, thin tile-covering foot
+		Contour.push_back(Vector2(0.46f, 0.09f));
+		Contour.push_back(Vector2(0.29f, 0.09f));     // recessed masonry body
+		Contour.push_back(Vector2(0.29f, 0.36f));
+		Contour.push_back(Vector2(0.34f, 0.39f));     // restrained coping lip
+		Contour.push_back(Vector2(0.34f, 0.43f));
+		// Circular crown, eight facets with shared shading normals. No carved microgeometry.
+		for (int32_t I = 0; I <= 8; ++I)
+		{
+			const float Angle = BUILD_PI * float(I) / 8.0f;
+			Contour.push_back(Vector2(0.29f * std::cos(Angle), 0.46f + 0.29f * std::sin(Angle)));
+		}
+		for (int32_t I = 7; I >= 2; --I)
+		{
+			Contour.push_back(Vector2(-Contour[I].x, Contour[I].y));
+		}
+
+		return Contour;
+	}
+
+	/** Mid section: 17 points; removes small mouldings, preserves the crown and ornament seats. */
+	std::vector<Vector2> MakeRidgeContourTieredMid()
+	{
+		std::vector<Vector2> Contour = MakeRidgeContourTiered();
+		// Remove mirrored lower bevel / upper lip, in descending index order.
+		for (int32_t I : { 21, 18, 17, 7, 6, 3 }) { Contour.erase(Contour.begin() + I); }
+		return Contour;
+	}
+
+	/**
+	 * The far tier of the 分层 section: one block, 6 points (and the legacy far-tier block stays
+	 * what it is at RidgeDetail 0 — that tier's bytes are not this feature's to change).
+	 *
+	 * Unlike the legacy block it keeps the crown at 0.75 and its chamfer lies outside every finer
+	 * tier's outer surface, so a 脊饰 seated at the finest tier's height is still buried in the crown
+	 * here instead of floating over a low bar.
+	 */
+	std::vector<Vector2> MakeRidgeContourTieredBlock()
+	{
+		std::vector<Vector2> Contour;
+		Contour.push_back(Vector2(-0.50f, -0.10f));
+		Contour.push_back(Vector2(0.50f, -0.10f));
+		Contour.push_back(Vector2(0.50f, 0.44f));
+		Contour.push_back(Vector2(0.30f, 0.75f));
+		Contour.push_back(Vector2(-0.30f, 0.75f));
+		Contour.push_back(Vector2(-0.50f, 0.44f));
+
+		return Contour;
+	}
+
+	/** The finest section this spec's 脊断面档 builds, at unit scale. */
+	std::vector<Vector2> RidgeDetailContour(const BuildingSpec& Spec, bool bVerge = false)
+	{
+		std::vector<Vector2> Contour = Spec.RidgeDetail >= 1 ? MakeRidgeContourTiered() : MakeRidgeContour(1.0f);
+		if (Spec.RidgeDetail >= 1 && bVerge)
+		{
+			for (Vector2& P : Contour) { if (P.y > 0.0f) { P.y *= 0.70f; } }
+		}
+		return Contour;
+	}
+
+	/**
+	 * Height of a section's outer surface at a given half-width, in contour units: the highest point
+	 * of the outline at that |x|.
+	 *
+	 * Taken as the upper envelope over every edge rather than as a walk away from the crown, because
+	 * the contour is listed as a loop: from the crown the next entry is the far side, and a walk that
+	 * only ever increases x finds nothing there and answers "the crown" for every width — which seats
+	 * a 脊饰 on the apex and leaves its whole base hovering over the flanks.
+	 *
+	 * Past the widest point the section has no surface at that width, so the height of the widest
+	 * point is returned: a piece wider than the ridge sinks to the ridge's own shoulder, the only
+	 * place its base can meet material at all.
+	 */
+	float RidgeSurfaceAt(const std::vector<Vector2>& Contour, float HalfWidth)
+	{
+		const size_t Count = Contour.size();
+		if (Count < 3)
+		{
+			return 0.0f;
+		}
+
+		const float Width = std::fabs(HalfWidth);
+		float Best = -std::numeric_limits<float>::max();
+		float WidestX = -1.0f;
+		float WidestY = -std::numeric_limits<float>::max();
+
+		for (size_t Index = 0; Index < Count; ++Index)
+		{
+			const Vector2& A = Contour[Index];
+			const Vector2& B = Contour[(Index + 1) % Count];
+
+			// Both sides, so the contour's winding does not enter into it.
+			for (int32_t Side = 0; Side <= 1; ++Side)
+			{
+				const float Sign = Side ? 1.0f : -1.0f;
+				const float AX = A.x * Sign;
+				const float BX = B.x * Sign;
+				const float Low = std::fmin(AX, BX);
+				const float High = std::fmax(AX, BX);
+
+				if (Width < Low - BUILD_EPSILON || Width > High + BUILD_EPSILON)
+				{
+					continue;
+				}
+				if (High - Low <= BUILD_EPSILON)
+				{
+					// A vertical wall at exactly this width: its top end is the surface there.
+					Best = std::fmax(Best, std::fmax(A.y, B.y));
+					continue;
+				}
+
+				const float T = (Width - Low) / (High - Low);
+				const float Y = (AX < BX) ? (A.y + (B.y - A.y) * T) : (B.y + (A.y - B.y) * T);
+				Best = std::fmax(Best, Y);
+			}
+
+			const float AbsX = std::fabs(A.x);
+			if (AbsX > WidestX)
+			{
+				WidestX = AbsX;
+				WidestY = A.y;
+			}
+			else if (AbsX == WidestX)
+			{
+				WidestY = std::fmax(WidestY, A.y);
+			}
+		}
+
+		return (Best > -std::numeric_limits<float>::max()) ? Best : WidestY;
+	}
+
+	/**
+	 * Side of the placeholder cube for one ornament class, in modules D (0 when the class is off).
+	 * [自定] Sizes have no source (06:1172 records the gap); they are the project's answer to
+	 * "a 脊饰 that reads as a separate block at the acceptance distance, on the ridge it sits on".
+	 */
+	float OrnamentSizeFor(const BuildingSpec& Spec, ERidgeOrnamentKind Kind)
+	{
+		switch (Kind)
+		{
+		case ERidgeOrnamentKind::Finial:
+			return Spec.Module * std::fmax(Spec.RidgeFinialSize, 0.0f);
+		case ERidgeOrnamentKind::Beast:
+			return Spec.Module * std::fmax(Spec.RidgeBeastSize, 0.0f);
+		default:
+			return Spec.Module * std::fmax(Spec.RidgeWalkerSize, 0.0f);
+		}
+	}
+
+	/** Upward normal of a knot polyline at one knot, in the vertical plane the polyline lies in. */
+	Vector3 KnotNormalUp(const std::vector<Vector3>& Knots, size_t Index)
+	{
+		const Vector3 Before = Knots[Index > 0 ? Index - 1 : 0];
+		const Vector3 After = Knots[Index + 1 < Knots.size() ? Index + 1 : Knots.size() - 1];
+
+		const Vector3 Along = After - Before;
+		const Vector3 PlaneNormal = Along.cross(Vector3(0.0f, 1.0f, 0.0f));
+		if (Along.length_squared() < 1e-12f || PlaneNormal.length_squared() < 1e-12f)
+		{
+			return Vector3(0.0f, 1.0f, 0.0f);
+		}
+
+		const Vector3 Normal = PlaneNormal.cross(Along).normalized();
+
+		return Normal.y < 0.0f ? -Normal : Normal;
+	}
+
 
 	/**
 	 * 连檐: the timber board the tile courses die onto at the eave.
@@ -121,6 +327,82 @@ Color MeshAccumulator::MottleColor(const Color& Tint)
 		Tint.a);
 }
 
+void MeshAccumulator::PushTriangle(int32_t A, int32_t B, int32_t C)
+{
+	Indices.push_back(A);
+	Indices.push_back(B);
+	Indices.push_back(C);
+	TriangleSlots.push_back(uint8_t(CurrentSlot));
+}
+
+void MeshAccumulator::BuildSurfaces(std::vector<SurfaceData>& Out) const
+{
+	Out.clear();
+
+	const size_t TriangleCount = size_t(GetTriangleCount());
+	// Source vertex -> local index in the surface being built, or -1 when not carried over yet.
+	std::vector<int32_t> Remap(Vertices.size(), -1);
+
+	for (int32_t SlotIndex = 0; SlotIndex < MATERIAL_SLOT_COUNT; ++SlotIndex)
+	{
+		const EMaterialSlot Slot = EMaterialSlot(SlotIndex);
+
+		SurfaceData Surface;
+		Surface.Slot = Slot;
+		// Only the entries this slot touched are reset, so the remap is O(vertices) once in total
+		// rather than once per slot.
+		std::vector<int32_t> Touched;
+
+		for (size_t Triangle = 0; Triangle < TriangleCount; ++Triangle)
+		{
+			if (TriangleSlots[Triangle] != uint8_t(Slot))
+			{
+				continue;
+			}
+
+			for (size_t Corner = 0; Corner < 3; ++Corner)
+			{
+				const size_t Source = size_t(Indices[Triangle * 3 + Corner]);
+				if (Remap[Source] < 0)
+				{
+					Remap[Source] = int32_t(Surface.Vertices.size());
+					Surface.Vertices.push_back(Vertices[Source]);
+					Surface.Normals.push_back(Normals[Source]);
+					Surface.UVs.push_back(UVs[Source]);
+					Surface.Colors.push_back(Colors[Source]);
+					Touched.push_back(int32_t(Source));
+				}
+
+				Surface.Indices.push_back(Remap[Source]);
+			}
+		}
+
+		for (const int32_t Source : Touched)
+		{
+			Remap[size_t(Source)] = -1;
+		}
+
+		if (!Surface.Indices.empty())
+		{
+			Out.push_back(std::move(Surface));
+		}
+	}
+}
+
+int32_t MeshAccumulator::GetSlotTriangleCount(EMaterialSlot Slot) const
+{
+	int32_t Count = 0;
+	for (const uint8_t Stamped : TriangleSlots)
+	{
+		if (Stamped == uint8_t(Slot))
+		{
+			++Count;
+		}
+	}
+
+	return Count;
+}
+
 void MeshAccumulator::AddTriangle(const Vector3& A, const Vector3& B, const Vector3& C, const Color& Tint)
 {
 	const Vector3 Edge0 = B - A;
@@ -145,9 +427,7 @@ void MeshAccumulator::AddTriangle(const Vector3& A, const Vector3& B, const Vect
 		Colors.push_back(Tint);
 	}
 
-	Indices.push_back(Base);
-	Indices.push_back(Base + 1);
-	Indices.push_back(Base + 2);
+	PushTriangle(Base, Base + 1, Base + 2);
 }
 
 void MeshAccumulator::AddQuad(
@@ -177,12 +457,15 @@ void MeshAccumulator::AddBox(const Vector3& Centre, const Vector3& HalfExtents, 
 	const Vector3 P111 = Centre + Vector3(H.x, H.y, H.z);
 	const Vector3 P011 = Centre + Vector3(-H.x, H.y, H.z);
 
-	AddQuad(P001, P101, P111, P011, Col);   // +Z
-	AddQuad(P100, P000, P010, P110, Col);   // -Z
-	AddQuad(P101, P100, P110, P111, Col);   // +X
-	AddQuad(P000, P001, P011, P010, Col);   // -X
-	AddQuad(P010, P011, P111, P110, Col);   // +Y
-	AddQuad(P000, P100, P101, P001, Col);   // -Y
+	// Clockwise when viewed from outside, matching Godot's front-face convention.
+	// AddTriangle derives the shading normal from the NEGATED cross product;
+	// counter-clockwise faces would turn both the culling and lighting inside out.
+	AddQuad(P001, P011, P111, P101, Col);   // +Z
+	AddQuad(P100, P110, P010, P000, Col);   // -Z
+	AddQuad(P101, P111, P110, P100, Col);   // +X
+	AddQuad(P000, P010, P011, P001, Col);   // -X
+	AddQuad(P010, P110, P111, P011, Col);   // +Y
+	AddQuad(P000, P001, P101, P100, Col);   // -Y
 }
 
 void MeshAccumulator::AddPolygon(const std::vector<Vector3>& Points, const Vector3& Normal, const Color& Tint)
@@ -220,16 +503,13 @@ void MeshAccumulator::AddPolygon(const std::vector<Vector3>& Points, const Vecto
 			continue;
 		}
 
-		Indices.push_back(Base);
 		if (Reference.dot(Normal) > 0.0f)
 		{
-			Indices.push_back(Base + int32_t(Index + 1));
-			Indices.push_back(Base + int32_t(Index));
+			PushTriangle(Base, Base + int32_t(Index + 1), Base + int32_t(Index));
 		}
 		else
 		{
-			Indices.push_back(Base + int32_t(Index));
-			Indices.push_back(Base + int32_t(Index + 1));
+			PushTriangle(Base, Base + int32_t(Index), Base + int32_t(Index + 1));
 		}
 	}
 }
@@ -246,9 +526,12 @@ void MeshAccumulator::AddSweep(const SweepResult& Sweep, const Color& Tint)
 	UVs.insert(UVs.end(), Sweep.UVs.begin(), Sweep.UVs.end());
 	Colors.insert(Colors.end(), Sweep.Vertices.size(), Col);
 
-	for (const int32_t Index : Sweep.Indices)
+	// Sweeps are triangle lists, so stamping three at a time is the same order the index loop
+	// used to emit.
+	for (size_t Index = 0; Index + 2 < Sweep.Indices.size(); Index += 3)
 	{
-		Indices.push_back(Base + Index);
+		PushTriangle(
+			Base + Sweep.Indices[Index], Base + Sweep.Indices[Index + 1], Base + Sweep.Indices[Index + 2]);
 	}
 }
 
@@ -333,7 +616,8 @@ void MeshAccumulator::AddRevolvedProfile(const Vector3& Base, const std::vector<
 		for (int32_t I = 0; I < Count; ++I)
 		{
 			const int32_t A = First + I * 2;
-			for (int32_t K : { A, A + 2, A + 3, A, A + 3, A + 1 }) Indices.push_back(K);
+			PushTriangle(A, A + 2, A + 3);
+			PushTriangle(A, A + 3, A + 1);
 		}
 	}
 	// Independent cap vertices keep the rim hard. No per-face colour changes.
@@ -354,7 +638,7 @@ void MeshAccumulator::AddRevolvedProfile(const Vector3& Base, const std::vector<
 		for (int32_t I = 0; I < Count; ++I)
 		{
 			const int32_t A = First + 1 + I, B = First + 1 + (I + 1) % Count;
-			Indices.push_back(First); Indices.push_back(End ? A : B); Indices.push_back(End ? B : A);
+			PushTriangle(First, End ? A : B, End ? B : A);
 		}
 	}
 }
@@ -367,17 +651,39 @@ void BuildingGen::AddBuildingColumn(const BuildingSpec& Spec, MeshAccumulator& M
 	const float H = std::clamp(Spec.ColumnBaseHeight, 0.0f, Spec.ColumnHeight * 0.15f);
 	if (H > BUILD_EPSILON)
 	{
-		// A restrained engineering plinth: foot bevel, drum, shoulder and neck.
-		// Profile corners stay crisp while each circular ring shades continuously.
-		const std::vector<Vector2> Profile = {
-			{ R * 1.48f, 0 }, { R * 1.60f, H * 0.12f }, { R * 1.60f, H * 0.28f },
-			{ R * 1.40f, H * 0.42f }, { R * 1.30f, H * 0.72f },
-			{ R * 1.12f, H * 0.88f }, { R * 1.12f, H }
-		};
-		Mesh.AddRevolvedProfile(Base, Profile, Spec.ColumnSides,
-			Mesh.ComponentColor(Spec.StoneColor, ComponentId ^ 0x40000000u));
+		// 柱础 is stone and the shaft above it is timber, so this one call straddles two slots.
+		Mesh.SetSlot(EMaterialSlot::Stone);
+		const Color PlinthTint = Mesh.ComponentColor(Spec.StoneColor, ComponentId ^ 0x40000000u);
+		if (Spec.bColumnBaseSquare)
+		{
+			// 方形石础 (60_台基地面 R12): the dwelling elevation puts a square stone block under
+			// every eave column, not a turned drum. [自定] The block's width, base step and
+			// proportions have no measurable source — the plate is a hand-drawn elevation — so
+			// they are chosen to sit at 1.5 R half width with a 1/4-H foot course. The height
+			// still comes from ColumnBaseHeight, so the parameter keeps its meaning.
+			// The boxes pick up the accumulator's per-piece mottle (a stone block weathering
+			// differently from its neighbours) on top of the keyed stone tint.
+			const float Half = R * 1.5f;
+			const float Foot = H * 0.25f;
+			Mesh.AddBox(Base + Vector3(0.0f, Foot * 0.5f, 0.0f),
+				Vector3(R * 1.62f, Foot * 0.5f, R * 1.62f), PlinthTint * 0.97f);
+			Mesh.AddBox(Base + Vector3(0.0f, Foot + (H - Foot) * 0.5f, 0.0f),
+				Vector3(Half, (H - Foot) * 0.5f, Half), PlinthTint);
+		}
+		else
+		{
+			// A restrained engineering plinth: foot bevel, drum, shoulder and neck.
+			// Profile corners stay crisp while each circular ring shades continuously.
+			const std::vector<Vector2> Profile = {
+				{ R * 1.48f, 0 }, { R * 1.60f, H * 0.12f }, { R * 1.60f, H * 0.28f },
+				{ R * 1.40f, H * 0.42f }, { R * 1.30f, H * 0.72f },
+				{ R * 1.12f, H * 0.88f }, { R * 1.12f, H }
+			};
+			Mesh.AddRevolvedProfile(Base, Profile, Spec.ColumnSides, PlinthTint);
+		}
 	}
 	// Preserve the original taper at the joint as well as the original column top.
+	Mesh.SetSlot(EMaterialSlot::Timber);
 	const float BottomRadius = R * (1.0f - 0.12f * H / Spec.ColumnHeight);
 	Mesh.AddColumn(Base + Vector3(0, H, 0), Spec.ColumnHeight - H,
 		BottomRadius, R * 0.88f, Spec.ColumnSides, Spec.TimberColor, Spec.bSmoothColumns, ComponentId);
@@ -479,15 +785,11 @@ void MeshAccumulator::AddQuadSmooth(
 	{
 		if (bFlip)
 		{
-			Indices.push_back(Base + Order[Step + 2]);
-			Indices.push_back(Base + Order[Step + 1]);
-			Indices.push_back(Base + Order[Step]);
+			PushTriangle(Base + Order[Step + 2], Base + Order[Step + 1], Base + Order[Step]);
 		}
 		else
 		{
-			Indices.push_back(Base + Order[Step]);
-			Indices.push_back(Base + Order[Step + 1]);
-			Indices.push_back(Base + Order[Step + 2]);
+			PushTriangle(Base + Order[Step], Base + Order[Step + 1], Base + Order[Step + 2]);
 		}
 	}
 }
@@ -505,6 +807,9 @@ void BuildingGen::AddEaveRafterHeads(
 	{
 		return;
 	}
+
+	// 檐椽头 / 飞椽头 are sawn timber, and every roof's eave shares this one section.
+	Mesh.SetSlot(EMaterialSlot::Timber);
 
 	const bool bFly = Spec.EaveRafterStyle >= 2;
 
@@ -741,6 +1046,142 @@ void BuildingGen::AddRoofPanel(
 namespace
 {
 	/**
+	 * 下碱砌块带 + 上部抹灰带 (20_墙体 R15).
+	 *
+	 * The solid part of a wall bay — the 槛墙 under the window — reads as two zones: a masonry
+	 * block band at the bottom and plaster above it, optionally split by a 分界带. The plate that
+	 * motivates this is a hand-drawn elevation, so it fixes only the *structure* (there is a
+	 * block band, a plaster field, and a horizontal break between them); nothing on it can be
+	 * measured, so every size below is [自定] for this project:
+	 *
+	 *   block 1.1 D x 0.38 D, joint width 0.02 D, joint depth 0.012 D (the bed the blocks stand
+	 *   proud of), 分界带 height DadoTopTrim * D projecting 0.06 D, plaster patches 1.5 D square
+	 *   with up to 0.008 D of relief.
+	 *
+	 * The joints are real geometry: each course sits on a bed recessed by the joint depth, so the
+	 * mortar lines are grooves rather than strips laid on a plane, and every block protrudes to
+	 * the nominal wall face. Vertical joints stagger by half a block on alternate courses and the
+	 * end blocks take up the remainder by clipping to the bay, so no joint is forced onto the bay
+	 * end and no course is left short. The plaster above is emitted as patches rather than one
+	 * pristine box, because the plate's other requirement is that the plaster field is not a bare
+	 * plane: the patches differ in depth (deterministically, off their grid index) and pick up the
+	 * accumulator's per-piece mottle, which is what gives the hand-troweled reading.
+	 */
+	void AddZonedWallBay(
+		const BuildingSpec& Spec,
+		const Vector3& Centre,
+		bool bAlongX,
+		float HalfLength,
+		float HalfThickness,
+		float WallHeight,
+		float SolidHeight,
+		MeshAccumulator& Mesh)
+	{
+		const auto Extent = [bAlongX](float Along, float Up, float Thick) -> Vector3
+		{
+			return bAlongX ? Vector3(Along, Up, Thick) : Vector3(Thick, Up, Along);
+		};
+		const auto Offset = [bAlongX](float Along, float Up) -> Vector3
+		{
+			return bAlongX ? Vector3(Along, Up, 0.0f) : Vector3(0.0f, Up, Along);
+		};
+
+		// Every zone of a wall bay — 下碱砌块带, 上部抹灰带 and 分界带 — is wall face, whatever
+		// stone tint a zone borrows: the slot is the surface a material lands on, and all three
+		// are the same plastered / coursed wall plane.
+		Mesh.SetSlot(EMaterialSlot::Wall);
+
+		const float D = Spec.Module;
+		// The band never grows past the solid 槛墙: a 下碱 taller than the wall below the window
+		// has nothing to stand on, and the window opening is not ours to move.
+		const float Band = std::fmin(std::fmax(Spec.DadoHeightRatio, 0.0f) * WallHeight, SolidHeight);
+		// The joint depth is what makes a block band read as masonry instead of as louvres: past
+		// a centimetre or so each course starts casting a bright lip on top of the course below.
+		// R2 asks for a recess of a few millimetres and forbids a drawn-on strip; 8 mm is the
+		// smallest value that still resolves at the fixed M1 view, where a pixel is about 7 mm.
+		const float Joint = std::fmin(D * 0.012f, HalfThickness * 0.2f);
+		const float Gap = D * 0.02f;
+		const float BlockLength = D * 1.1f;
+		const float CourseHeight = D * 0.38f;
+
+		if (Band > BUILD_EPSILON)
+		{
+			// --- 下碱砌块带 ---
+			const int32_t Courses = std::max(int32_t(std::lround(Band / CourseHeight)), 1);
+			const float Course = Band / float(Courses);
+			Mesh.AddBox(
+				Centre + Offset(0.0f, Band * 0.5f),
+				Extent(HalfLength, Band * 0.5f, HalfThickness - Joint),
+				Spec.StoneColor * 0.74f);
+
+			const int32_t Cols = std::max(int32_t(std::lround(HalfLength * 2.0f / BlockLength)), 1);
+			const float Block = HalfLength * 2.0f / float(Cols);
+			for (int32_t C = 0; C < Courses; ++C)
+			{
+				const float Y = Course * (float(C) + 0.5f);
+				const float Shift = (C % 2) ? -Block * 0.5f : 0.0f;
+				// One extra slot each side covers the half bats the stagger leaves at the ends.
+				for (int32_t K = -1; K <= Cols; ++K)
+				{
+					const float From = std::fmax(-HalfLength, Shift + Block * float(K));
+					const float To = std::fmin(HalfLength, Shift + Block * float(K + 1));
+					const float Half = (To - From) * 0.5f - Gap * 0.5f;
+					if (Half <= BUILD_EPSILON)
+					{
+						continue;
+					}
+					Mesh.AddBox(
+						Centre + Offset((From + To) * 0.5f, Y),
+						Extent(Half, Course * 0.5f - Gap * 0.5f, HalfThickness),
+						Spec.StoneColor * 1.04f);
+				}
+			}
+		}
+
+		const float PlasterLow = Band;
+		const float PlasterHigh = SolidHeight;
+		if (PlasterHigh - PlasterLow > BUILD_EPSILON)
+		{
+			// --- 上部抹灰带: patched, not one pristine plane ---
+			const float Patch = D * 1.5f;
+			const int32_t Cols = std::max(int32_t(std::lround(HalfLength * 2.0f / Patch)), 1);
+			const int32_t Rows = std::max(int32_t(std::lround((PlasterHigh - PlasterLow) / Patch)), 1);
+			const float CellAlong = HalfLength * 2.0f / float(Cols);
+			const float CellUp = (PlasterHigh - PlasterLow) / float(Rows);
+			const float Relief = std::fmin(D * 0.008f, (PlasterHigh - PlasterLow) * 0.2f);
+
+			for (int32_t I = 0; I < Cols; ++I)
+			{
+				for (int32_t J = 0; J < Rows; ++J)
+				{
+					// Deterministic off the grid index, so a rebuild reproduces the same face.
+					// The jitter never reaches zero, so no patch is left exactly on the nominal
+					// wall plane — which is the point of the zone not reading as a bare plane.
+					const uint32_t Hash = uint32_t(I) * 73856093u ^ uint32_t(J) * 19349663u;
+					const float T = 0.35f + 0.65f * (float(Hash % 256u) / 255.0f);
+					Mesh.AddBox(
+						Centre + Offset(-HalfLength + CellAlong * (float(I) + 0.5f),
+							PlasterLow + CellUp * (float(J) + 0.5f)),
+						Extent(CellAlong * 0.5f, CellUp * 0.5f, HalfThickness + Relief * T),
+						Spec.PlasterColor);
+				}
+			}
+		}
+
+		// --- 分界带: a moulded band capping the block band, proud of the wall face ---
+		// Never taller than the band it caps, so an over-large DadoTopTrim cannot push the
+		// trim down into the platform.
+		const float Trim = std::fmin(Spec.DadoTopTrim * D, std::fmin(SolidHeight - Band, Band));
+		if (Band > BUILD_EPSILON && Trim > BUILD_EPSILON)
+		{
+			Mesh.AddBox(
+				Centre + Offset(0.0f, Band - Trim * 0.5f),
+				Extent(HalfLength, Trim * 0.5f, HalfThickness + D * 0.06f),
+				Spec.StoneColor * 1.08f);
+		}
+	}
+
+	/**
 	 * One wall bay: either a door or a 槛墙 dado with a lattice window above it. Axis-aligned,
 	 * with bAlongX selecting whether the bay runs along X (a front/back wall) or Z (an end wall).
 	 *
@@ -776,7 +1217,8 @@ namespace
 
 		if (bIsDoor)
 		{
-			// 板门: two leaves recessed behind a frame, with a threshold and lintel.
+			// 板门: two leaves, jambs and lintel — joinery, so timber, not wall.
+			Mesh.SetSlot(EMaterialSlot::Timber);
 			const float LeafHalf = (HalfLength - FrameHalf * 2.0f) * 0.5f;
 			if (LeafHalf <= 0.0f)
 			{
@@ -809,13 +1251,25 @@ namespace
 			return;
 		}
 
-		// 槛墙 dado, then the window opening above it.
+		// 槛墙 dado, then the window opening above it. DadoHeightRatio = 0 keeps the single
+		// unzoned box this bay has always been (R15); above 0 the same solid is built as a
+		// 下碱砌块带 with a plaster band over it.
 		const float DadoHeight = Height * 0.46f;
-		Mesh.AddBox(
-			Centre + Offset(0.0f, DadoHeight * 0.5f),
-			Extent(HalfLength, DadoHeight * 0.5f),
-			Spec.PlasterColor);
+		Mesh.SetSlot(EMaterialSlot::Wall);
+		if (Spec.DadoHeightRatio > 0.0f)
+		{
+			AddZonedWallBay(Spec, Centre, bAlongX, HalfLength, HalfThickness, Height, DadoHeight, Mesh);
+		}
+		else
+		{
+			Mesh.AddBox(
+				Centre + Offset(0.0f, DadoHeight * 0.5f),
+				Extent(HalfLength, DadoHeight * 0.5f),
+				Spec.PlasterColor);
+		}
 
+		// Everything above the sill is window joinery: frame, sill rail, head and 棂条 lattice.
+		Mesh.SetSlot(EMaterialSlot::Timber);
 		const float SillY = DadoHeight;
 		const float WindowHeight = Height - DadoHeight;
 
@@ -891,6 +1345,9 @@ namespace
 			return;
 		}
 
+		// 斗拱 is joinery in timber, however blocky the greybox stands in for it.
+		Mesh.SetSlot(EMaterialSlot::Timber);
+
 		const float Unit = Spec.ColumnRadius;
 		const int32_t Tiers = 2;
 		const float TierHeight = Height / float(Tiers + 1);
@@ -945,6 +1402,9 @@ namespace
 			return;
 		}
 
+		// 台基 body, 阶条石 cap, 沿口, 顶面接缝 and 方砖铺地 are all dressed stone.
+		Mesh.SetSlot(EMaterialSlot::Stone);
+
 		// 阶条石 cap: a slightly wider slab on top of the body, which reads as dressed stone.
 		const float CapHeight = std::fmin(Spec.PlatformHeight * 0.22f, Spec.Module * 0.5f);
 		const float BodyHeight = Spec.PlatformHeight - CapHeight;
@@ -955,10 +1415,149 @@ namespace
 			Vector3(Spec.PlatformHalfWidth - Inset, BodyHeight * 0.5f, Spec.PlatformHalfDepth - Inset),
 			Spec.StoneColor);
 
+		// 沿口 (60_台基地面 R6): a moulded band standing proud of the cap, so the edge steps
+		// out instead of dropping straight to the body. [自定] Height and projection: the plate
+		// shows that the edge is not a straight drop, but a hand-drawn elevation is not
+		// measurable, so both are project choices.
+		const float LipHeight = Spec.bPlatformEdgeLip
+			? std::fmin(CapHeight * 0.6f, Spec.Module * 0.25f)
+			: 0.0f;
+		const float LipOut = Spec.Module * 0.10f;
+		if (LipHeight > BUILD_EPSILON)
+		{
+			Mesh.AddBox(
+				Vector3(0.0f, BodyHeight + LipHeight * 0.5f, 0.0f),
+				Vector3(Spec.PlatformHalfWidth + LipOut, LipHeight * 0.5f, Spec.PlatformHalfDepth + LipOut),
+				Spec.StoneColor * 1.02f);
+		}
+
+		// 顶面接缝网格 (60_台基地面 R6): the cap top is cut into a slab grid standing on a bed
+		// that is recessed by the joint depth, so the joints are real grooves rather than a
+		// colour pattern. With the flag off every term below collapses onto the legacy single
+		// cap box, arithmetic included.
+		const float JointDepth = Spec.bPlatformTopJoints
+			? std::fmin(Spec.Module * 0.03f, CapHeight * 0.25f)
+			: 0.0f;
+		const float CapThickness = CapHeight - LipHeight - JointDepth;
+		// The bed keeps the platform's exact footprint: the slabs stop half a joint short of it,
+		// so bed and slabs never share a plane and the plan extent does not move with the flag.
 		Mesh.AddBox(
-			Vector3(0.0f, BodyHeight + CapHeight * 0.5f, 0.0f),
-			Vector3(Spec.PlatformHalfWidth, CapHeight * 0.5f, Spec.PlatformHalfDepth),
+			Vector3(0.0f, BodyHeight + LipHeight + CapThickness * 0.5f, 0.0f),
+			Vector3(Spec.PlatformHalfWidth, CapThickness * 0.5f, Spec.PlatformHalfDepth),
 			Spec.StoneColor * 1.06f);
+
+		if (JointDepth > BUILD_EPSILON)
+		{
+			// [自定] Slab pitch and joint width: the plate shows a regular grid with visible
+			// joints but is not measurable, so the grid is a project choice.
+			const float Pitch = Spec.Module * 1.5f;
+			const int32_t Cols = std::max(int32_t(std::lround(2.0f * Spec.PlatformHalfWidth / Pitch)), 1);
+			const int32_t Rows = std::max(int32_t(std::lround(2.0f * Spec.PlatformHalfDepth / Pitch)), 1);
+			const float CellX = 2.0f * Spec.PlatformHalfWidth / float(Cols);
+			const float CellZ = 2.0f * Spec.PlatformHalfDepth / float(Rows);
+			const float Gap = std::fmin(Spec.Module * 0.05f, std::fmin(CellX, CellZ) * 0.35f);
+
+			for (int32_t I = 0; I < Cols; ++I)
+			{
+				const float X = -Spec.PlatformHalfWidth + CellX * (float(I) + 0.5f);
+				for (int32_t J = 0; J < Rows; ++J)
+				{
+					const float Z = -Spec.PlatformHalfDepth + CellZ * (float(J) + 0.5f);
+					Mesh.AddBox(
+						Vector3(X, Spec.PlatformHeight - JointDepth * 0.5f, Z),
+						Vector3(CellX * 0.5f - Gap * 0.5f, JointDepth * 0.5f, CellZ * 0.5f - Gap * 0.5f),
+						Spec.StoneColor * 1.02f);
+				}
+			}
+		}
+
+		// 方砖铺地 (60_台基地面 R9): a flagstone apron on the ground around the platform. The
+		// legacy build has no paving at all, so the whole field sits behind the flag.
+		// [自定] Extent, pitch, thickness, joint width and the weathered tint: the plate shows
+		// large rectangular slabs laid to a grid with visible joints (and a finer grid further
+		// out), but a hand-drawn elevation is not measurable, so every value here is a project
+		// choice. The tint is deliberately below the platform's so the apron and the platform
+		// top do not merge into one tiled plane at the acceptance distances.
+		// The field is a slab standing on the ground plane rather than a coplanar decal, so it
+		// cannot z-fight with a scene floor; it is not clipped out from under the platform,
+		// which hides it anyway.
+		if (Spec.bPaving)
+		{
+			const float Margin = std::fmax(Spec.StepRunDepth, Spec.Module * 1.5f) + Spec.Module * 0.5f;
+			const float HalfX = Spec.PlatformHalfWidth + Margin;
+			const float HalfZ = Spec.PlatformHalfDepth + Margin;
+			const float Thickness = Spec.Module * 0.10f;
+			const float Groove = Spec.bPavingJointGeometry
+				? std::fmin(Spec.Module * 0.045f, Thickness * 0.6f)
+				: 0.0f;
+			// With joints the tiles are a thin course on a recessed bed; without, they butt into
+			// the full-thickness slab themselves and the bed is not needed.
+			const float BedHeight = Thickness - Groove;
+			const float TileLow = (Groove > BUILD_EPSILON) ? BedHeight : 0.0f;
+			const float TileHalfY = (Thickness - TileLow) * 0.5f;
+			const float Pitch = Spec.Module * 1.6f;
+			const int32_t Cols = std::max(int32_t(std::lround(2.0f * HalfX / Pitch)), 1);
+			const int32_t Rows = std::max(int32_t(std::lround(2.0f * HalfZ / Pitch)), 1);
+			const float CellX = 2.0f * HalfX / float(Cols);
+			const float CellZ = 2.0f * HalfZ / float(Rows);
+
+			if (TileLow > BUILD_EPSILON)
+			{
+				// The tiles stop half a joint short of the field's edge, so the bed can keep the
+				// exact footprint without ever sharing a plane with them.
+				Mesh.AddBox(Vector3(0.0f, BedHeight * 0.5f, 0.0f), Vector3(HalfX, BedHeight * 0.5f, HalfZ),
+					Spec.StoneColor * 0.72f);
+			}
+
+			for (int32_t I = 0; I < Cols; ++I)
+			{
+				const float X = -HalfX + CellX * (float(I) + 0.5f);
+				for (int32_t J = 0; J < Rows; ++J)
+				{
+					const float Z = -HalfZ + CellZ * (float(J) + 0.5f);
+					Mesh.AddBox(
+						Vector3(X, TileLow + TileHalfY, Z),
+						Vector3(CellX * 0.5f - Groove * 0.5f, TileHalfY, CellZ * 0.5f - Groove * 0.5f),
+						Spec.StoneColor * 0.94f);
+				}
+			}
+		}
+	}
+
+	/**
+	 * Box whose plan axes are an arbitrary (Along, Side) frame instead of the world axes.
+	 *
+	 * The stair runs rotate with lambda, so their side cheeks cannot be an AddBox — at
+	 * RunCount = 8 the run sits at 45 degrees. Faces are wound with AddQuadOriented against
+	 * their outward direction, the same way the roof panels and the balustrade rails are.
+	 */
+	void AddOrientedBox(const Vector3& Centre, const Vector3& Along, const Vector3& Side,
+		float HalfAlong, float HalfSide, float HalfUp, const Color& Tint, MeshAccumulator& Mesh)
+	{
+		if (HalfAlong <= 0.0f || HalfSide <= 0.0f || HalfUp <= 0.0f)
+		{
+			return;
+		}
+
+		const Vector3 A = Along * HalfAlong;
+		const Vector3 S = Side * HalfSide;
+		const Vector3 U(0.0f, HalfUp, 0.0f);
+		const Color Col = Mesh.MottleColor(Tint);
+		const Vector3 P000 = Centre - A - S - U;
+		const Vector3 P100 = Centre + A - S - U;
+		const Vector3 P110 = Centre + A + S - U;
+		const Vector3 P010 = Centre - A + S - U;
+		const Vector3 P001 = Centre - A - S + U;
+		const Vector3 P101 = Centre + A - S + U;
+		const Vector3 P111 = Centre + A + S + U;
+		const Vector3 P011 = Centre - A + S + U;
+
+		Mesh.AddQuadOriented(P001, P101, P111, P011, U, Col);
+		Mesh.AddQuadOriented(P000, P100, P110, P010, -U, Col);
+		Mesh.AddQuadOriented(P100, P101, P111, P110, Along, Col);
+		Mesh.AddQuadOriented(P000, P001, P011, P010, -Along, Col);
+		Mesh.AddQuadOriented(P010, P011, P111, P110, Side, Col);
+		Mesh.AddQuadOriented(P000, P001, P101, P100, -Side, Col);
 	}
 
 	/**
@@ -977,9 +1576,29 @@ namespace
 			return;
 		}
 
-		// Outward direction for this run, and the platform edge it starts from.
+		// 踏跺, treads and side cheeks alike: stone throughout.
+		Mesh.SetSlot(EMaterialSlot::Stone);
+
+		// Outward direction for this run, and the point where it crosses the platform boundary.
+		//
+		// F08: the run starts where its own ray leaves the platform, not on whichever single
+		// half-extent happens to face it. For a rectangular platform of half width A and half
+		// depth B and a unit outward direction d = (dx, dz) the crossing is
+		// t_hit = min(A/|dx|, B/|dz|) with a zero component's term taken as infinity, so the
+		// start is t_hit * d. The old "(|dz| > 0.5) ? B : A" test agrees with that for the four
+		// axis directions and only for them: RunCount 1/2/4 (lambda <= 2) emit the axes and stay
+		// bit-identical, while RunCount 8 (lambda = 3) adds the 45-degree runs, which the old
+		// test started *inside* the platform (A = B = 5 gives 7.0711 against the old 5).
 		const Vector3 Outward(std::sin(Angle), 0.0f, std::cos(Angle));
-		const float EdgeDistance = (std::abs(Outward.z) > 0.5f) ? Spec.PlatformHalfDepth : Spec.PlatformHalfWidth;
+		const float AbsX = std::abs(Outward.x);
+		const float AbsZ = std::abs(Outward.z);
+		const float EdgeX = (AbsX > BUILD_EPSILON)
+			? Spec.PlatformHalfWidth / AbsX
+			: std::numeric_limits<float>::infinity();
+		const float EdgeZ = (AbsZ > BUILD_EPSILON)
+			? Spec.PlatformHalfDepth / AbsZ
+			: std::numeric_limits<float>::infinity();
+		const float EdgeDistance = std::fmin(EdgeX, EdgeZ);
 
 		const float TreadDepth = Spec.StepRunDepth / float(Steps);
 		const float RiserOffset = TreadDepth * 0.04f;
@@ -1018,11 +1637,44 @@ namespace
 		{
 			Mesh.AddSweep(Sweep, Spec.StoneColor);
 		}
+
+		// 两侧简单侧挡 (60_台基地面 R8): one block per tread on each side of the run, flush with
+		// the run's own riser lines, so the staircase reads as 等宽分级 between two cheeks
+		// instead of as a bare block. [自定] Thickness and form have no source; the plate shows
+		// only that the dwelling stair is the simple variant.
+		if (Spec.bStepSideCheek)
+		{
+			const Vector3 Side(std::cos(Angle), 0.0f, -std::sin(Angle));
+			const float CheekHalf = Spec.Module * 0.09f;
+			for (int32_t Index = 0; Index < Steps; ++Index)
+			{
+				const float Top = BlockHeight * (1.0f - float(Index) / float(Steps));
+				if (Top <= BUILD_EPSILON)
+				{
+					continue;
+				}
+				const float Near = EdgeDistance + float(Index) * TreadDepth;
+				const float Far = EdgeDistance + float(Index + 1) * TreadDepth;
+				for (int32_t Sign = -1; Sign <= 1; Sign += 2)
+				{
+					// Overlap the run by a hair rather than kissing it: two coincident faces
+					// would z-fight, and nothing resolves a 0.3 mm interpenetration.
+					const Vector3 At = Outward * ((Near + Far) * 0.5f)
+						+ Side * ((RunWidth * 0.5f + CheekHalf * 0.98f) * float(Sign));
+					AddOrientedBox(At + Vector3(0.0f, Top * 0.5f, 0.0f), Outward, Side,
+						(Far - Near) * 0.5f, CheekHalf, Top * 0.5f, Spec.StoneColor * 0.98f, Mesh);
+				}
+			}
+		}
 	}
 
 	/** Balustrade posts, panels and a swept rail, broken by a gap at each culling angle. */
 	void BuildFence(const BuildingSpec& Spec, MeshAccumulator& Mesh)
 	{
+		// 栏杆 is a stone balustrade here — rail, posts and panels all take its tint, so they all
+		// belong on the stone surface.
+		Mesh.SetSlot(EMaterialSlot::Stone);
+
 		const float PostHalf = Spec.Module * 0.16f;
 		const float RailHeight = Spec.PlatformHeight + Spec.FenceHeight;
 		const float HalfGap = Spec.FenceGapWidth * 0.5f;
@@ -1175,6 +1827,11 @@ namespace
 		// Walls fill the perimeter bays, except the bay a stair run arrives at.
 		if (Spec.bGenerateWalls)
 		{
+			// AddWallBay picks its own slot per part: the wall zones go on Wall, the door and
+			// window joinery on Timber. This is only the entry state, so a bay that emits nothing
+			// still leaves the accumulator somewhere sensible.
+			Mesh.SetSlot(EMaterialSlot::Wall);
+
 			const float WallHalf = Spec.ColumnRadius * 0.72f;
 			const float WallHeight = Spec.ColumnHeight * 0.94f;
 			const std::vector<float> Angles = CullingAngles(Spec.StepRunCount);
@@ -1250,6 +1907,9 @@ namespace
 		// 斗拱 set until phase 3.
 		if (Spec.BracketHeight > 0.0f)
 		{
+			// 阑额 band and the 铺作 on it: timber, like the sets they stand in for.
+			Mesh.SetSlot(EMaterialSlot::Timber);
+
 			const float BandHalf = Spec.BracketHeight * 0.42f;
 			const float Overhang = Spec.ColumnRadius * 1.5f;
 
@@ -1305,6 +1965,10 @@ namespace
 		const Color BoardColor = Spec.TileColor * 0.7f;
 		const Color SoffitColor = Spec.TimberColor * 1.15f;
 
+		// 望板: the boarding deck on the rafters, top face and soffit together. It is tinted like
+		// the tiles it carries, but it is the timber under them, so it takes the timber slot.
+		Mesh.SetSlot(EMaterialSlot::Timber);
+
 		// Boarding, as one quad strip per rafter course, each a sandwich with its 望板 soffit.
 		for (size_t Index = 0; Index + 1 < Profile.size(); ++Index)
 		{
@@ -1358,10 +2022,17 @@ namespace
 		const bool bCoverageBoundary = RoofCoverageBoundary(Spec, Profile, HalfSpan, KeepFrom, CoverageBoundary);
 
 		{
+			// 包络 (R14.1): both ends of this band are the 垂脊 down the gable verges, so the courses
+			// are cut inside their footprints at both ends instead of running to whichever edge the
+			// layout happened to stop on.
+			const float VergeRidge = Spec.Module * 0.85f * Spec.RidgeScale;
+			const TileCourseLayout Band = TileBandFor(
+				Spec, -HalfWidth, HalfWidth, Pitch, Courses, VergeRidge, VergeRidge);
+
 			std::vector<TileSkinColumn> Columns;
 			LayTileCourses(
-				-HalfWidth,
-				Pitch,
+				Spec.TileDetail,
+				Band,
 				Courses,
 				[&Profile, RoofBase, Sign, KeepFrom, bCoverageBoundary, &CoverageBoundary](float X) -> std::vector<Vector3>
 				{
@@ -1384,16 +2055,19 @@ namespace
 
 			// Cr below 1 bares the roof from the eave upward, which leaves column 0 partway up the
 			// slope with no eave to dress.
+			Mesh.SetSlot(EMaterialSlot::Tile);
 			BuildTileSkin(
 				Columns,
 				ETileSkinLoop::Open,
 				KeepFrom == 0 ? ETileEaves::AtStart : ETileEaves::None,
+				TileSkinSettingsFor(Spec),
 				Spec.TileColor,
 				Mesh);
 		}
 
 		// 连檐 board along the bottom edge, tucked under the eave tiles.
 		{
+			Mesh.SetSlot(EMaterialSlot::Timber);
 			const Vector2& Eave = Profile.front();
 			std::vector<Vector3> Knots;
 			Knots.push_back(TuckedEaveKnot(
@@ -1413,6 +2087,9 @@ namespace
 		}
 
 		// 垂脊 down the gable edge on this slope.
+		// Detailed verges are emitted as one eave-to-eave run by BuildGabledRoof.
+		if (Spec.RidgeDetail >= 1) { return; }
+		Mesh.SetSlot(EMaterialSlot::Ridge);
 		for (int32_t Side = -1; Side <= 1; Side += 2)
 		{
 			std::vector<Vector3> Knots;
@@ -1420,9 +2097,13 @@ namespace
 			{
 				Knots.push_back(Vector3(HalfWidth * float(Side), RoofBase + Point.y, Sign * Point.x));
 			}
+			// 高度链 (R17): the 垂脊 bears on the tiled face, so it comes up with it.
+			LiftAlongKnotNormals(Knots, RoofBeddingLift(Spec));
+
+			const float VergeScale = Spec.Module * 0.85f * Spec.RidgeScale;
 
 			SweepSettings Settings;
-			Settings.Contour = MakeRidgeContour(Spec.Module * 0.85f * Spec.RidgeScale);
+			ConfigureRidgeSweep(Settings, Spec, VergeScale, true);
 			Settings.bClosedContour = true;
 			Settings.UpReference = Vector3(0, 1, 0);
 
@@ -1431,6 +2112,9 @@ namespace
 			{
 				Mesh.AddSweep(Sweep, Spec.RidgeColor);
 			}
+
+			// 垂兽 + 走兽 at the eave end. The knots run eave first, so that end is bit 0.
+			SeatRidgeBeasts(Mesh, Spec, Knots, VergeScale, 0x1);
 		}
 	}
 
@@ -1655,6 +2339,9 @@ namespace
 		const Color BoardColor = Spec.TileColor * 0.7f;
 		const Color SoffitColor = Spec.TimberColor * 1.15f;
 
+		// 望板 over the whole skirt, as in the gabled family.
+		Mesh.SetSlot(EMaterialSlot::Timber);
+
 		std::vector<std::vector<Vector3>> Rings;
 		Rings.reserve(SkirtProfile.size());
 		for (const Vector2& Step : SkirtProfile)
@@ -1766,16 +2453,24 @@ namespace
 					int32_t(Skirt.Extent * 2.0f / std::fmax(Spec.TileCourseWidth, 0.05f)), 1);
 				const float Pitch = Skirt.Extent * 2.0f / float(Courses);
 
+				// 包络: the band ends under the two diagonal ridges that carry this face's corners —
+				// 戗脊 on 歇山, 垂脊 on 庑殿 — at the section those are swept with.
+				const float DiagonalRidge = Spec.Module * 0.85f * Spec.RidgeScale;
+				const TileCourseLayout Band = TileBandFor(
+					Spec, -Skirt.Extent, Skirt.Extent, Pitch, Courses, DiagonalRidge, DiagonalRidge);
+
 				std::vector<TileSkinColumn> Columns;
 				LayTileCourses(
-					-Skirt.Extent,
-					Pitch,
+					Spec.TileDetail,
+					Band,
 					Courses,
 					[&Skirt](float Along) -> std::vector<Vector3> { return Skirt.Column(Along); },
 					Columns);
 
+				Mesh.SetSlot(EMaterialSlot::Tile);
 				BuildTileSkin(
-					Columns, ETileSkinLoop::Open, ETileEaves::AtStart, Spec.TileColor, Mesh);
+					Columns, ETileSkinLoop::Open, ETileEaves::AtStart, TileSkinSettingsFor(Spec),
+					Spec.TileColor, Mesh);
 			}
 		}
 
@@ -1789,6 +2484,7 @@ namespace
 
 		for (int32_t Sign = -1; Sign <= 1 && Top == HIP_TOP_GABLED_TIER; Sign += 2)
 		{
+			Mesh.SetSlot(EMaterialSlot::Timber);
 			for (size_t Index = 0; Index + 1 < TierProfile.size(); ++Index)
 			{
 				const Vector2& Low = TierProfile[Index];
@@ -1834,10 +2530,16 @@ namespace
 			const bool bCoverageBoundary = RoofCoverageBoundary(
 				Spec, TierProfile, HalfDepthBreak, KeepFrom, CoverageBoundary);
 
+			// 包络: the tier's two ends are the 垂脊 that run down its gable verges; the 山花板 sits
+			// behind them at the same X, so the courses are cut inside the 垂脊 footprints.
+			const float TierVergeRidge = Spec.Module * 0.8f * Spec.RidgeScale;
+			const TileCourseLayout Band = TileBandFor(Spec, -HalfWidthBreak, HalfWidthBreak,
+				Pitch, Courses, TierVergeRidge, TierVergeRidge);
+
 			std::vector<TileSkinColumn> Columns;
 			LayTileCourses(
-				-HalfWidthBreak,
-				Pitch,
+				Spec.TileDetail,
+				Band,
 				Courses,
 				[&TierProfile, TierBase, Sign, KeepFrom, bCoverageBoundary, &CoverageBoundary](float X) -> std::vector<Vector3>
 				{
@@ -1860,10 +2562,13 @@ namespace
 
 			// The tier's lower edge is the 收山 break sitting on the skirt below it, closed by a
 			// 博脊 — not an eave, so it gets no 瓦当 or 滴水.
-			BuildTileSkin(Columns, ETileSkinLoop::Open, ETileEaves::None, Spec.TileColor, Mesh);
+			Mesh.SetSlot(EMaterialSlot::Tile);
+			BuildTileSkin(Columns, ETileSkinLoop::Open, ETileEaves::None, TileSkinSettingsFor(Spec),
+				Spec.TileColor, Mesh);
 		}
 
 		// 山花, the vertical tympanum closing each end of the tier. Only 歇山 has one.
+		Mesh.SetSlot(EMaterialSlot::Gable);
 		for (int32_t Side = -1; Side <= 1 && Top == HIP_TOP_GABLED_TIER; Side += 2)
 		{
 			const float X = HalfWidthBreak * float(Side);
@@ -1882,27 +2587,42 @@ namespace
 		// ---- Ridges ----
 
 		const float Apex = (Top == HIP_TOP_GABLED_TIER) ? (TierBase + TierProfile.back().y) : TierBase;
+		// 高度链 (R17): every ridge on this roof bears on the tiled faces, so they all come up with
+		// the 泥背 layer instead of sinking into it. 0 unless the tier builds a bedded skin.
+		const float Bedding = RoofBeddingLift(Spec);
 
 		// 盝顶: cap the opening with a flat platform and ring it with a 围脊.
 		if (bFlatTop)
 		{
+			// The 盝顶 deck is the roof's own weathering surface, tinted with the tiles, so it
+			// goes on the tile slot; only the 围脊 ringed round it is ridge.
+			Mesh.SetSlot(EMaterialSlot::Tile);
 			std::vector<Vector3> Cap;
 			const std::vector<Vector2> Plan = BuildRing(HalfWidthBreak, HalfDepthBreak);
 			for (const Vector2& Point : Plan)
 			{
-				Cap.push_back(Vector3(Point.x, Apex, Point.y));
+				Cap.push_back(Vector3(Point.x, Apex + Bedding, Point.y));
 			}
 			Mesh.AddPolygon(Cap, Vector3(0, 1, 0), Spec.TileColor * 0.8f);
 
+			Mesh.SetSlot(EMaterialSlot::Ridge);
 			std::vector<Vector3> Knots;
-			for (const Vector2& Point : Plan)
+			// Tile-layout samples can be closer to a corner than the ridge's half-width.
+			// Sweeping through those samples folds the inner miter back on itself. A rectangular
+			// surround needs only its four actual corners, irrespective of tile sampling density.
+			const std::vector<Vector2> RidgePlan = Spec.RidgeDetail >= 1
+				? std::vector<Vector2>{ Vector2(-HalfWidthBreak, HalfDepthBreak),
+					Vector2(HalfWidthBreak, HalfDepthBreak), Vector2(HalfWidthBreak, -HalfDepthBreak),
+					Vector2(-HalfWidthBreak, -HalfDepthBreak) }
+				: Plan;
+			for (const Vector2& Point : RidgePlan)
 			{
-				Knots.push_back(Vector3(Point.x, Apex, Point.y));
+				Knots.push_back(Vector3(Point.x, Apex + Bedding, Point.y));
 			}
 			Knots.push_back(Knots.front());
 
 			SweepSettings Settings;
-			Settings.Contour = MakeRidgeContour(Spec.Module * 1.05f * Spec.RidgeScale);
+			ConfigureRidgeSweep(Settings, Spec, Spec.Module * 1.05f * Spec.RidgeScale);
 			Settings.bClosedContour = true;
 			Settings.bGenerateCaps = false;
 
@@ -1915,14 +2635,24 @@ namespace
 
 		// 正脊 along the apex. On a square 庑殿 plan the ridge has no length — that is a 攒尖
 		// pyramid, and the four diagonal ridges already meet at the point.
+		Mesh.SetSlot(EMaterialSlot::Ridge);
 		if (!bFlatTop && HalfWidthBreak > Spec.Module * 0.15f)
 		{
 			std::vector<Vector3> Knots;
 			Knots.push_back(Vector3(-HalfWidthBreak, Apex, 0.0f));
 			Knots.push_back(Vector3(HalfWidthBreak, Apex, 0.0f));
+			if (Spec.RidgeDetail >= 1 && Top == HIP_TOP_GABLED_TIER)
+			{
+				const float HeadOverhang = Spec.Module * 0.8f * Spec.RidgeScale * 0.5f;
+				Knots.front().x -= HeadOverhang;
+				Knots.back().x += HeadOverhang;
+			}
+			LiftVertically(Knots, Bedding);
+
+			const float HipMainScale = Spec.Module * 1.35f * Spec.RidgeScale;
 
 			SweepSettings Settings;
-			Settings.Contour = MakeRidgeContour(Spec.Module * 1.35f * Spec.RidgeScale);
+			ConfigureRidgeSweep(Settings, Spec, HipMainScale);
 			Settings.bClosedContour = true;
 
 			SweepResult Sweep;
@@ -1930,6 +2660,9 @@ namespace
 			{
 				Mesh.AddSweep(Sweep, Spec.RidgeColor);
 			}
+
+			// 正吻 at both ends — the 庑殿's 正脊 is the one this class is for.
+			SeatRidgeFinials(Mesh, Spec, Knots, HipMainScale);
 		}
 
 		// 垂脊 down each edge of the gabled tier. Only 歇山 has one.
@@ -1937,6 +2670,7 @@ namespace
 		{
 			for (int32_t Sign = -1; Sign <= 1; Sign += 2)
 			{
+				if (Spec.RidgeDetail >= 1 && Sign > 0) { continue; }
 				std::vector<Vector3> Knots;
 				for (size_t Index = TierProfile.size(); Index-- > 0;)
 				{
@@ -1945,9 +2679,21 @@ namespace
 						TierBase + TierProfile[Index].y,
 						float(Sign) * TierProfile[Index].x));
 				}
+				if (Spec.RidgeDetail >= 1)
+				{
+					std::reverse(Knots.begin(), Knots.end());
+					for (size_t I = TierProfile.size() - 1; I-- > 0;)
+					{
+						Knots.push_back(Vector3(HalfWidthBreak * float(Side),
+							TierBase + TierProfile[I].y, TierProfile[I].x));
+					}
+				}
+				LiftAlongKnotNormals(Knots, Bedding);
+
+				const float TierVergeScale = Spec.Module * 0.8f * Spec.RidgeScale;
 
 				SweepSettings Settings;
-				Settings.Contour = MakeRidgeContour(Spec.Module * 0.8f * Spec.RidgeScale);
+				ConfigureRidgeSweep(Settings, Spec, TierVergeScale, true);
 				Settings.bClosedContour = true;
 				Settings.UpReference = Vector3(0, 1, 0);
 
@@ -1956,6 +2702,10 @@ namespace
 				{
 					Mesh.AddSweep(Sweep, Spec.RidgeColor);
 				}
+
+				// The knots run backwards from the tier's break line, so the end that dies into the
+				// 戗脊 is the last one. 歇山 puts its 垂兽 there, where the two ridges meet.
+				SeatRidgeBeasts(Mesh, Spec, Knots, TierVergeScale, Spec.RidgeDetail >= 1 ? 0x3 : 0x2);
 			}
 		}
 
@@ -1975,9 +2725,14 @@ namespace
 						float(SideZ) * (HalfDepthEave - Inset * Fraction));
 					Knots.push_back(Flip.Apply(Point));
 				}
+				// Two faces meet along a diagonal, so it follows the plane they share rather than
+				// either one of them.
+				LiftAlongKnotNormals(Knots, Bedding);
+
+				const float DiagonalScale = Spec.Module * 0.85f * Spec.RidgeScale;
 
 				SweepSettings Settings;
-				Settings.Contour = MakeRidgeContour(Spec.Module * 0.85f * Spec.RidgeScale);
+				ConfigureRidgeSweep(Settings, Spec, DiagonalScale, true);
 				Settings.bClosedContour = true;
 				Settings.UpReference = Vector3(0, 1, 0);
 
@@ -1986,12 +2741,17 @@ namespace
 				{
 					Mesh.AddSweep(Sweep, Spec.RidgeColor);
 				}
+
+				// 戗脊 (歇山) / 垂脊 (庑殿): built from the skirt profile backwards, so its eave corner
+				// is the last knot. That corner is where the 垂兽 goes and the 走兽 walk up from.
+				SeatRidgeBeasts(Mesh, Spec, Knots, DiagonalScale, 0x2);
 			}
 		}
 
 		// 连檐 board all the way round the flipped eave, tucked under the eave tiles. Closing the
 		// loop is what makes the last corner miter against the first side rather than butt-ending.
 		{
+			Mesh.SetSlot(EMaterialSlot::Timber);
 			// Inset and dropped rather than sitting on the eave line, where at full size it used to
 			// stand in front of the tile ends and hide every 瓦当 and 滴水 behind it.
 			const float Back = Spec.Module * 0.26f;
@@ -2079,6 +2839,7 @@ namespace
 		const Color BoardColor = Spec.TileColor * 0.7f;
 		const Color SoffitColor = Spec.TimberColor * 1.15f;
 
+		Mesh.SetSlot(EMaterialSlot::Timber);
 		for (size_t Index = 0; Index + 1 < Profile.size(); ++Index)
 		{
 			const Vector2& From = Profile[Index];
@@ -2142,10 +2903,16 @@ namespace
 			const int32_t Courses = std::max(int32_t(HalfWidth * 2.0f / std::fmax(Spec.TileCourseWidth, 0.05f)), 1);
 			const float Pitch = HalfWidth * 2.0f / float(Courses);
 
+			// 包络: a 卷棚 runs eave to eave over the roll, so both ends of the band are gable
+			// verges carrying a 垂脊, exactly as on the ridged roofs.
+			const float RollVergeRidge = Spec.Module * 0.85f * Spec.RidgeScale;
+			const TileCourseLayout Band = TileBandFor(
+				Spec, -HalfWidth, HalfWidth, Pitch, Courses, RollVergeRidge, RollVergeRidge);
+
 			std::vector<TileSkinColumn> Columns;
 			LayTileCourses(
-				-HalfWidth,
-				Pitch,
+				Spec.TileDetail,
+				Band,
 				Courses,
 				[&Profile, RoofBase](float X) -> std::vector<Vector3>
 				{
@@ -2161,11 +2928,14 @@ namespace
 				Columns);
 
 			// 卷棚's profile runs eave to eave over the roll, so both ends want dressing.
+			Mesh.SetSlot(EMaterialSlot::Tile);
 			BuildTileSkin(
-				Columns, ETileSkinLoop::Open, ETileEaves::AtBothEnds, Spec.TileColor, Mesh);
+				Columns, ETileSkinLoop::Open, ETileEaves::AtBothEnds, TileSkinSettingsFor(Spec),
+				Spec.TileColor, Mesh);
 		}
 
 		// 垂脊 along both gable edges, following the whole rolled profile.
+		Mesh.SetSlot(EMaterialSlot::Ridge);
 		for (int32_t Side = -1; Side <= 1; Side += 2)
 		{
 			std::vector<Vector3> Knots;
@@ -2173,9 +2943,13 @@ namespace
 			{
 				Knots.push_back(Vector3(HalfWidth * float(Side), RoofBase + Step.y, Step.x));
 			}
+			// 高度链 (R17): the 垂脊 bears on the rolled tile surface, so it comes up with it.
+			LiftAlongKnotNormals(Knots, RoofBeddingLift(Spec));
+
+			const float RollVergeScale = Spec.Module * 0.85f * Spec.RidgeScale;
 
 			SweepSettings Settings;
-			Settings.Contour = MakeRidgeContour(Spec.Module * 0.85f * Spec.RidgeScale);
+			ConfigureRidgeSweep(Settings, Spec, RollVergeScale, true);
 			Settings.bClosedContour = true;
 			Settings.UpReference = Vector3(0, 1, 0);
 
@@ -2184,9 +2958,14 @@ namespace
 			{
 				Mesh.AddSweep(Sweep, Spec.RidgeColor);
 			}
+
+			// A 卷棚 runs its 垂脊 eave to eave over the roll: both ends are 檐口 ends, so both get a
+			// 垂兽 and a row of 走兽.
+			SeatRidgeBeasts(Mesh, Spec, Knots, RollVergeScale, 0x3);
 		}
 
 		// 连檐 board on both sides, tucked under the eave tiles.
+		Mesh.SetSlot(EMaterialSlot::Timber);
 		for (int32_t Sign = -1; Sign <= 1; Sign += 2)
 		{
 			std::vector<Vector3> Knots;
@@ -2207,6 +2986,7 @@ namespace
 		}
 
 		// 山墙 following the wall line, closing the rolled silhouette.
+		Mesh.SetSlot(EMaterialSlot::Gable);
 		for (int32_t Side = -1; Side <= 1; Side += 2)
 		{
 			const float X = Spec.Width * 0.5f * float(Side);
@@ -2266,15 +3046,52 @@ namespace
 		BuildGableSlope(Spec, Profile, 1.0f, HalfWidth, Mesh);
 		BuildGableSlope(Spec, Profile, -1.0f, HalfWidth, Mesh);
 
+		if (Spec.RidgeDetail >= 1)
+		{
+			// One shared miter ring at the gable apex, no overlapping internal end caps.
+			Mesh.SetSlot(EMaterialSlot::Ridge);
+			for (int32_t Side = -1; Side <= 1; Side += 2)
+			{
+				std::vector<Vector3> Knots;
+				for (const Vector2& P : Profile)
+				{
+					Knots.push_back(Vector3(HalfWidth * float(Side), Spec.RoofBase + P.y, P.x));
+				}
+				for (size_t I = Profile.size() - 1; I-- > 0;)
+				{
+					Knots.push_back(Vector3(HalfWidth * float(Side), Spec.RoofBase + Profile[I].y, -Profile[I].x));
+				}
+				LiftAlongKnotNormals(Knots, RoofBeddingLift(Spec));
+				const float Scale = Spec.Module * 0.85f * Spec.RidgeScale;
+				SweepSettings Settings;
+				ConfigureRidgeSweep(Settings, Spec, Scale, true);
+				SweepResult Sweep;
+				if (BuildSweep(Knots, Settings, Sweep)) { Mesh.AddSweep(Sweep, Spec.RidgeColor); }
+				SeatRidgeBeasts(Mesh, Spec, Knots, Scale, 0x3);
+			}
+		}
+
 		// 正脊 along the apex.
 		{
+			Mesh.SetSlot(EMaterialSlot::Ridge);
 			const float Apex = Spec.RoofBase + Profile.back().y;
 			std::vector<Vector3> Knots;
 			Knots.push_back(Vector3(-HalfWidth, Apex, 0.0f));
 			Knots.push_back(Vector3(HalfWidth, Apex, 0.0f));
+			if (Spec.RidgeDetail >= 1)
+			{
+				// The head covers the outer face of the verge foot, rather than ending at its centre.
+				const float HeadOverhang = Spec.Module * 0.85f * Spec.RidgeScale * 0.5f;
+				Knots.front().x -= HeadOverhang;
+				Knots.back().x += HeadOverhang;
+			}
+			// 高度链 (R17): both slopes rise into the 正脊, so it comes up with them.
+			LiftVertically(Knots, RoofBeddingLift(Spec));
+
+			const float MainRidgeScale = Spec.Module * 1.35f * Spec.RidgeScale;
 
 			SweepSettings Settings;
-			Settings.Contour = MakeRidgeContour(Spec.Module * 1.35f * Spec.RidgeScale);
+			ConfigureRidgeSweep(Settings, Spec, MainRidgeScale);
 			Settings.bClosedContour = true;
 
 			SweepResult Sweep;
@@ -2282,10 +3099,13 @@ namespace
 			{
 				Mesh.AddSweep(Sweep, Spec.RidgeColor);
 			}
+
+			SeatRidgeFinials(Mesh, Spec, Knots, MainRidgeScale);
 		}
 
 		// 山墙 gable tympanum. It closes the wall line, not the roof edge, so on 悬山 the roof
 		// correctly overhangs a wall that stops short of it.
+		Mesh.SetSlot(EMaterialSlot::Gable);
 		for (int32_t Side = -1; Side <= 1; Side += 2)
 		{
 			const float X = Spec.Width * 0.5f * float(Side);
@@ -2306,6 +3126,378 @@ namespace
 	}
 } // namespace
 
+// ==================== 脊/瓦 高度链 (R17) ====================
+//
+// The roof layer owns these two because it is the layer that places ridges, 山花 members and the
+// 宝顶; the 瓦作 layer owns RoofBeddingLift, which is what they are lifting against.
+
+void BuildingGen::LiftVertically(std::vector<Vector3>& Knots, float Lift)
+{
+	if (!(Lift > 0.0f))
+	{
+		return;
+	}
+
+	for (Vector3& Knot : Knots)
+	{
+		Knot.y += Lift;
+	}
+}
+
+void BuildingGen::LiftAlongKnotNormals(std::vector<Vector3>& Knots, float Lift)
+{
+	if (!(Lift > 0.0f) || Knots.empty())
+	{
+		return;
+	}
+
+	// Normals first: the loop below moves the very knots their neighbours read.
+	std::vector<Vector3> Normals;
+	Normals.reserve(Knots.size());
+	for (size_t Index = 0; Index < Knots.size(); ++Index)
+	{
+		Normals.push_back(KnotNormalUp(Knots, Index));
+	}
+	for (size_t Index = 0; Index < Knots.size(); ++Index)
+	{
+		Knots[Index] += Normals[Index] * Lift;
+	}
+}
+
+// ==================== 脊断面 / 脊饰 (50_脊饰) ====================
+
+std::vector<Vector2> BuildingGen::RidgeContourFor(const BuildingSpec& Spec, float Scale, bool bVerge)
+{
+	if (Spec.RidgeDetail < 1)
+	{
+		return Spec.LODLevel >= 2 ? MakeRidgeContourBlock(Scale) : MakeRidgeContour(Scale);
+	}
+
+	std::vector<Vector2> Unit;
+	if (Spec.LODLevel <= 0)
+	{
+		Unit = MakeRidgeContourTiered();
+	}
+	else if (Spec.LODLevel == 1)
+	{
+		Unit = MakeRidgeContourTieredMid();
+	}
+	else
+	{
+		Unit = MakeRidgeContourTieredBlock();
+	}
+
+	for (Vector2& Point : Unit)
+	{
+		if (bVerge && Point.y > 0.0f) { Point.y *= 0.70f; }
+		Point *= Scale;
+	}
+
+	return Unit;
+}
+
+void BuildingGen::ConfigureRidgeSweep(SweepSettings& Settings, const BuildingSpec& Spec, float Scale, bool bVerge)
+{
+	Settings.Contour = RidgeContourFor(Spec, Scale, bVerge);
+	if (Spec.RidgeDetail >= 1)
+	{
+		Settings.Mode = ESweepMode::LocalMiter;
+		Settings.bTriangulateCaps = true;
+		Settings.bCorrectSurfaceNormals = true;
+		Settings.SmoothContourMinY = Scale * 0.45f * (bVerge ? 0.70f : 1.0f);
+	}
+}
+
+void MeshAccumulator::AddOrientedBox(const Vector3& Origin, const Vector3& AxisX, const Vector3& AxisY,
+	const Vector3& AxisZ, const Vector3& HalfExtents, const Color& Tint)
+{
+	const Vector3& H = HalfExtents;
+	if (H.x <= 0.0f || H.y <= 0.0f || H.z <= 0.0f)
+	{
+		return;
+	}
+
+	// One mottle per component, as AddBox does: the piece reads as one material piece.
+	const Color Col = MottleColor(Tint);
+
+	Vector3 Corner[8];
+	for (int32_t Index = 0; Index < 8; ++Index)
+	{
+		const float SX = (Index & 1) ? H.x : -H.x;
+		const float SY = (Index & 2) ? H.y : -H.y;
+		const float SZ = (Index & 4) ? H.z : -H.z;
+		Corner[Index] = Origin + AxisX * SX + AxisY * SY + AxisZ * SZ;
+	}
+
+	// 000 100 110 010 / 001 101 111 011, with the face normals along the frame's own axes.
+	AddQuadOriented(Corner[4], Corner[6], Corner[7], Corner[5], AxisZ, Col);
+	AddQuadOriented(Corner[1], Corner[3], Corner[2], Corner[0], -AxisZ, Col);
+	AddQuadOriented(Corner[5], Corner[7], Corner[3], Corner[1], AxisX, Col);
+	AddQuadOriented(Corner[0], Corner[2], Corner[6], Corner[4], -AxisX, Col);
+	AddQuadOriented(Corner[2], Corner[3], Corner[7], Corner[6], AxisY, Col);
+	AddQuadOriented(Corner[0], Corner[4], Corner[5], Corner[1], -AxisY, Col);
+}
+
+void MeshAccumulator::AddPlacedTriangles(
+	const std::vector<Vector3>& SourceVertices, const std::vector<Vector3>& SourceNormals,
+	const std::vector<Vector2>& SourceUVs, const std::vector<int32_t>& SourceIndices,
+	const Vector3& Origin, const Vector3& AxisX, const Vector3& AxisY, const Vector3& AxisZ,
+	float Scale, const Color& Tint)
+{
+	if (SourceIndices.size() < 3 || SourceVertices.empty() || !(Scale > 0.0f))
+	{
+		return;
+	}
+
+	// Seat by the soup's own base, not by wherever its origin happens to be: the placement records
+	// the point that rests on the ridge, so the mesh's bottom-face centre is moved there. An
+	// authored 鸱吻 therefore lands the same way the placeholder cube does, whatever its pivot.
+	Vector3 Min = SourceVertices.front();
+	Vector3 Max = SourceVertices.front();
+	for (const Vector3& Source : SourceVertices)
+	{
+		Min = Vector3(std::fmin(Min.x, Source.x), std::fmin(Min.y, Source.y), std::fmin(Min.z, Source.z));
+		Max = Vector3(std::fmax(Max.x, Source.x), std::fmax(Max.y, Source.y), std::fmax(Max.z, Source.z));
+	}
+	const Vector3 Anchor((Min.x + Max.x) * 0.5f, Min.y, (Min.z + Max.z) * 0.5f);
+
+	const Color Col = MottleColor(Tint);
+	const int32_t First = int32_t(Vertices.size());
+	const size_t SourceCount = SourceVertices.size();
+	for (size_t Index = 0; Index < SourceCount; ++Index)
+	{
+		const Vector3 Local = SourceVertices[Index] - Anchor;
+		Vertices.push_back(Origin
+			+ AxisX * (Local.x * Scale) + AxisY * (Local.y * Scale) + AxisZ * (Local.z * Scale));
+
+		Vector3 Normal;
+		if (Index < SourceNormals.size() && SourceNormals[Index].length_squared() > 1e-12f)
+		{
+			Normal = (AxisX * SourceNormals[Index].x + AxisY * SourceNormals[Index].y
+				+ AxisZ * SourceNormals[Index].z).normalized();
+		}
+		else
+		{
+			Normal = AxisY;
+		}
+		Normals.push_back(Normal);
+		UVs.push_back(Index < SourceUVs.size() ? SourceUVs[Index] : Vector2());
+		Colors.push_back(Col);
+	}
+
+	for (size_t Index = 0; Index + 2 < SourceIndices.size(); Index += 3)
+	{
+		const int32_t A = SourceIndices[Index];
+		const int32_t B = SourceIndices[Index + 1];
+		const int32_t C = SourceIndices[Index + 2];
+		if (A < 0 || B < 0 || C < 0 || size_t(A) >= SourceCount || size_t(B) >= SourceCount
+			|| size_t(C) >= SourceCount)
+		{
+			continue;
+		}
+
+		PushTriangle(First + A, First + B, First + C);
+	}
+}
+
+namespace
+{
+	/**
+	 * A ridge run's local frame at a station measured in arc length from one of its ends.
+	 *
+	 * Up comes from the polyline itself (KnotNormalUp), so it is the same direction the 高度链 lift
+	 * used; Outward runs downhill, past the end the station was measured from, which is the way a
+	 * 垂兽 / 走兽 faces.
+	 */
+	struct RidgeStation
+	{
+		Vector3 Position;
+		Vector3 Up = Vector3(0, 1, 0);
+		Vector3 Outward = Vector3(0, 0, 1);
+		bool bValid = false;
+	};
+
+	RidgeStation StationAlongRidge(const std::vector<Vector3>& Knots, int32_t End, float Distance)
+	{
+		RidgeStation Station;
+		if (Knots.size() < 2 || Distance < 0.0f)
+		{
+			return Station;
+		}
+
+		// Walk from the requested end. Index pairs are (From, To) in walk order.
+		const bool bFromFirst = (End == 0);
+		const size_t Start = bFromFirst ? 0 : Knots.size() - 1;
+		const size_t Stop = bFromFirst ? Knots.size() - 1 : 0;
+
+		float Remaining = Distance;
+		for (size_t Index = Start; Index != Stop;)
+		{
+			const size_t Next = bFromFirst ? Index + 1 : Index - 1;
+			const Vector3& From = Knots[Index];
+			const Vector3& To = Knots[Next];
+			const Vector3 Segment = To - From;
+			const float Length = Segment.length();
+			if (Length > BUILD_EPSILON && Remaining <= Length)
+			{
+				const float T = Remaining / Length;
+				const Vector3 UpFrom = KnotNormalUp(Knots, Index);
+				const Vector3 UpTo = KnotNormalUp(Knots, Next);
+				const Vector3 Up = UpFrom + (UpTo - UpFrom) * T;
+				const Vector3 Outward = -Segment / Length;
+
+				Station.Outward = Outward;
+				// Keep the frame orthonormal: the interpolated up is only orthogonal to Outward where
+				// the ridge is straight, and a tilted ornament would leave the crown on one corner.
+				const Vector3 Orthogonal = Up - Outward * Up.dot(Outward);
+				Station.Up = (Orthogonal.length_squared() > BUILD_EPSILON)
+					? Orthogonal.normalized()
+					: Vector3(0, 1, 0);
+				Station.Position = From + Segment * T;
+				Station.bValid = true;
+
+				return Station;
+			}
+
+			Remaining -= Length;
+			Index = Next;
+		}
+
+		// Past the far end: no station, so nothing is seated beyond the ridge.
+		return Station;
+	}
+
+	float RidgeRunLength(const std::vector<Vector3>& Knots)
+	{
+		float Total = 0.0f;
+		for (size_t Index = 0; Index + 1 < Knots.size(); ++Index)
+		{
+			Total += Knots[Index].distance_to(Knots[Index + 1]);
+		}
+
+		return Total;
+	}
+
+
+	/**
+	 * Seats one 脊饰 (50_脊饰 J1 / 卡片 R3: the piece sits ON the ridge, a separate support
+	 * relationship — not interpenetrating, not a veneer).
+	 *
+	 * The bottom face lands on the higher of the two surfaces at the piece's own half-width: the
+	 * finest section of this RidgeDetail, and the one this tier actually swept. Both are convex
+	 * enough that the surface rises inward from the piece's corners, so the whole bottom face is in
+	 * contact — no hover anywhere under it — and the only penetration is the crown rising inside the
+	 * piece, which is what "seated" means. Taking the design section as one half of that pair is what
+	 * keeps the seat still when the tier switches: the coarser tiers are built outside the finer one.
+	 */
+	void SeatOrnament(MeshAccumulator& Mesh, const BuildingSpec& Spec, const std::vector<Vector3>& Knots,
+		float RidgeScale, int32_t End, float Distance, ERidgeOrnamentKind Kind)
+	{
+		const float Size = OrnamentSizeFor(Spec, Kind);
+		if (!(Size > 0.0f) || !(RidgeScale > 0.0f))
+		{
+			return;
+		}
+
+		const RidgeStation Station = StationAlongRidge(Knots, End, Distance + Size * 0.5f);
+		if (!Station.bValid)
+		{
+			return;
+		}
+
+		const float HalfWidth = (Size * 0.5f) / RidgeScale;
+		const bool bVerge = Kind != ERidgeOrnamentKind::Finial;
+		const float SeatDesign = RidgeSurfaceAt(RidgeDetailContour(Spec, bVerge), HalfWidth);
+		const float SeatTier = RidgeSurfaceAt(RidgeContourFor(Spec, 1.0f, bVerge), HalfWidth);
+		const float Seat = std::fmin(SeatDesign, SeatTier) * RidgeScale;
+
+		const Vector3 AxisY = Station.Up;
+		const Vector3 AxisZ = Station.Outward;
+		Vector3 AxisX = AxisY.cross(AxisZ);
+		if (AxisX.length_squared() < BUILD_EPSILON)
+		{
+			return;
+		}
+		AxisX = AxisX.normalized();
+
+		RidgeOrnamentPlacement Placement;
+		Placement.Kind = Kind;
+		Placement.Origin = Station.Position + AxisY * Seat;
+		Placement.AxisX = AxisX;
+		Placement.AxisY = AxisY;
+		Placement.AxisZ = AxisZ;
+		Placement.Size = Size;
+		Mesh.RidgeOrnaments.push_back(Placement);
+
+		// A caller supplying its own mesh for this class places it from the record instead.
+		if (Spec.RidgeOrnamentMeshMask & RidgeOrnamentBit(Kind))
+		{
+			return;
+		}
+
+		Mesh.AddOrientedBox(Placement.Origin, AxisX, AxisY, AxisZ,
+			Vector3(Size * 0.5f, Size * 0.5f, Size * 0.5f), RidgeOrnamentColor(Spec));
+	}
+} // namespace
+
+Color BuildingGen::RidgeOrnamentColor(const BuildingSpec& Spec)
+{
+	return Spec.RidgeColor * 1.12f;
+}
+
+
+void BuildingGen::SeatRidgeFinials(MeshAccumulator& Mesh, const BuildingSpec& Spec,
+	const std::vector<Vector3>& Knots, float RidgeScale)
+{
+	if (!Spec.bRidgeOrnaments)
+	{
+		return;
+	}
+
+	// Both ends of a 正脊: the 正吻 caps the ridge rather than overhanging it, so its outer face is
+	// flush with the ridge's own end face and its whole bottom face has ridge under it.
+	SeatOrnament(Mesh, Spec, Knots, RidgeScale, 0, 0.0f, ERidgeOrnamentKind::Finial);
+	SeatOrnament(Mesh, Spec, Knots, RidgeScale, 1, 0.0f, ERidgeOrnamentKind::Finial);
+}
+
+void BuildingGen::SeatRidgeBeasts(MeshAccumulator& Mesh, const BuildingSpec& Spec,
+	const std::vector<Vector3>& Knots, float RidgeScale, int32_t EaveEnds)
+{
+	if (!Spec.bRidgeOrnaments)
+	{
+		return;
+	}
+
+	const float Beast = OrnamentSizeFor(Spec, ERidgeOrnamentKind::Beast);
+	const float Walker = OrnamentSizeFor(Spec, ERidgeOrnamentKind::Walker);
+	// J2's row pitch: 兽身宽 + 间隙. The gap is [待定标] (0.005–0.01 D), so the middle is used.
+	const float Pitch = Walker + Spec.Module * 0.0075f;
+	const int32_t Count = std::max(Spec.RidgeWalkerCount, 0);
+	const float Run = RidgeRunLength(Knots);
+
+	for (int32_t End = 0; End <= 1; ++End)
+	{
+		if (!(EaveEnds & (1 << End)))
+		{
+			continue;
+		}
+
+		SeatOrnament(Mesh, Spec, Knots, RidgeScale, End, 0.0f, ERidgeOrnamentKind::Beast);
+
+		// 走兽 walk up behind the 垂兽. A row longer than its ridge simply stops short of the top
+		// instead of marching off the far end.
+		for (int32_t Index = 0; Index < Count; ++Index)
+		{
+			const float Distance = Beast + (float(Index) + 0.5f) * Pitch;
+			if (Distance + Walker > Run)
+			{
+				break;
+			}
+			SeatOrnament(Mesh, Spec, Knots, RidgeScale, End, Distance, ERidgeOrnamentKind::Walker);
+		}
+	}
+}
+
 // ==================== Entry point ====================
 
 void BuildingGen::BuildBuilding(const BuildingSpec& Spec, MeshAccumulator& OutMesh)
@@ -2324,18 +3516,24 @@ void BuildingGen::BuildBuilding(const BuildingSpec& Spec, MeshAccumulator& OutMe
 		return;
 	}
 
-	BuildPlatform(Spec, OutMesh);
-
-	if (Spec.bGenerateFence)
+	// 台基 optional (地基). With no platform the base is at ground level, so the stairs and the
+	// balustrade — both of which only make sense on a raised base — are skipped with it.
+	// (CollectSpec has already zeroed PlatformHeight in that case.)
+	if (Spec.bGeneratePlatform)
 	{
-		BuildFence(Spec, OutMesh);
-	}
+		BuildPlatform(Spec, OutMesh);
 
-	if (Spec.bGenerateSteps)
-	{
-		for (const float Angle : CullingAngles(Spec.StepRunCount))
+		if (Spec.bGenerateFence)
 		{
-			BuildStepRun(Spec, Angle, OutMesh);
+			BuildFence(Spec, OutMesh);
+		}
+
+		if (Spec.bGenerateSteps)
+		{
+			for (const float Angle : CullingAngles(Spec.StepRunCount))
+			{
+				BuildStepRun(Spec, Angle, OutMesh);
+			}
 		}
 	}
 

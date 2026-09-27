@@ -25,19 +25,8 @@ namespace
 	const float POLY_TAU = 2.0f * POLY_PI;
 	const float POLY_EPSILON = 1e-6f;
 
-	std::vector<Vector2> MakeRidgeSection(float Scale)
-	{
-		std::vector<Vector2> Contour;
-		Contour.push_back(Vector2(-0.5f, -0.10f) * Scale);
-		Contour.push_back(Vector2(0.5f, -0.10f) * Scale);
-		Contour.push_back(Vector2(0.5f, 0.30f) * Scale);
-		Contour.push_back(Vector2(0.30f, 0.62f) * Scale);
-		Contour.push_back(Vector2(0.0f, 0.75f) * Scale);
-		Contour.push_back(Vector2(-0.30f, 0.62f) * Scale);
-		Contour.push_back(Vector2(-0.5f, 0.30f) * Scale);
-
-		return Contour;
-	}
+	// The ridge section is shared with the rectangular roofs (BuildingGen::RidgeContourFor), so a
+	// polygonal plan gets the same 脊断面档 — same soffit, same crown, same 分层 bands — as a 硬山.
 
 	std::vector<Vector2> MakeEaveSection(float Scale)
 	{
@@ -233,6 +222,8 @@ void BuildingGen::BuildCentralisedRoof(
 	const Color BoardColor = Spec.TileColor * 0.7f;
 	const Color SoffitColor = Spec.TimberColor * 1.15f;
 
+	// 望板 lofted from the eave up to the apex.
+	OutMesh.SetSlot(EMaterialSlot::Timber);
 	for (size_t Level = 0; Level + 1 < Rings.size(); ++Level)
 	{
 		const std::vector<Vector3>& Low = Rings[Level];
@@ -329,10 +320,16 @@ void BuildingGen::BuildCentralisedRoof(
 			// the same polygon scaled about the centre, holding the *fraction* keeps the column on
 			// the facet all the way to the apex — no clipping needed here, and the courses converge
 			// on the finial the way a real 攒尖 roof's do.
+			// 包络 (R14.1): the facet's across-slope domain is [0, SideLength] — a corner at either
+			// end, each carrying a 垂脊 down from the apex. The courses are cut inside both.
+			const float FacetRidge = Spec.Module * 0.85f * Spec.RidgeScale;
+			const TileCourseLayout Band = TileBandFor(
+				Spec, 0.0f, SideLength, Pitch, Courses, FacetRidge, FacetRidge);
+
 			std::vector<TileSkinColumn> Columns;
 			LayTileCourses(
-				0.0f,
-				Pitch,
+				Spec.TileDetail,
+				Band,
 				Courses,
 				[&Shape, &From, &To, &Flip, &Spec, SideLength, KeepFrom, bCoverageBoundary, &CoverageBoundary](float Across) -> std::vector<Vector3>
 				{
@@ -365,16 +362,22 @@ void BuildingGen::BuildCentralisedRoof(
 				Columns);
 
 			// Cr below 1 bares the roof from the eave upward, leaving column 0 partway up the facet.
+			OutMesh.SetSlot(EMaterialSlot::Tile);
 			BuildTileSkin(
 				Columns,
 				ETileSkinLoop::Open,
 				KeepFrom == 0 ? ETileEaves::AtStart : ETileEaves::None,
+				TileSkinSettingsFor(Spec),
 				Spec.TileColor,
 				OutMesh);
 		}
 	}
 
 	// ---- 垂脊 from the apex down each corner, and the eave drip course ----
+	// 高度链 (R17): the converging courses rise with the 泥背 layer, so everything that bears on
+	// them — the 垂脊 and the 宝顶 drum — comes up by the same amount. 0 unless the tier beds the skin.
+	const float Bedding = RoofBeddingLift(Spec);
+	OutMesh.SetSlot(EMaterialSlot::Ridge);
 	if (!bRound)
 	{
 		for (int32_t Side = 0; Side < Sides; ++Side)
@@ -398,9 +401,12 @@ void BuildingGen::BuildCentralisedRoof(
 			{
 				continue;
 			}
+			LiftAlongKnotNormals(Knots, Bedding);
+
+			const float CornerRidgeScale = Spec.Module * 0.85f * Spec.RidgeScale;
 
 			SweepSettings Settings;
-			Settings.Contour = MakeRidgeSection(Spec.Module * 0.85f * Spec.RidgeScale);
+			ConfigureRidgeSweep(Settings, Spec, CornerRidgeScale, true);
 			Settings.bClosedContour = true;
 			Settings.UpReference = Vector3(0, 1, 0);
 
@@ -409,12 +415,16 @@ void BuildingGen::BuildCentralisedRoof(
 			{
 				OutMesh.AddSweep(Sweep, Spec.RidgeColor);
 			}
+
+			// The profile is walked from the apex down, so the eave end is the last knot.
+			SeatRidgeBeasts(OutMesh, Spec, Knots, CornerRidgeScale, 0x2);
 		}
 	}
 
 	// 连檐 board round the eave polygon, inset and dropped so it sits under the eave tiles rather
 	// than in front of them.
 	{
+		OutMesh.SetSlot(EMaterialSlot::Timber);
 		const float Back = Spec.Module * 0.26f;
 		const float Inset = 1.0f - Back / std::fmax(EaveApothem, 1e-6f);
 		std::vector<Vector3> Knots = RingAt(Inset, Spec.RoofBase - Spec.Module * 0.20f);
@@ -474,8 +484,11 @@ void BuildingGen::BuildCentralisedRoof(
 		AddEaveRafterHeads(OutMesh, Spec, Points, Inward, TangentSlope, &Flip, Spec.TimberColor * 1.28f);
 	}
 
-	BuildFinialBase(Spec, Apex, EaveApothem * TILE_APEX_CUTOFF, OutMesh);
-	BuildFinial(Spec, Apex, OutMesh);
+	// 宝顶 and the masonry drum it sits on: the converging 垂脊 die into them, so both go on the
+	// ridge slot rather than the stone one. Both ride the bedding lift with the courses they cover.
+	OutMesh.SetSlot(EMaterialSlot::Ridge);
+	BuildFinialBase(Spec, Apex + Vector3(0.0f, Bedding, 0.0f), EaveApothem * TILE_APEX_CUTOFF, OutMesh);
+	BuildFinial(Spec, Apex + Vector3(0.0f, Bedding, 0.0f), OutMesh);
 }
 
 void BuildingGen::BuildPolygonalBuilding(
@@ -519,6 +532,8 @@ void BuildingGen::BuildPolygonalBuilding(
 			OutMesh.AddPolygon(Cap, Vector3(0, 1, 0), Tint);
 		};
 
+		// 台基 body and 阶条石 cap: stone, as in the rectangular branch.
+		OutMesh.SetSlot(EMaterialSlot::Stone);
 		AddPrism(Inner, 0.0f, BodyHeight, Spec.StoneColor);
 		AddPrism(PlatformPlan, BodyHeight, Spec.PlatformHeight, Spec.StoneColor * 1.06f);
 	}
@@ -537,6 +552,10 @@ void BuildingGen::BuildPolygonalBuilding(
 
 	if (Spec.bGenerateWalls)
 	{
+		// The polygonal wall is one plain plastered slab per edge — no 槛墙, no opening — so
+		// unlike the rectangular bay it is all wall.
+		OutMesh.SetSlot(EMaterialSlot::Wall);
+
 		const float WallHeight = Spec.ColumnHeight * 0.94f;
 		const float WallHalf = Spec.ColumnRadius * 0.72f;
 
@@ -603,6 +622,9 @@ void BuildingGen::BuildPolygonalBuilding(
 	// ---- Bracket band, following the polygon ----
 	if (Spec.BracketHeight > 0.0f)
 	{
+		// 阑额 band and 斗 blocks: timber.
+		OutMesh.SetSlot(EMaterialSlot::Timber);
+
 		const float ColumnTop = Base + Spec.ColumnHeight;
 		const float Overhang = Spec.ColumnRadius * 1.5f;
 		const std::vector<Vector2> BandPlan = PlanPolygon(BodyApothem + Overhang * 0.6f, Sides);
@@ -637,6 +659,8 @@ void BuildingGen::BuildPolygonalBuilding(
 		const float RunWidth = Spec.FenceGapWidth;
 		const float TreadDepth = Spec.StepRunDepth / float(Steps);
 
+		OutMesh.SetSlot(EMaterialSlot::Stone);
+
 		for (int32_t Step = 0; Step < Steps; ++Step)
 		{
 			const float Top = Spec.PlatformHeight * float(Steps - Step) / float(Steps);
@@ -649,8 +673,12 @@ void BuildingGen::BuildPolygonalBuilding(
 		}
 	}
 
-	if (Spec.bGenerateFence)
+	// 栏杆与台基同进退：没有台基时它坐在平地上，没有意义（与矩形分支的处置一致）。
+	if (Spec.bGenerateFence && Spec.bGeneratePlatform)
 	{
+		// 栏杆: stone rail and posts, as in the rectangular branch.
+		OutMesh.SetSlot(EMaterialSlot::Stone);
+
 		const float RailHeight = Spec.PlatformHeight + Spec.FenceHeight;
 		const float RailHalf = Spec.Module * 0.2f;
 

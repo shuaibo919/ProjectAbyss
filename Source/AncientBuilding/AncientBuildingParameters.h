@@ -1,7 +1,7 @@
 #pragma once
 
 // Weber-Penn has nothing to do with this one: every dimension here descends from Table 1 of
-// Hu & Qin 2020 (see Docs/AncientBuilding_Spec.md §8), which is itself a simplification of
+// Hu & Qin 2020 (see ProjectAbyssWiki/documentation/systems/AncientBuilding_Spec.md §8), which is itself a simplification of
 // the 材份/斗口 module system of the Yingzao Fashi. Do not read the constants as
 // authoritative joinery — they are a games-grade approximation that happens to produce
 // convincing proportions from a single number.
@@ -102,10 +102,68 @@ namespace godot
 		float FenceGapOverride = 0.0f;
 		bool bGenerateSteps = true;
 		int32_t StepCount = 5;
+		/**
+		 * 台基有无 (地基). **Default `true` = the historical output** (every building stands on a
+		 * platform, base at y = PlatformHeight). Off: the platform block, its steps and the
+		 * balustrade are skipped, and `PlatformHeight` is treated as 0 — since the column base,
+		 * the wall base and the roof base all derive from it, the whole building shifts down to
+		 * stand on the ground. That is the physically right result: no 台基 means the floor is at
+		 * ground level. Consumers that read `get_platform_height()` still see the parameter's own
+		 * value; only the geometry treats it as 0.
+		 * Paving is unaffected: it is ground paving, not part of the platform.
+		 */
+		bool bGeneratePlatform = true;
+		/**
+		 * 台基顶面接缝网格 (60_台基地面 R6). Off = legacy: one seamless cap slab. On: the cap top
+		 * is cut into a rectangular slab grid with real grooves instead of a colour pattern.
+		 * [自定] Slab pitch and groove size have no source; sized to read at the M4 acceptance view.
+		 */
+		bool bPlatformTopJoints = false;
+		/**
+		 * 台基边缘沿口 (60_台基地面 R6). Off = legacy straight drop. On: the cap gets a
+		 * protruding moulded band under its top, so the edge steps out instead of dropping.
+		 * [自定] Lip height / projection have no source; sized to read at the M4 acceptance view.
+		 */
+		bool bPlatformEdgeLip = false;
+		/** 方砖铺地 around the platform (60_台基地面 R9). Off = legacy: no paving at all. */
+		bool bPaving = false;
+		/**
+		 * 铺地几何板缝 (60_台基地面 R9). Off = the legacy reading: one vertex-coloured tile quad
+		 * each, so the joints are a colour difference only. On: the tiles are separated by real
+		 * grooves over a recessed bed, which is the "grid + visible joints" the plate asks for.
+		 */
+		bool bPavingJointGeometry = false;
+		/**
+		 * 踏步两侧简单侧挡 (60_台基地面 R8). Off = legacy: a bare swept staircase block. On: a
+		 * stepped cheek follows the run on both sides. [自定] Form has no source.
+		 */
+		bool bStepSideCheek = false;
 
 		// ---- Body ----
 		bool bGenerateColumns = true;
 		bool bGenerateWalls = true;
+		/**
+		 * 下碱带高 ÷ 墙身批高 (20_墙体 R15). 0 = legacy: no zoning, the wall is one plain panel.
+		 * Above 0 the bottom of every wall bay becomes a masonry block band with real horizontal
+		 * and staggered vertical joints, and the plaster above it stops being a bare plane. The
+		 * band never grows past the solid 槛墙 below the window.
+		 * [自定] The 下碱 proportion on the reference plate is a hand-drawn indication only, so
+		 * this ratio and the block sizes derived from it are project choices, not measured values.
+		 */
+		float DadoHeightRatio = 0.0f;
+		/**
+		 * 分界带 between the plaster and the block band, as a multiple of the module D
+		 * (20_墙体 R15). 0 = legacy: no trim band; only acts when DadoHeightRatio > 0.
+		 * [自定] Form and size have no source; sized to read at the M1 acceptance view.
+		 */
+		float DadoTopTrim = 0.0f;
+		/**
+		 * 方形石础 (60_台基地面 R12). Off = legacy: the turned, moulded stone drum every existing
+		 * resource was baked with. On: a square stone block with a base course under each column,
+		 * which is what the dwelling elevation asks for. Height semantics do not change — the
+		 * plinth still comes from ColumnBaseHeightScale, so 0 keeps both variants disabled.
+		 */
+		bool bColumnBaseSquare = false;
 		/** Column radius as a fraction of the module D. */
 		float ColumnRadiusScale = 0.42f;
 		int32_t ColumnSides = 10;
@@ -143,9 +201,55 @@ namespace godot
 		int32_t EaveRafterStyle = 2;
 		/** 瓦垄 spacing along the ridge. */
 		float TileCourseWidth = 0.34f;
+		/**
+		 * 瓦作 detail level (30_瓦作 §2). 0 = legacy: world-equal courses, one displaced sheet, no
+		 * longitudinal lap, plain eave tongues — every existing resource bakes to the same mesh.
+		 * 1 = 排垄与叠压: courses laid by the patch's own metric (R1(d)) with an integer course
+		 * count (R7/R8 甲) and a real longitudinal lap (R8 乙/R21). 2 = 1 + 檐口件与泥背: 瓦当 end
+		 * disc and 13-point 如意 滴水 (R4/R5) plus the 泥背 layer (R17).
+		 */
+		int32_t TileDetail = 0;
+		/** 泥背层厚 in metres (R17/card T3). 0 = the legacy skin sitting straight on the boarding. */
+		float TileBeddingThickness = 0.0f;
+		/**
+		 * Distance tier (30_瓦作 §2 / ExecutionPlan ). A *tier*, not a capability: it decides how
+		 * much of whatever TileDetail built survives into the baked mesh, so a resource can keep one
+		 * semantic description and still bake near, mid and far meshes from it.
+		 *
+		 * 0 = 近景, full: byte for byte what the same resource baked before this parameter existed.
+		 * 1 = 中景: the section keeps half its samples and the lap step collapses to one slant, which
+		 *     is where the skin's triangles actually are — the lap adds four points per joint per
+		 *     column, and those points are most of the roof.
+		 * 2 = 远景: no lap at all (one layer), a two-facet section, a plain bar along the eave instead
+		 *     of per-course 瓦当/滴水, and box ridges.
+		 */
+		int32_t LODLevel = 0;
 		/** Table's Cr: fraction of the slope covered by tiles, measured from the ridge. */
 		float TileCoverage = 1.0f;
 		float RidgeScale = 1.0f;
+		/**
+		 * 脊断面 (50_脊饰 §3). 0 = legacy: the seven-point section every resource written so far
+		 * baked. 1 = 分层: 当沟条 / 脊身 / 盖脊筒 as three bands with real ledges between them, so the
+		 * ridge reads as a stack of members instead of one half-round bar. Same soffit and same crown
+		 * height either way, so the ground plan and the 瓦-脊 高度链 are unaffected by the choice.
+		 */
+		int32_t RidgeDetail = 0;
+		/**
+		 * 脊饰 (50_脊饰 R1-R4). **Off = the legacy building, which has no 脊饰 at all** — and that is
+		 * the right default for a dwelling: 普通建筑是没有脊饰的 (user, 2026-09-27).
+		 *
+		 * This switch is the manual stand-in for the 等级 gate the handbook asks for (R1: 鸱吻 for
+		 * 宫殿 only); `BuildingTier` does not exist in this tree, so nothing decides it but the user.
+		 */
+		bool bRidgeOrnaments = false;
+		/** 正吻 placeholder cube side, in modules D. [自定] No source gives a size. */
+		float RidgeFinialSize = 0.70f;
+		/** 垂兽 placeholder cube side, in modules D. [自定] */
+		float RidgeBeastSize = 0.42f;
+		/** 走兽 placeholder cube side, in modules D. [自定] */
+		float RidgeWalkerSize = 0.26f;
+		/** 走兽 per 垂脊 / 戗脊. [自定] The 会典 sequence count is [待定标] (50_脊饰 R4). */
+		int32_t RidgeWalkerCount = 3;
 		/** 收山 — where the hip skirt ends and the gable tier begins, as a fraction of depth. */
 		float GableRatio = 0.42f;
 		/** 悬山 overhang past the end walls, as a multiple of D. */
@@ -196,6 +300,8 @@ namespace godot
 		ANCIENT_ACCESSORS(int32_t, RoofType)
 		ANCIENT_ACCESSORS(float, PlatformMargin)
 		ANCIENT_ACCESSORS(float, PlatformHeightScale)
+		ANCIENT_ACCESSORS(float, DadoHeightRatio)
+		ANCIENT_ACCESSORS(float, DadoTopTrim)
 		ANCIENT_ACCESSORS(float, FenceHeight)
 		ANCIENT_ACCESSORS(int32_t, FenceLambda)
 		ANCIENT_ACCESSORS(float, FenceGapOverride)
@@ -213,8 +319,16 @@ namespace godot
 		ANCIENT_ACCESSORS(float, RoofChordError)
 		ANCIENT_ACCESSORS(float, RoofMaxSegment)
 		ANCIENT_ACCESSORS(float, TileCourseWidth)
+		ANCIENT_ACCESSORS(int32_t, TileDetail)
+		ANCIENT_ACCESSORS(float, TileBeddingThickness)
+		ANCIENT_ACCESSORS(int32_t, LODLevel)
 		ANCIENT_ACCESSORS(float, TileCoverage)
 		ANCIENT_ACCESSORS(float, RidgeScale)
+		ANCIENT_ACCESSORS(int32_t, RidgeDetail)
+		ANCIENT_ACCESSORS(float, RidgeFinialSize)
+		ANCIENT_ACCESSORS(float, RidgeBeastSize)
+		ANCIENT_ACCESSORS(float, RidgeWalkerSize)
+		ANCIENT_ACCESSORS(int32_t, RidgeWalkerCount)
 		ANCIENT_ACCESSORS(float, GableRatio)
 		ANCIENT_ACCESSORS(float, GableOverhangScale)
 		ANCIENT_ACCESSORS(float, RollRadiusScale)
@@ -279,6 +393,31 @@ namespace godot
 
 		void SetGenerateWalls(bool bValue) { bGenerateWalls = bValue; emit_changed(); }
 		bool ShouldGenerateWalls() const { return bGenerateWalls; }
+
+		void SetGeneratePlatform(bool bValue) { bGeneratePlatform = bValue; emit_changed(); }
+		bool ShouldGeneratePlatform() const { return bGeneratePlatform; }
+
+		void SetPlatformTopJoints(bool bValue) { bPlatformTopJoints = bValue; emit_changed(); }
+		bool ShouldGeneratePlatformTopJoints() const { return bPlatformTopJoints; }
+
+		void SetPlatformEdgeLip(bool bValue) { bPlatformEdgeLip = bValue; emit_changed(); }
+		bool ShouldGeneratePlatformEdgeLip() const { return bPlatformEdgeLip; }
+
+		void SetPaving(bool bValue) { bPaving = bValue; emit_changed(); }
+		bool ShouldGeneratePaving() const { return bPaving; }
+
+		void SetPavingJointGeometry(bool bValue) { bPavingJointGeometry = bValue; emit_changed(); }
+		bool ShouldGeneratePavingJointGeometry() const { return bPavingJointGeometry; }
+
+		void SetStepSideCheek(bool bValue) { bStepSideCheek = bValue; emit_changed(); }
+		bool ShouldGenerateStepSideCheek() const { return bStepSideCheek; }
+
+		void SetColumnBaseSquare(bool bValue) { bColumnBaseSquare = bValue; emit_changed(); }
+		bool ShouldGenerateColumnBaseSquare() const { return bColumnBaseSquare; }
+
+		/** 脊饰 on/off (50_脊饰). Off is the legacy building: no 脊饰 geometry is generated. */
+		void SetRidgeOrnaments(bool bValue) { bRidgeOrnaments = bValue; emit_changed(); }
+		bool ShouldGenerateRidgeOrnaments() const { return bRidgeOrnaments; }
 
 		// ==================== Table 1 derivation ====================
 
