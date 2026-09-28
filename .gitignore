@@ -1,4 +1,12 @@
 # Godot project files
+test/
+*test*.*
+Test/
+*Test*.*
+tests/
+*tests*.*
+Tests/
+*Tests*.*
 Game/.godot/
 Game/bin/*.dll
 Game/bin/*.dylib
