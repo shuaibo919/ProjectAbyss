@@ -508,7 +508,7 @@ TileCourseLayout BuildingGen::TileBandFor(
 	if (Layout.NearReach > std::fmin(Layout.NearCover, Layout.FarCover) + 1e-4f
 		|| !(DomainHigh - DomainLow > Layout.NearReach + Layout.FarReach))
 	{
-		WARN_PRINT_ONCE(godot::String("AncientBuilding 瓦作: a boundary member covers ")
+		WARN_PRINT_ONCE(godot::String::utf8("AncientBuilding 瓦作: a boundary member covers ")
 			+ godot::String::num(std::fmin(Layout.NearCover, Layout.FarCover), 3)
 			+ " m of a roof face whose outermost tile piece reaches "
 			+ godot::String::num(Layout.NearReach, 3)
@@ -934,8 +934,8 @@ void BuildingGen::LayTileCourses(
 
 	if (!(ProvisionalHigh > ProvisionalLow) || !(Width > 0.0f))
 	{
-		WARN_PRINT_ONCE("AncientBuilding 瓦作: the ridge cover envelope leaves no room for a course "
-			"band on a roof face; that face falls back to the legacy layout.");
+		WARN_PRINT_ONCE(godot::String::utf8("AncientBuilding 瓦作: the ridge cover envelope leaves no room for a course "
+			"band on a roof face; that face falls back to the legacy layout."));
 		LayTileCoursesLegacy(DomainLow, Pitch, Courses, PlaceColumn, OutColumns, Layout.LodLevel);
 		return;
 	}
@@ -947,8 +947,8 @@ void BuildingGen::LayTileCourses(
 	Section.Reset(ProvisionalLow, 0.0f);
 	if (!Section.AdvanceToU(ProvisionalHigh))
 	{
-		WARN_PRINT_ONCE("AncientBuilding 瓦作: the roof patch is not regular across a course band "
-			"(G <= 0 or EG - F^2 <= 0); that band falls back to the legacy layout.");
+		WARN_PRINT_ONCE(godot::String::utf8("AncientBuilding 瓦作: the roof patch is not regular across a course band "
+			"(G <= 0 or EG - F^2 <= 0); that band falls back to the legacy layout."));
 		LayTileCoursesLegacy(DomainLow, Pitch, Courses, PlaceColumn, OutColumns, Layout.LodLevel);
 		return;
 	}
@@ -1035,9 +1035,9 @@ void BuildingGen::LayTileCourses(
 	{
 		// A patch that turns back on itself mid-band: nothing placed is better than a band with a
 		// hole in it, so the whole band goes down the legacy path.
-		WARN_PRINT_ONCE("AncientBuilding 瓦作: the cross-section stopped advancing across a course "
+		WARN_PRINT_ONCE(godot::String::utf8("AncientBuilding 瓦作: the cross-section stopped advancing across a course "
 			"band; that band falls back to the legacy layout (R14.2: no division by a vanishing "
-			"scale).");
+			"scale)."));
 		LayTileCoursesLegacy(DomainLow, Pitch, Courses, PlaceColumn, OutColumns, Layout.LodLevel);
 		return;
 	}
@@ -1099,15 +1099,15 @@ void BuildingGen::LayTileCourses(
 
 		if (WorstLow < Solved.MinPitch - 1e-4f || WorstHigh > Solved.MaxPitch + 1e-4f)
 		{
-			WARN_PRINT_ONCE(godot::String("AncientBuilding 瓦作: the effective module is ")
+			WARN_PRINT_ONCE(godot::String::utf8("AncientBuilding 瓦作: the effective module is ")
 				+ godot::String::num(EffectivePitch, 3)
 				+ " m on the cross-section it was solved on but spans ["
 				+ godot::String::num(WorstLow, 3) + ", " + godot::String::num(WorstHigh, 3)
 				+ "] m elsewhere on the face, against an admissible ["
 				+ godot::String::num(Solved.MinPitch, 3) + ", " + godot::String::num(Solved.MaxPitch, 3)
 				+ "]. A face whose scale varies that much needs the corner-tile handling of R1(c)/R14 "
-				"and a 定标 of p_min/p_max; the layout stands as solved, since R14.2 puts the收束 "
-				"under the 宝顶 or the 垂脊.");
+				+ godot::String::utf8("and a 定标 of p_min/p_max; the layout stands as solved, since R14.2 puts the收束 "
+				"under the 宝顶 or the 垂脊."));
 		}
 	}
 

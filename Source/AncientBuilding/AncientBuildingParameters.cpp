@@ -44,8 +44,10 @@ String AncientBuildingParameters::GetRoofTypeName(int32_t RoofType)
 
 String AncientBuildingParameters::GetRoofTypeNameLocalized(int32_t RoofType)
 {
-	// Narrow literals reach Godot through string_new_with_utf8_chars, and godot-cpp compiles
-	// MSVC with /utf-8, so these are safe as long as the source stays UTF-8 encoded.
+	// godot-cpp's String(const char*) decodes as LATIN-1, never UTF-8 — every narrow
+	// literal containing non-ASCII must go through String::utf8, or it garbles in the
+	// editor/console. godot-cpp's /utf-8 flag only guarantees the literal's bytes are
+	// UTF-8 in the binary.
 	const char* Chinese = "";
 	switch (RoofType)
 	{
@@ -159,6 +161,124 @@ PackedVector2Array AncientBuildingParameters::SampleRoofCurve(
 	return Result;
 }
 
+void AncientBuildingParameters::ApplyArchetype(int32_t Archetype)
+{
+	// [自定] Each preset is a starting point read off Fig 2 (and Fig 28 for the compositions), not
+	// a measured type: it sets the parameters that make the silhouette, and nothing else.
+	switch (Archetype)
+	{
+		case ARCHETYPE_TING:
+			// 亭: an open hexagonal pavilion with 美人靠 and a 攒尖.
+			Sides = 6;
+			Width = 6.0f;
+			Depth = 6.0f;
+			RoofType = ROOF_PYRAMIDAL;
+			bGenerateWalls = false;
+			bGenerateFence = false;
+			FenceLambda = 0;
+			RailingKind = 2;
+			bHangingFascia = true;
+			StoreyCount = 1;
+			BaseKind = 0;
+			break;
+
+		case ARCHETYPE_TAI:
+			// 台: an open hall raised on a tall terrace with a balustrade and paired stairs.
+			Sides = 4;
+			Width = 11.0f;
+			Depth = 8.0f;
+			BaysX = 3;
+			BaysZ = 2;
+			RoofType = ROOF_GABLE_AND_HIP;
+			BaseKind = 2;
+			MasonryBaseHeight = 3.2f;
+			bGenerateFence = true;
+			FenceLambda = 1;
+			bGenerateWalls = false;
+			RailingKind = 1;
+			bHangingFascia = true;
+			bPlatformSumeru = true;
+			StoreyCount = 1;
+			break;
+
+		case ARCHETYPE_LOU:
+			// 楼: two walled storeys, 叉柱造, with a 平座 and a 歇山.
+			Sides = 4;
+			Width = 12.0f;
+			Depth = 8.0f;
+			BaysX = 3;
+			BaysZ = 2;
+			RoofType = ROOF_GABLE_AND_HIP;
+			bGenerateWalls = true;
+			StoreyCount = 2;
+			StoreySetbackBays = 0;
+			bStoreyBalcony = true;
+			UpperColumnHeightScale = 0.8f;
+			BaseKind = 0;
+			break;
+
+		case ARCHETYPE_GE:
+			// 阁: three storeys stepping in, each with its 平座 for looking out, under a 攒尖.
+			Sides = 4;
+			Width = 12.0f;
+			Depth = 12.0f;
+			BaysX = 5;
+			BaysZ = 5;
+			RoofType = ROOF_PYRAMIDAL;
+			bGenerateWalls = true;
+			StoreyCount = 3;
+			StoreySetbackBays = 1;
+			bStoreyBalcony = true;
+			UpperColumnHeightScale = 0.75f;
+			BaseKind = 0;
+			break;
+
+		case ARCHETYPE_XIE:
+			// 榭: a low open hall on piles over the water, with 美人靠 along the water sides.
+			Sides = 4;
+			Width = 10.0f;
+			Depth = 7.0f;
+			BaysX = 3;
+			BaysZ = 2;
+			RoofType = ROOF_ROUND_RIDGE;
+			BaseKind = 3;
+			bGenerateWalls = false;
+			bGenerateFence = false;
+			FenceLambda = 0;
+			RailingKind = 2;
+			bHangingFascia = true;
+			StoreyCount = 1;
+			break;
+
+		case ARCHETYPE_LANG:
+			// 廊: a long open covered way — many narrow bays under a 卷棚, benches along both sides.
+			Sides = 4;
+			Width = 24.0f;
+			Depth = 3.0f;
+			BaysX = 8;
+			BaysZ = 1;
+			// Module from one 3 m bay's worth of pavilion, not from the 24 m run.
+			ModuleSpan = 4.0f;
+			RoofType = ROOF_ROUND_RIDGE;
+			bGenerateWalls = false;
+			bGenerateFence = false;
+			bGeneratePlatform = true;
+			PlatformHeightScale = 0.5f;
+			FenceLambda = 0;
+			bGenerateSteps = false;
+			RailingKind = 1;
+			bHangingFascia = true;
+			StoreyCount = 1;
+			BaseKind = 0;
+			break;
+
+		default:
+			return;
+	}
+
+	emit_changed();
+}
+
 void AncientBuildingParameters::_bind_methods()
 {
 	ADD_GROUP("Plan", "");
@@ -166,6 +286,7 @@ void AncientBuildingParameters::_bind_methods()
 	ANCIENT_BIND_RANGE(Variant::FLOAT, "depth", Depth, "1,60,0.01,or_greater")
 	ANCIENT_BIND_RANGE(Variant::INT, "bays_x", BaysX, "1,12,1")
 	ANCIENT_BIND_RANGE(Variant::INT, "bays_z", BaysZ, "1,12,1")
+	ANCIENT_BIND_RANGE(Variant::FLOAT, "module_span", ModuleSpan, "0,60,0.01")
 	ANCIENT_BIND_RANGE(Variant::INT, "sides", Sides, "3,24,1")
 
 	ClassDB::bind_method(D_METHOD("set_roof_type", "value"), &AncientBuildingParameters::SetRoofType);
@@ -196,6 +317,51 @@ void AncientBuildingParameters::_bind_methods()
 	ANCIENT_BIND_FLAG("step_side_cheek", SetStepSideCheek, ShouldGenerateStepSideCheek,
 		"should_generate_step_side_cheek")
 
+	// 砖石作. base_kind 0 (台基) and masonry_storeys 0 are the legacy building.
+	ADD_GROUP("Masonry", "");
+	ClassDB::bind_method(D_METHOD("set_base_kind", "value"), &AncientBuildingParameters::SetBaseKind);
+	ClassDB::bind_method(D_METHOD("get_base_kind"), &AncientBuildingParameters::GetBaseKind);
+	ADD_PROPERTY(PropertyInfo(Variant::INT, "base_kind", PROPERTY_HINT_ENUM,
+		String::utf8("台基 Platform,城台 Masonry Terrace,高台 High Terrace,桩台 Stilts")), "set_base_kind", "get_base_kind");
+	ANCIENT_BIND_RANGE(Variant::FLOAT, "masonry_base_height", MasonryBaseHeight, "0.5,30,0.01")
+	ANCIENT_BIND_RANGE(Variant::FLOAT, "masonry_base_margin", MasonryBaseMargin, "0,30,0.01")
+	ANCIENT_BIND_RANGE(Variant::FLOAT, "masonry_batter", MasonryBatter, "0,0.3,0.001")
+	ANCIENT_BIND_RANGE(Variant::INT, "base_arch_count", BaseArchCount, "0,7,1")
+	ANCIENT_BIND_RANGE(Variant::FLOAT, "base_arch_width", BaseArchWidth, "0,12,0.01")
+	ANCIENT_BIND_RANGE(Variant::FLOAT, "base_arch_height_ratio", BaseArchHeightRatio, "0.2,0.9,0.01")
+	ClassDB::bind_method(D_METHOD("set_base_arch_profile", "value"), &AncientBuildingParameters::SetBaseArchProfile);
+	ClassDB::bind_method(D_METHOD("get_base_arch_profile"), &AncientBuildingParameters::GetBaseArchProfile);
+	ADD_PROPERTY(PropertyInfo(Variant::INT, "base_arch_profile", PROPERTY_HINT_ENUM,
+		String::utf8("半圆券 Semicircle,双心券 Pointed,平券 Flat")), "set_base_arch_profile", "get_base_arch_profile");
+	ClassDB::bind_method(D_METHOD("set_base_arch_axis", "value"), &AncientBuildingParameters::SetBaseArchAxis);
+	ClassDB::bind_method(D_METHOD("get_base_arch_axis"), &AncientBuildingParameters::GetBaseArchAxis);
+	ADD_PROPERTY(PropertyInfo(Variant::INT, "base_arch_axis", PROPERTY_HINT_ENUM, "Front to Back,Side to Side"),
+		"set_base_arch_axis", "get_base_arch_axis");
+	ClassDB::bind_method(D_METHOD("set_base_parapet", "value"), &AncientBuildingParameters::SetBaseParapet);
+	ClassDB::bind_method(D_METHOD("get_base_parapet"), &AncientBuildingParameters::GetBaseParapet);
+	ADD_PROPERTY(PropertyInfo(Variant::INT, "base_parapet", PROPERTY_HINT_ENUM,
+		String::utf8("无 None,垛口 Crenel,宇墙 Plain")), "set_base_parapet", "get_base_parapet");
+	ANCIENT_BIND_RANGE(Variant::INT, "masonry_storeys", MasonryStoreys, "0,5,1")
+	ANCIENT_BIND(Variant::COLOR, "brick_color", BrickColor)
+
+	// 亭台榭廊. All off / legacy by default.
+	ADD_GROUP("Open Structures", "");
+	ClassDB::bind_method(D_METHOD("set_railing_kind", "value"), &AncientBuildingParameters::SetRailingKind);
+	ClassDB::bind_method(D_METHOD("get_railing_kind"), &AncientBuildingParameters::GetRailingKind);
+	ADD_PROPERTY(PropertyInfo(Variant::INT, "railing_kind", PROPERTY_HINT_ENUM,
+		String::utf8("无 None,坐凳栏杆 Bench,美人靠 Leaning Bench")), "set_railing_kind", "get_railing_kind");
+	ANCIENT_BIND_FLAG("hanging_fascia", SetHangingFascia, HasHangingFascia, "has_hanging_fascia")
+	ANCIENT_BIND_RANGE(Variant::FLOAT, "stilt_depth", StiltDepth, "0,20,0.01")
+	ANCIENT_BIND_FLAG("platform_sumeru", SetPlatformSumeru, HasPlatformSumeru, "has_platform_sumeru")
+	ClassDB::bind_method(D_METHOD("apply_archetype", "archetype"), &AncientBuildingParameters::ApplyArchetype);
+	// Plain integer constants: a nested enum cannot go through BIND_ENUM_CONSTANT here.
+	const char* const ArchetypeNames[] = { "ARCHETYPE_TING", "ARCHETYPE_TAI", "ARCHETYPE_LOU",
+		"ARCHETYPE_GE", "ARCHETYPE_XIE", "ARCHETYPE_LANG" };
+	for (int32_t Index = 0; Index < ARCHETYPE_COUNT; ++Index)
+	{
+		ClassDB::bind_integer_constant(get_class_static(), StringName(), ArchetypeNames[Index], Index);
+	}
+
 	ADD_GROUP("Body", "");
 	ANCIENT_BIND_FLAG("generate_columns", SetGenerateColumns, ShouldGenerateColumns, "should_generate_columns")
 	ANCIENT_BIND_FLAG("generate_walls", SetGenerateWalls, ShouldGenerateWalls, "should_generate_walls")
@@ -210,6 +376,14 @@ void AncientBuildingParameters::_bind_methods()
 	ANCIENT_BIND_FLAG("column_base_square", SetColumnBaseSquare, ShouldGenerateColumnBaseSquare,
 		"should_generate_column_base_square")
 	ANCIENT_BIND_RANGE(Variant::FLOAT, "bracket_height_scale", BracketHeightScale, "0,4,0.01")
+
+	// 多层. storey_count 1 is the legacy building, so every earlier resource bakes unchanged.
+	ADD_GROUP("Storeys", "");
+	ANCIENT_BIND_RANGE(Variant::INT, "storey_count", StoreyCount, "1,5,1")
+	ANCIENT_BIND_RANGE(Variant::INT, "storey_setback_bays", StoreySetbackBays, "0,2,1")
+	ANCIENT_BIND_RANGE(Variant::FLOAT, "upper_column_height_scale", UpperColumnHeightScale, "0.05,1.5,0.01")
+	ANCIENT_BIND_FLAG("storey_balcony", SetStoreyBalcony, HasStoreyBalcony, "has_storey_balcony")
+	ANCIENT_BIND_RANGE(Variant::FLOAT, "balcony_projection_scale", BalconyProjectionScale, "0,6,0.01")
 
 	ADD_GROUP("Roof", "");
 	ANCIENT_BIND_RANGE(Variant::FLOAT, "eave_overhang_scale", EaveOverhangScale, "0,8,0.01")
@@ -235,13 +409,13 @@ void AncientBuildingParameters::_bind_methods()
 	ClassDB::bind_method(D_METHOD("set_tile_detail", "value"), &AncientBuildingParameters::SetTileDetail);
 	ClassDB::bind_method(D_METHOD("get_tile_detail"), &AncientBuildingParameters::GetTileDetail);
 	ADD_PROPERTY(PropertyInfo(Variant::INT, "tile_detail", PROPERTY_HINT_ENUM,
-		"Legacy,排垄与叠压,檐口件与泥背"), "set_tile_detail", "get_tile_detail");
+		String::utf8("Legacy,排垄与叠压,檐口件与泥背")), "set_tile_detail", "get_tile_detail");
 	ANCIENT_BIND_RANGE(Variant::FLOAT, "tile_bedding_thickness", TileBeddingThickness, "0,0.2,0.001")
 	// 距离档 : 0 = 近景 full = byte-compatible with every resource written before it existed.
 	ClassDB::bind_method(D_METHOD("set_lod_level", "value"), &AncientBuildingParameters::SetLODLevel);
 	ClassDB::bind_method(D_METHOD("get_lod_level"), &AncientBuildingParameters::GetLODLevel);
 	ADD_PROPERTY(PropertyInfo(Variant::INT, "lod_level", PROPERTY_HINT_ENUM,
-		"近景,中景,远景"), "set_lod_level", "get_lod_level");
+		String::utf8("近景,中景,远景")), "set_lod_level", "get_lod_level");
 	ANCIENT_BIND_RANGE(Variant::FLOAT, "tile_coverage", TileCoverage, "0,1,0.001")
 	ANCIENT_BIND_RANGE(Variant::FLOAT, "ridge_scale", RidgeScale, "0.1,4,0.001")
 	// 50_脊饰 §3. 0 = the legacy seven-point ridge, so every resource written before this existed
@@ -249,7 +423,7 @@ void AncientBuildingParameters::_bind_methods()
 	ClassDB::bind_method(D_METHOD("set_ridge_detail", "value"), &AncientBuildingParameters::SetRidgeDetail);
 	ClassDB::bind_method(D_METHOD("get_ridge_detail"), &AncientBuildingParameters::GetRidgeDetail);
 	ADD_PROPERTY(PropertyInfo(Variant::INT, "ridge_detail", PROPERTY_HINT_ENUM,
-		"Legacy 7-point,分层 当沟条+脊身+盖脊筒"), "set_ridge_detail", "get_ridge_detail");
+		String::utf8("Legacy 7-point,分层 当沟条+脊身+盖脊筒")), "set_ridge_detail", "get_ridge_detail");
 	ANCIENT_BIND_FLAG("ridge_ornaments", SetRidgeOrnaments, ShouldGenerateRidgeOrnaments,
 		"should_generate_ridge_ornaments")
 	ANCIENT_BIND_RANGE(Variant::FLOAT, "ridge_finial_size", RidgeFinialSize, "0,4,0.01")
@@ -270,7 +444,7 @@ void AncientBuildingParameters::_bind_methods()
 	ClassDB::bind_method(D_METHOD("set_material_style", "value"), &AncientBuildingParameters::SetMaterialStyle);
 	ClassDB::bind_method(D_METHOD("get_material_style"), &AncientBuildingParameters::GetMaterialStyle);
 	ADD_PROPERTY(
-		PropertyInfo(Variant::INT, "material_style", PROPERTY_HINT_ENUM, "Traditional (官式),Thatched (茅草),Earthen (土木)"),
+		PropertyInfo(Variant::INT, "material_style", PROPERTY_HINT_ENUM, String::utf8("Traditional (官式),Thatched (茅草),Earthen (土木)")),
 		"set_material_style", "get_material_style");
 	ClassDB::bind_method(D_METHOD("apply_material_style", "style"), &AncientBuildingParameters::ApplyMaterialStyle);
 

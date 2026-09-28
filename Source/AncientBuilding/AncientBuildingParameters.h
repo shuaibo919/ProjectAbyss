@@ -72,6 +72,18 @@ namespace godot
 			STYLE_EARTHEN = 2,
 		};
 
+		/** 构筑原型, Hu & Qin Fig 2 (舫/轩 left out: 舫 is a boat hull, 轩 a walled 廊). */
+		enum EArchetype
+		{
+			ARCHETYPE_TING = 0,
+			ARCHETYPE_TAI = 1,
+			ARCHETYPE_LOU = 2,
+			ARCHETYPE_GE = 3,
+			ARCHETYPE_XIE = 4,
+			ARCHETYPE_LANG = 5,
+			ARCHETYPE_COUNT = 6,
+		};
+
 	private:
 		// ---- Plan ----
 		/** 通面阔, the frontage. Every other dimension is derived from this. */
@@ -82,6 +94,12 @@ namespace godot
 		int32_t BaysX = 3;
 		/** Bays through the depth. */
 		int32_t BaysZ = 2;
+		/**
+		 * The span Table 1's module D is derived from. **0 = the frontage (legacy).** A 廊 or a long
+		 * 连房 is not a bigger building for being longer — its columns belong to its bay, not its
+		 * length — so it sets this to one pavilion's worth of frontage instead.
+		 */
+		float ModuleSpan = 0.0f;
 		/**
 		 * Plan sides. Equation 8 ties this to the aspect ratio: 4 means a rectangle built from
 		 * width and depth, anything else a regular polygon whose apothem is width/2 — so depth
@@ -139,6 +157,52 @@ namespace godot
 		 */
 		bool bStepSideCheek = false;
 
+		// ---- Masonry (砖石作) ----
+		/**
+		 * Base kind. **0 = 台基, the legacy platform.** 1 = 城台 / 墩台: a battered masonry terrace
+		 * pierced by arched passages, with a parapet, and the building standing on its top. The
+		 * building's own proportions do not change — it is lifted by the terrace (HeightPolicy
+		 * PreserveColumnHeight, 05 契约 §6.4), so the 11D chain is measured from the terrace top.
+		 */
+		int32_t BaseKind = 0;
+		/** 城台 height in metres. */
+		float MasonryBaseHeight = 7.0f;
+		/** How far the 城台 reaches past the building's column line on every side, in metres. [自定] */
+		float MasonryBaseMargin = 4.0f;
+		/** 收分: horizontal draw-in per metre of height. [自定] ~1:12 reads as a city wall. */
+		float MasonryBatter = 0.08f;
+		int32_t BaseArchCount = 1;
+		/** Passage width in metres. 0 derives it from the terrace. */
+		float BaseArchWidth = 0.0f;
+		/** Top of the arch as a fraction of the terrace height. */
+		float BaseArchHeightRatio = 0.62f;
+		/** 0 半圆券, 1 双心券, 2 平券. */
+		int32_t BaseArchProfile = 0;
+		/** 0 = passages run front to back, 1 = side to side. */
+		int32_t BaseArchAxis = 0;
+		/** 0 none, 1 垛口, 2 宇墙. */
+		int32_t BaseParapet = 1;
+		/**
+		 * Storeys, counted from the ground, built as brick walls with 券门 / 券窗 instead of a timber
+		 * frame (箭楼, 砖砌下层, 无梁殿). 0 = legacy: every storey is timber.
+		 */
+		int32_t MasonryStoreys = 0;
+		Color BrickColor = Color(0.55f, 0.53f, 0.50f, 1.0f);
+
+		// ---- Open structures (亭 / 台 / 榭 / 廊) ----
+		/** 0 none (legacy), 1 坐凳栏杆, 2 美人靠. Only where there is no wall. */
+		int32_t RailingKind = 0;
+		/** 倒挂楣子 under the architrave in every open bay. */
+		bool bHangingFascia = false;
+		/** 桩台: pile depth below ground / water, in metres. */
+		float StiltDepth = 2.0f;
+		/**
+		 * 须弥座: the platform body as a moulded pedestal (圭脚 / 下枋 / 下枭 / 束腰 / 上枭 / 上枋)
+		 * instead of a plain block. Off = legacy. [待定标] The band proportions have no source; the
+		 * handbook lists them as missing (60_台基地面).
+		 */
+		bool bPlatformSumeru = false;
+
 		// ---- Body ----
 		bool bGenerateColumns = true;
 		bool bGenerateWalls = true;
@@ -172,6 +236,26 @@ namespace godot
 		float ColumnBaseHeightScale = 0.0f;
 		/** Bracket band height as a multiple of D. Stands in for 斗拱 until phase 3. */
 		float BracketHeightScale = 0.85f;
+
+		// ---- Storeys (多层: 重檐 / 楼 / 阁) ----
+		/**
+		 * Storey count. **1 = the legacy single-storey building.** Above 1 every storey but the top
+		 * one gets a 腰檐 (a hipped skirt opened at the upper storey's wall); the top storey carries
+		 * roof_type. 重檐 = 2 storeys, setback 1, no balcony, short upper columns.
+		 */
+		int32_t StoreyCount = 1;
+		/**
+		 * Bay rings each storey steps in by. 0 = 叉柱造: the upper columns stand on the lower
+		 * column lines. 1 = the upper storey stands on the inner ring (金柱 over a 周围廊); the
+		 * lower storey's outer bays then become aisles of one 廊步 on every side.
+		 */
+		int32_t StoreySetbackBays = 0;
+		/** Upper storeys' column height as a fraction of the ground storey's. [自定] */
+		float UpperColumnHeightScale = 0.8f;
+		/** 平座: a projecting floor with a 勾栏 under each upper storey (楼阁 on, 重檐 off). */
+		bool bStoreyBalcony = false;
+		/** 平座 projection past the upper storey's column line, as a multiple of D. [自定] */
+		float BalconyProjectionScale = 1.6f;
 
 		// ---- Roof ----
 		/** Eave overhang as a multiple of D. */
@@ -296,6 +380,7 @@ namespace godot
 		ANCIENT_ACCESSORS(float, Depth)
 		ANCIENT_ACCESSORS(int32_t, BaysX)
 		ANCIENT_ACCESSORS(int32_t, BaysZ)
+		ANCIENT_ACCESSORS(float, ModuleSpan)
 		ANCIENT_ACCESSORS(int32_t, Sides)
 		ANCIENT_ACCESSORS(int32_t, RoofType)
 		ANCIENT_ACCESSORS(float, PlatformMargin)
@@ -309,6 +394,24 @@ namespace godot
 		ANCIENT_ACCESSORS(float, ColumnRadiusScale)
 		ANCIENT_ACCESSORS(int32_t, ColumnSides)
 		ANCIENT_ACCESSORS(float, BracketHeightScale)
+		ANCIENT_ACCESSORS(int32_t, BaseKind)
+		ANCIENT_ACCESSORS(float, MasonryBaseHeight)
+		ANCIENT_ACCESSORS(float, MasonryBaseMargin)
+		ANCIENT_ACCESSORS(float, MasonryBatter)
+		ANCIENT_ACCESSORS(int32_t, BaseArchCount)
+		ANCIENT_ACCESSORS(float, BaseArchWidth)
+		ANCIENT_ACCESSORS(float, BaseArchHeightRatio)
+		ANCIENT_ACCESSORS(int32_t, BaseArchProfile)
+		ANCIENT_ACCESSORS(int32_t, BaseArchAxis)
+		ANCIENT_ACCESSORS(int32_t, BaseParapet)
+		ANCIENT_ACCESSORS(int32_t, MasonryStoreys)
+		ANCIENT_ACCESSORS(Color, BrickColor)
+		ANCIENT_ACCESSORS(int32_t, RailingKind)
+		ANCIENT_ACCESSORS(float, StiltDepth)
+		ANCIENT_ACCESSORS(int32_t, StoreyCount)
+		ANCIENT_ACCESSORS(int32_t, StoreySetbackBays)
+		ANCIENT_ACCESSORS(float, UpperColumnHeightScale)
+		ANCIENT_ACCESSORS(float, BalconyProjectionScale)
 		ANCIENT_ACCESSORS(float, EaveOverhangScale)
 		ANCIENT_ACCESSORS(int32_t, RafterCourses)
 		ANCIENT_ACCESSORS(float, EaveRiseRatio)
@@ -397,6 +500,22 @@ namespace godot
 		void SetGeneratePlatform(bool bValue) { bGeneratePlatform = bValue; emit_changed(); }
 		bool ShouldGeneratePlatform() const { return bGeneratePlatform; }
 
+		void SetStoreyBalcony(bool bValue) { bStoreyBalcony = bValue; emit_changed(); }
+		bool HasStoreyBalcony() const { return bStoreyBalcony; }
+
+		void SetHangingFascia(bool bValue) { bHangingFascia = bValue; emit_changed(); }
+		bool HasHangingFascia() const { return bHangingFascia; }
+
+		void SetPlatformSumeru(bool bValue) { bPlatformSumeru = bValue; emit_changed(); }
+		bool HasPlatformSumeru() const { return bPlatformSumeru; }
+
+		/**
+		 * 构筑原型 preset (Hu & Qin Fig 2): writes the plan / base / body / roof fields for one of
+		 * 亭 台 楼 阁 榭 廊. Only writes parameters (G6 two-layer API) — nothing about the
+		 * generator changes, and every field can be hand-tuned afterwards.
+		 */
+		void ApplyArchetype(int32_t Archetype);
+
 		void SetPlatformTopJoints(bool bValue) { bPlatformTopJoints = bValue; emit_changed(); }
 		bool ShouldGeneratePlatformTopJoints() const { return bPlatformTopJoints; }
 
@@ -424,7 +543,8 @@ namespace godot
 		/** The module D. Table 1: D = width x 0.8 x 1/11. */
 		float GetModule() const
 		{
-			return std::fmax(Width, 0.1f) * 0.8f / 11.0f;
+			const float Basis = (ModuleSpan > 0.0f) ? ModuleSpan : Width;
+			return std::fmax(Basis, 0.1f) * 0.8f / 11.0f;
 		}
 
 		/** Table 1: Platform.height = 2D. */

@@ -1,5 +1,6 @@
 #include "AncientBuilding/BuildingBuilder.h"
 
+#include "AncientBuilding/Masonry.h"
 #include "AncientBuilding/RoofCurve.h"
 #include "AncientBuilding/TileSkin.h"
 
@@ -93,6 +94,26 @@ namespace
 	}
 
 	/**
+	 * 腰檐 profile for a polygonal storey, in the same (radius fraction, height fraction) layout:
+	 * from the eave (1, 0) in to the break (OpenFraction, 1). The same concave 举架 curve as 攒尖,
+	 * just stopped at the upper wall; the caller scales height by the skirt's own rise.
+	 */
+	std::vector<Vector2> BuildWaistProfile(const BuildingSpec& Spec, float OpenFraction)
+	{
+		const int32_t Courses = std::max(Spec.RafterCourses, 3);
+
+		std::vector<Vector2> Profile;
+		Profile.reserve(size_t(Courses) + 1);
+		for (int32_t Index = 0; Index <= Courses; ++Index)
+		{
+			const float T = float(Index) / float(Courses);
+			Profile.push_back(Vector2(1.0f - (1.0f - OpenFraction) * T, std::pow(T, 1.0f / 1.45f)));
+		}
+
+		return Profile;
+	}
+
+	/**
 	 * Where the tile skin stops, as a fraction of the eave apothem.
 	 *
 	 * On a centralised roof every course converges on the apex, so its pitch shrinks with the plan
@@ -157,11 +178,22 @@ std::vector<Vector2> BuildingGen::PlanPolygon(float Apothem, int32_t Sides)
 void BuildingGen::BuildCentralisedRoof(
 	const BuildingSpec& Spec, ECentralProfile Profile, MeshAccumulator& OutMesh)
 {
+	BuildCentralisedShell(Spec, Profile, 0.0f, OutMesh);
+}
+
+void BuildingGen::BuildCentralisedShell(
+	const BuildingSpec& Spec, ECentralProfile Profile, float OpenFraction, MeshAccumulator& OutMesh)
+{
+	// OpenFraction > 0: a 腰檐 round a polygonal storey. The loft stops at that fraction of the
+	// eave apothem — the upper storey's wall — and Spec.RoofHeight is the skirt's own rise.
+	const bool bOpen = OpenFraction > 0.0f;
 	const int32_t Sides = EffectiveSides(Spec);
 	const float EaveApothem = Spec.PlanApothem + Spec.EaveOverhang;
 	const Vector3 Apex(0.0f, Spec.RoofBase + Spec.RoofHeight, 0.0f);
 
-	const std::vector<Vector2> Shape = BuildCentralProfile(Spec, Profile);
+	const std::vector<Vector2> Shape = bOpen
+		? BuildWaistProfile(Spec, OpenFraction)
+		: BuildCentralProfile(Spec, Profile);
 
 	const float Circumradius = EaveApothem / std::cos(POLY_PI / float(Sides));
 	// Facet chord length, which is the natural scale for how far a corner lift may reach. Using
@@ -389,7 +421,8 @@ void BuildingGen::BuildCentralisedRoof(
 			{
 				// Stop short of the apex: every ridge converging on the same point overlaps into
 				// a spiky crown. The 宝顶 finial covers the junction, which is its actual job.
-				if (Shape[Index].y > 0.9f)
+				// A 腰檐's 角脊 run all the way in to the 围脊 instead.
+				if (!bOpen && Shape[Index].y > 0.9f)
 				{
 					continue;
 				}
@@ -487,12 +520,74 @@ void BuildingGen::BuildCentralisedRoof(
 	// 宝顶 and the masonry drum it sits on: the converging 垂脊 die into them, so both go on the
 	// ridge slot rather than the stone one. Both ride the bedding lift with the courses they cover.
 	OutMesh.SetSlot(EMaterialSlot::Ridge);
+	if (bOpen)
+	{
+		// 腰檐: a 围脊 round the break instead, against the upper storey's wall.
+		std::vector<Vector3> Knots;
+		const std::vector<Vector2> Corners = PlanPolygon(EaveApothem * Shape.back().x, Sides);
+		for (const Vector2& Corner : Corners)
+		{
+			Knots.push_back(Vector3(Corner.x, Apex.y + Bedding, Corner.y));
+		}
+		Knots.push_back(Knots.front());
+
+		SweepSettings Settings;
+		ConfigureRidgeSweep(Settings, Spec, Spec.Module * 1.05f * Spec.RidgeScale);
+		Settings.bClosedContour = true;
+		Settings.bGenerateCaps = false;
+
+		SweepResult Sweep;
+		if (BuildSweep(Knots, Settings, Sweep))
+		{
+			OutMesh.AddSweep(Sweep, Spec.RidgeColor);
+		}
+		return;
+	}
 	BuildFinialBase(Spec, Apex + Vector3(0.0f, Bedding, 0.0f), EaveApothem * TILE_APEX_CUTOFF, OutMesh);
 	BuildFinial(Spec, Apex + Vector3(0.0f, Bedding, 0.0f), OutMesh);
 }
 
+namespace
+{
+	/** Which parts of a polygonal building one call emits; the storey stack builds them apart. */
+	enum EPolyParts : uint32_t
+	{
+		POLY_NONE = 0,
+		POLY_PLATFORM = 1u << 0,
+		POLY_BODY = 1u << 1,
+		POLY_STEPS_FENCE = 1u << 2,
+		POLY_ROOF = 1u << 3,
+		POLY_ALL = POLY_PLATFORM | POLY_BODY | POLY_STEPS_FENCE | POLY_ROOF,
+	};
+
+	void BuildPolygonalParts(
+		const BuildingSpec& Spec, ECentralProfile Profile, uint32_t Parts, MeshAccumulator& OutMesh);
+} // namespace
+
 void BuildingGen::BuildPolygonalBuilding(
 	const BuildingSpec& Spec, ECentralProfile Profile, MeshAccumulator& OutMesh)
+{
+	if (Spec.StoreyCount > 1)
+	{
+		BuildPolygonalStoreys(Spec, Profile, OutMesh);
+		return;
+	}
+
+	if (Spec.BaseKind == 1)
+	{
+		// A pavilion on a 城台 (角楼, 台上亭): the terrace replaces the polygonal platform.
+		BuildMasonryTerrace(Spec, OutMesh);
+		BuildPolygonalParts(Spec, Profile, POLY_BODY | POLY_ROOF, OutMesh);
+		return;
+	}
+
+	BuildPolygonalParts(Spec, Profile, POLY_ALL, OutMesh);
+}
+
+namespace
+{
+void BuildPolygonalParts(
+	const BuildingSpec& Spec, ECentralProfile Profile, uint32_t Parts, MeshAccumulator& OutMesh)
 {
 	const int32_t Sides = std::max(Spec.Sides, 3);
 	const float BodyApothem = Spec.PlanApothem;
@@ -502,7 +597,11 @@ void BuildingGen::BuildPolygonalBuilding(
 	const std::vector<Vector2> BodyPlan = PlanPolygon(BodyApothem, Sides);
 
 	// ---- Platform: a prism with a slightly wider 阶条石 cap ----
-	if (Spec.PlatformHeight > 0.0f)
+	if ((Parts & POLY_PLATFORM) && Spec.BaseKind == 3)
+	{
+		AddStiltDeck(Spec, OutMesh, PlatformPlan);
+	}
+	else if ((Parts & POLY_PLATFORM) && Spec.PlatformHeight > 0.0f)
 	{
 		const float CapHeight = std::fmin(Spec.PlatformHeight * 0.22f, Spec.Module * 0.5f);
 		const float BodyHeight = Spec.PlatformHeight - CapHeight;
@@ -541,16 +640,35 @@ void BuildingGen::BuildPolygonalBuilding(
 	// ---- Body: a column on every vertex, walls between them ----
 	const float Base = Spec.PlatformHeight;
 
-	if (Spec.bGenerateColumns)
+	// 通柱 from the storey below: shafts only; walls stay on this floor. Same as BuildBody.
+	BuildingSpec DroppedColumns = Spec;
+	DroppedColumns.ColumnHeight += Spec.ColumnFootDrop;
+
+	if ((Parts & POLY_BODY) && Spec.bGenerateColumns)
 	{
 		for (size_t I = 0; I < BodyPlan.size(); ++I)
 		{
 			const Vector2& Point = BodyPlan[I];
-			AddBuildingColumn(Spec, OutMesh, Vector3(Point.x, Base, Point.y), 0x200000u + uint32_t(I));
+			AddBuildingColumn(Spec.ColumnFootDrop > POLY_EPSILON ? DroppedColumns : Spec, OutMesh,
+				Vector3(Point.x, Base - Spec.ColumnFootDrop, Point.y), 0x200000u + uint32_t(I));
 		}
 	}
 
-	if (Spec.bGenerateWalls)
+	if ((Parts & POLY_BODY) && !Spec.bGenerateWalls && (Spec.RailingKind > 0 || Spec.bHangingFascia))
+	{
+		// 亭: bench railings / 美人靠 / 倒挂楣子 in every bay but the entrance (the +Z-facing
+		// side, where the stair lands), exactly the side the walled path leaves open.
+		for (int32_t Side = 0; Side < Sides; ++Side)
+		{
+			const Vector2& From = BodyPlan[size_t(Side)];
+			const Vector2& To = BodyPlan[size_t((Side + 1) % Sides)];
+			const Vector2 Mid = (From + To) * 0.5f;
+			AddOpenBayInfill(Spec, OutMesh, Vector3(From.x, Base, From.y), Vector3(To.x, Base, To.y),
+				Vector3(Mid.x, 0.0f, Mid.y), Side == Sides - 1 && Spec.bGenerateSteps);
+		}
+	}
+
+	if ((Parts & POLY_BODY) && Spec.bGenerateWalls)
 	{
 		// The polygonal wall is one plain plastered slab per edge — no 槛墙, no opening — so
 		// unlike the rectangular bay it is all wall.
@@ -620,7 +738,7 @@ void BuildingGen::BuildPolygonalBuilding(
 	}
 
 	// ---- Bracket band, following the polygon ----
-	if (Spec.BracketHeight > 0.0f)
+	if ((Parts & POLY_BODY) && Spec.BracketHeight > 0.0f)
 	{
 		// 阑额 band and 斗 blocks: timber.
 		OutMesh.SetSlot(EMaterialSlot::Timber);
@@ -653,7 +771,7 @@ void BuildingGen::BuildPolygonalBuilding(
 	}
 
 	// ---- A single stair run on the open side, plus a balustrade elsewhere ----
-	if (Spec.bGenerateSteps && Spec.PlatformHeight > 0.0f && Spec.StepRunDepth > 0.0f)
+	if ((Parts & POLY_STEPS_FENCE) && Spec.bGenerateSteps && Spec.PlatformHeight > 0.0f && Spec.StepRunDepth > 0.0f)
 	{
 		const int32_t Steps = std::max(Spec.StepCount, 1);
 		const float RunWidth = Spec.FenceGapWidth;
@@ -674,7 +792,7 @@ void BuildingGen::BuildPolygonalBuilding(
 	}
 
 	// 栏杆与台基同进退：没有台基时它坐在平地上，没有意义（与矩形分支的处置一致）。
-	if (Spec.bGenerateFence && Spec.bGeneratePlatform)
+	if ((Parts & POLY_STEPS_FENCE) && Spec.bGenerateFence && Spec.bGeneratePlatform)
 	{
 		// 栏杆: stone rail and posts, as in the rectangular branch.
 		OutMesh.SetSlot(EMaterialSlot::Stone);
@@ -717,5 +835,225 @@ void BuildingGen::BuildPolygonalBuilding(
 		}
 	}
 
-	BuildCentralisedRoof(Spec, Profile, OutMesh);
+	if (Parts & POLY_ROOF)
+	{
+		BuildCentralisedRoof(Spec, Profile, OutMesh);
+	}
+}
+
+	/** Plan-polygon prism with a top cap, faces wound outward. */
+	void AddPolygonSlab(MeshAccumulator& Mesh, const std::vector<Vector2>& Plan, float Bottom, float Top,
+		const Color& Tint)
+	{
+		const size_t Count = Plan.size();
+		for (size_t Side = 0; Side < Count; ++Side)
+		{
+			const Vector2& From = Plan[Side];
+			const Vector2& To = Plan[(Side + 1) % Count];
+			const Vector3 Outward = Vector3((From.x + To.x) * 0.5f, 0.0f, (From.y + To.y) * 0.5f).normalized();
+			Mesh.AddQuadOriented(Vector3(From.x, Bottom, From.y), Vector3(To.x, Bottom, To.y),
+				Vector3(To.x, Top, To.y), Vector3(From.x, Top, From.y), Outward, Tint);
+		}
+
+		std::vector<Vector3> Cap;
+		std::vector<Vector3> Floor;
+		for (const Vector2& Point : Plan)
+		{
+			Cap.push_back(Vector3(Point.x, Top, Point.y));
+			Floor.push_back(Vector3(Point.x, Bottom, Point.y));
+		}
+		Mesh.AddPolygon(Cap, Vector3(0, 1, 0), Tint);
+		Mesh.AddPolygon(Floor, Vector3(0, -1, 0), Tint);
+	}
+
+	/** Polygonal 平座: deck, 平座铺作 band and a 勾栏 round the edge. Spec is the upper storey's. */
+	void BuildPolygonalBalcony(const BuildingSpec& Spec, float Floor, float BandBottom, MeshAccumulator& Mesh)
+	{
+		const int32_t Sides = std::max(Spec.Sides, 3);
+		const float Apothem = Spec.PlanApothem + Spec.BalconyProjection;
+		const float Deck = Spec.Module * 0.32f;
+
+		Mesh.SetSlot(EMaterialSlot::Timber);
+		AddPolygonSlab(Mesh, PlanPolygon(Apothem, Sides), Floor - Deck, Floor, Spec.TimberColor * 1.2f);
+		if (Floor - Deck - BandBottom > POLY_EPSILON)
+		{
+			AddPolygonSlab(Mesh, PlanPolygon(Apothem - Spec.BalconyProjection * 0.35f, Sides),
+				BandBottom, Floor - Deck, Spec.BracketColor);
+		}
+
+		const std::vector<Vector2> Rim = PlanPolygon(Apothem - Spec.Module * 0.16f, Sides);
+		const float RailHeight = std::fmin(Spec.FenceHeight, Spec.Module * 1.4f);
+		const float RailHalf = Spec.Module * 0.16f;
+		for (int32_t Side = 0; Side < Sides; ++Side)
+		{
+			const Vector2& From = Rim[size_t(Side)];
+			const Vector2& To = Rim[size_t((Side + 1) % Sides)];
+
+			std::vector<Vector3> Knots;
+			Knots.push_back(Vector3(From.x, Floor + RailHeight, From.y));
+			Knots.push_back(Vector3(To.x, Floor + RailHeight, To.y));
+
+			SweepSettings Settings;
+			Settings.Contour.push_back(Vector2(-RailHalf, -RailHalf * 0.5f));
+			Settings.Contour.push_back(Vector2(RailHalf, -RailHalf * 0.5f));
+			Settings.Contour.push_back(Vector2(RailHalf, RailHalf * 0.5f));
+			Settings.Contour.push_back(Vector2(-RailHalf, RailHalf * 0.5f));
+			Settings.bClosedContour = true;
+
+			SweepResult Sweep;
+			if (BuildSweep(Knots, Settings, Sweep))
+			{
+				Mesh.AddSweep(Sweep, Spec.TimberColor * 1.1f);
+			}
+
+			// Posts at the vertices and one mid-span, plus a low 地栿 along the deck.
+			for (const Vector2& At : { From, (From + To) * 0.5f })
+			{
+				Mesh.AddBox(Vector3(At.x, Floor + RailHeight * 0.5f, At.y),
+					Vector3(RailHalf, RailHeight * 0.5f, RailHalf), Spec.TimberColor * 1.05f);
+			}
+			std::vector<Vector3> Sill;
+			Sill.push_back(Vector3(From.x, Floor + RailHalf * 0.5f, From.y));
+			Sill.push_back(Vector3(To.x, Floor + RailHalf * 0.5f, To.y));
+			if (BuildSweep(Sill, Settings, Sweep))
+			{
+				Mesh.AddSweep(Sweep, Spec.TimberColor);
+			}
+		}
+	}
+
+	struct PolyStorey
+	{
+		BuildingSpec Body;
+		bool bTop = true;
+		/** 腰檐 break, as a fraction of this storey's eave apothem. */
+		float OpenFraction = 0.0f;
+		float WaistRiseHeight = 0.0f;
+		float BreakTop = 0.0f;
+		float NextFloor = 0.0f;
+	};
+
+	/**
+	 * The polygonal storey stack — 重檐亭 and polygonal 阁. Same rules as the rectangular stack
+	 * (one module, 腰檐 opened at the upper wall, 平座 optional, 通柱 when set back without one),
+	 * but a polygonal plan has no bay grid: its columns stand on the vertices, and a setback ring
+	 * is an inner polygon of 金柱.
+	 */
+	std::vector<PolyStorey> PlanPolygonalStoreys(const BuildingSpec& Spec)
+	{
+		const int32_t Count = std::clamp(Spec.StoreyCount, 1, 5);
+		const int32_t Setback = std::clamp(Spec.StoreySetbackBays, 0, 2);
+		// [自定] A polygonal 廊步: the ring of 金柱 stands 0.3 of the apothem inside the 檐柱.
+		const float Aisle = Spec.PlanApothem * 0.3f;
+
+		std::vector<PolyStorey> Plans;
+		BuildingSpec Current = Spec;
+		for (int32_t Storey = 0; Storey < Count; ++Storey)
+		{
+			PolyStorey Plan;
+			Plan.Body = Current;
+			Plan.bTop = Storey == Count - 1;
+			if (Plan.bTop)
+			{
+				Plans.push_back(Plan);
+				break;
+			}
+
+			BuildingSpec Next = Current;
+			Next.PlanApothem = std::fmax(Current.PlanApothem - Aisle * float(Setback), Spec.Module);
+			Next.Width = Next.PlanApothem * 2.0f;
+			Next.Depth = Next.Width;
+
+			// 腰檐 from this storey's eave in to the outer face of the upper storey's columns.
+			const float EaveApothem = Current.PlanApothem + Current.EaveOverhang;
+			const float BreakApothem = Next.PlanApothem + Spec.ColumnRadius;
+			const float Inset = std::fmax(EaveApothem - BreakApothem, Spec.Module * 0.2f);
+			Plan.OpenFraction = std::clamp((EaveApothem - Inset) / EaveApothem, 0.05f, 0.95f);
+			Plan.WaistRiseHeight = WaistRiseFor(Current, Inset);
+			Plan.BreakTop = Current.RoofBase + Plan.WaistRiseHeight;
+
+			const float Floor = Plan.BreakTop + (Spec.bStoreyBalcony ? Spec.BracketHeight : 0.0f);
+			Plan.NextFloor = Floor;
+
+			Next.ColumnFootDrop = (!Spec.bStoreyBalcony && Setback > 0)
+				? Floor - Current.PlatformHeight + Current.ColumnFootDrop
+				: 0.0f;
+			Next.ColumnBaseHeight = (Next.ColumnFootDrop > 0.0f) ? Spec.ColumnBaseHeight : 0.0f;
+			Next.PlatformHeight = Floor;
+			Next.ColumnHeight = Spec.ColumnHeight * std::fmax(Spec.UpperColumnHeightScale, 0.05f);
+			Next.EaveHeight = Floor + Next.ColumnHeight;
+			Next.RoofBase = Next.EaveHeight + Spec.BracketHeight;
+			const float Ratio = Next.PlanApothem / std::fmax(Spec.PlanApothem, POLY_EPSILON);
+			Next.RoofHeight = Spec.RoofHeight * Ratio;
+			Next.CornerSpan = Spec.CornerSpan * Ratio;
+
+			Plans.push_back(Plan);
+			Current = Next;
+		}
+
+		return Plans;
+	}
+} // namespace
+
+void BuildingGen::BuildPolygonalStoreys(
+	const BuildingSpec& Spec, ECentralProfile Profile, MeshAccumulator& OutMesh)
+{
+	const std::vector<PolyStorey> Plans = PlanPolygonalStoreys(Spec);
+	for (size_t Index = 0; Index < Plans.size(); ++Index)
+	{
+		const PolyStorey& Plan = Plans[Index];
+		uint32_t Parts = POLY_BODY;
+		if (Index == 0)
+		{
+			if (Spec.BaseKind == 1)
+			{
+				BuildMasonryTerrace(Spec, OutMesh);
+			}
+			else
+			{
+				Parts |= POLY_PLATFORM | POLY_STEPS_FENCE;
+			}
+		}
+		if (Plan.bTop)
+		{
+			Parts |= POLY_ROOF;
+		}
+		BuildPolygonalParts(Plan.Body, Profile, Parts, OutMesh);
+		if (Plan.bTop)
+		{
+			continue;
+		}
+
+		BuildingSpec Waist = Plan.Body;
+		Waist.RoofHeight = Plan.WaistRiseHeight;
+		ScaleWaistCornerFlip(Waist, (1.0f - Plan.OpenFraction) * (Waist.PlanApothem + Waist.EaveOverhang),
+			Waist.PlanApothem + Waist.EaveOverhang);
+		BuildCentralisedShell(Waist, Profile, Plan.OpenFraction, OutMesh);
+		if (Spec.bStoreyBalcony && Index + 1 < Plans.size())
+		{
+			BuildPolygonalBalcony(Plans[Index + 1].Body, Plan.NextFloor, Plan.BreakTop, OutMesh);
+		}
+	}
+}
+
+void BuildingGen::DescribePolygonalStoreys(const BuildingSpec& Spec, std::vector<StoreyFrame>& Out)
+{
+	Out.clear();
+	for (const PolyStorey& Plan : PlanPolygonalStoreys(Spec))
+	{
+		StoreyFrame Frame;
+		Frame.Floor = Plan.Body.PlatformHeight;
+		Frame.ColumnFoot = Plan.Body.PlatformHeight - Plan.Body.ColumnFootDrop;
+		Frame.ColumnTop = Plan.Body.PlatformHeight + Plan.Body.ColumnHeight;
+		Frame.RoofBase = Plan.Body.RoofBase;
+		Frame.Width = Plan.Body.PlanApothem * 2.0f;
+		Frame.Depth = Frame.Width;
+		Frame.BreakTop = Plan.bTop ? -1.0f : Plan.BreakTop;
+		for (const Vector2& Corner : PlanPolygon(Plan.Body.PlanApothem, std::max(Spec.Sides, 3)))
+		{
+			Frame.ColumnLinesX.push_back(Corner.x);
+			Frame.ColumnLinesZ.push_back(Corner.y);
+		}
+		Out.push_back(Frame);
+	}
 }

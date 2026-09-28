@@ -63,6 +63,15 @@ namespace godot
 		void RequestRegenerate();
 		void CollectSpec(BuildingGen::BuildingSpec& OutSpec) const;
 
+	public:
+		/**
+		 * Parameters → generator spec, with Table 1 evaluated. Everything but the 脊饰 mesh mask,
+		 * which belongs to a node. Shared with AncientBuildingCompound, whose wings are specs too.
+		 */
+		static void CollectSpecFrom(const Ref<AncientBuildingParameters>& P, BuildingGen::BuildingSpec& OutSpec);
+
+	private:
+
 		bool HasAnySlotMaterial() const;
 
 	protected:
@@ -138,5 +147,12 @@ namespace godot
 
 		int32_t GetVertexCount() const { return LastVertexCount; }
 		int32_t GetTriangleCount() const { return LastTriangleCount; }
+
+		/**
+		 * The storey stack the current parameters build, one Dictionary per storey (floor,
+		 * column_foot, column_top, roof_base, break_top, width, depth, column_lines_x/z), in the
+		 * node's local frame. For tests and for tools that place things on a 平座.
+		 */
+		Array GetStoreyFrames();
 	};
 } // namespace godot

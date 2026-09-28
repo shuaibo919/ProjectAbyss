@@ -38,10 +38,14 @@ uniform float crease_cos_threshold : hint_range(-1.0, 1.0) = 0.5;
 // but wrong for stacked-open-shell geometry like AncientBuilding, where open
 // panel rims are everywhere by design and would all ink black.
 uniform bool draw_boundary_edges = true;
-// NDC pull toward the camera so the line wins the depth test against its own
-// surface (replaces the Unity demo's 0.001 normal offset). Godot 4 uses reverse-Z:
-// near = 1, far = 0, so "toward the camera" is +z.
-uniform float depth_bias : hint_range(0.0, 0.01) = 0.0002;
+// Pull toward the camera so the line wins the depth test against its own surface
+// (replaces the Unity demo's 0.001 normal offset), as a FRACTION of view distance.
+// It must be relative: Godot 4 uses reverse-Z, where NDC depth ~ near / distance,
+// so a constant added to NDC z moves the line by distance² · bias / near — the old
+// additive 0.0002 pulled lines ~8 m forward at 50 m and drew hidden edges straight
+// through walls and water (found on the Map_RiverTown showcase). Scaling NDC z by
+// (1 + bias) moves every line by the same fraction of its distance instead.
+uniform float depth_bias : hint_range(0.0, 0.02) = 0.002;
 
 // === Stroke brush (Pencil+4-style; all inert at defaults) ===
 // 收笔: taper the line to a point over this many world units at each stroke end.
@@ -152,7 +156,7 @@ void vertex() {
 
 		vec3 ndc = end_t < 0.5 ? ndc_a : ndc_b;
 		ndc.xy += half_w * side + ext;
-		ndc.z += depth_bias;
+		ndc.z *= 1.0 + depth_bias;
 
 		POSITION = vec4(ndc.xy * w_corner, (ndc.z) * w_corner, w_corner);
 	}

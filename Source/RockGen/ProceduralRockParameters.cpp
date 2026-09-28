@@ -26,8 +26,10 @@ String ProceduralRockParameters::GetFormName(int32_t Form)
 
 String ProceduralRockParameters::GetFormNameLocalized(int32_t Form)
 {
-	// Narrow literals reach Godot through string_new_with_utf8_chars, and godot-cpp compiles
-	// MSVC with /utf-8, so these are safe as long as the source stays UTF-8 encoded.
+	// godot-cpp's String(const char*) decodes as LATIN-1, never UTF-8 — every narrow
+	// literal containing non-ASCII must go through String::utf8, or it garbles in the
+	// editor/console. godot-cpp's /utf-8 flag only guarantees the literal's bytes are
+	// UTF-8 in the binary.
 	const char* Chinese = "";
 	switch (Form)
 	{

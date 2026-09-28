@@ -79,6 +79,12 @@ namespace BuildingGen
 		HIP_TOP_RIDGE,
 		/** 盝顶 — stop early and cap with a flat platform ringed by a 围脊. */
 		HIP_TOP_FLAT,
+		/**
+		 * 腰檐 / 重檐下檐 — stop at the break and leave it open: the storey above rises out of the
+		 * hole, and a 围脊 closes the joint against its wall. Inset comes from BuildingSpec::WaistInset
+		 * rather than GableRatio, because the break is wherever the upper storey's wall stands.
+		 */
+		HIP_TOP_OPEN,
 	};
 
 	/**
@@ -147,6 +153,42 @@ namespace BuildingGen
 		/** 踏步两侧侧挡, 60_台基地面 R8. Off keeps the legacy bare staircase block. */
 		bool bStepSideCheek = false;
 
+		/**
+		 * Base kind. 0 = 台基 (the legacy platform, steps and balustrade). 1 = 城台 / 墩台: a
+		 * battered masonry block pierced by arched passages, with a parapet; the building stands
+		 * on its top (PlatformHeight is then the block's height — HeightPolicy PreserveColumnHeight).
+		 */
+		int32_t BaseKind = 0;
+		float MasonryHalfWidth = 0.0f;
+		float MasonryHalfDepth = 0.0f;
+		/** 收分, horizontal draw-in per metre of height. */
+		float MasonryBatter = 0.0f;
+		int32_t BaseArchCount = 1;
+		/** 0 derives the width from the block. */
+		float BaseArchWidth = 0.0f;
+		/** Top of the arch as a fraction of the block height. */
+		float BaseArchHeightRatio = 0.62f;
+		int32_t BaseArchProfile = 0;
+		/** 0 = passages run front to back (through Z), 1 = side to side (through X). */
+		int32_t BaseArchAxis = 0;
+		int32_t BaseParapet = 1;
+		/** Storeys, counted from the ground, built as brick walls with 券门/券窗 (箭楼, 砖砌下层). */
+		int32_t MasonryStoreys = 0;
+		Color BrickColor = Color(0.55f, 0.53f, 0.50f, 1.0f);
+		/** BaseKind 3 (桩台): how far the piles reach below the ground / water line. */
+		float StiltDepth = 2.0f;
+
+		/**
+		 * Open-bay infill (亭 / 廊 / 榭): what stands between the columns where there is no wall.
+		 * 0 = nothing (legacy), 1 = 坐凳栏杆 (bench railing), 2 = 美人靠 (bench with a backrest
+		 * leaning out). Entrance bays stay clear.
+		 */
+		int32_t RailingKind = 0;
+		/** 倒挂楣子: a lattice frame hanging under the architrave in every open bay. */
+		bool bHangingFascia = false;
+		/** 须弥座 platform body instead of a plain block. */
+		bool bPlatformSumeru = false;
+
 		// Body
 		bool bGenerateColumns = true;
 		bool bGenerateWalls = true;
@@ -164,6 +206,33 @@ namespace BuildingGen
 		float EaveHeight = 0.0f;
 		float BracketHeight = 0.0f;
 		float RoofBase = 0.0f;
+
+		// Storeys (多层: 重檐 / 楼 / 阁). StoreyCount 1 is the legacy single-storey building and
+		// takes the legacy code path untouched.
+		int32_t StoreyCount = 1;
+		/**
+		 * Bay rings each storey steps in by (0 = 叉柱造, upper columns on the lower column lines;
+		 * 1 = the upper storey stands on the inner ring, 金柱 over a 周围廊). The ring is one 廊步
+		 * on every side, so the lower storey's outer bays become aisles of that width and every
+		 * upper column lands on a lower column line.
+		 */
+		int32_t StoreySetbackBays = 0;
+		/** Upper storeys' column height as a fraction of the ground storey's. */
+		float UpperColumnHeightScale = 0.8f;
+		/** 平座: a projecting floor with a railing under every upper storey (楼阁 on, 重檐 off). */
+		bool bStoreyBalcony = false;
+		/** How far the 平座 projects past the upper storey's column line, in metres. */
+		float BalconyProjection = 0.0f;
+
+		// Per-storey working fields. The storey expansion writes them into each storey's copy of
+		// the spec; the defaults are what a single-storey building has always used.
+		/** Column line positions across the width / depth. Empty = even bays (legacy). */
+		std::vector<float> ColumnLinesX;
+		std::vector<float> ColumnLinesZ;
+		/** Columns reach this far below the storey's floor (通柱 down to the storey below). */
+		float ColumnFootDrop = 0.0f;
+		/** HIP_TOP_OPEN only: distance from the eave line in to the break, in plan. */
+		float WaistInset = 0.0f;
 
 		// Roof
 		float EaveOverhang = 0.0f;
@@ -236,6 +305,16 @@ namespace BuildingGen
 		float CornerRise = 0.0f;
 		float CornerExtend = 0.0f;
 		float CornerSpan = 1.0f;
+		/** Which eave corners lift (CornerFlip::CornerMask). All four = legacy. */
+		uint32_t CornerFlipMask = 0xFu;
+
+		// 连体 (compound) hooks. All zero = a free-standing building (legacy).
+		/** Sides (bit 1 +Z, 2 -Z, 4 +X, 8 -X) whose perimeter columns belong to a neighbour. */
+		uint32_t NoColumnSides = 0;
+		/** Sides that get no stair run (a neighbour stands there). */
+		uint32_t NoStepSides = 0;
+		/** Build the roof only — no base, no body (the crossing gable of a 十字脊). */
+		bool bRoofOnly = false;
 
 		Color StoneColor;
 		Color TimberColor;
@@ -326,6 +405,24 @@ namespace BuildingGen
 		EMaterialSlot GetSlot() const { return CurrentSlot; }
 
 		/**
+		 * Per-triangle tag, stamped like the slot. Nothing reads it for rendering; the 连体
+		 * assembler uses TAG_FIXED to keep structure (台基, 踏步, 柱) out of its roof/body clip.
+		 */
+		static constexpr uint8_t TAG_NONE = 0;
+		static constexpr uint8_t TAG_FIXED = 1;
+		void SetTag(uint8_t Tag) { CurrentTag = Tag; }
+		uint8_t GetTag() const { return CurrentTag; }
+		uint8_t GetTriangleTag(int32_t Triangle) const { return TriangleTags[size_t(Triangle)]; }
+		EMaterialSlot GetTriangleSlot(int32_t Triangle) const { return EMaterialSlot(TriangleSlots[size_t(Triangle)]); }
+
+		/**
+		 * One triangle with explicit per-corner attributes, wound as given, into the current slot
+		 * and tag. No mottle: the attributes are already final (a clipped or transformed copy).
+		 */
+		void AddRawTriangle(const Vector3 Positions[3], const Vector3 VertexNormals[3], const Vector2 Coords[3],
+			const Color VertexColors[3]);
+
+		/**
 		 * Groups the triangles by slot, in slot order, skipping slots that got none.
 		 *
 		 * The tables above stay the whole-mesh tables: the geometry regression tests pin
@@ -413,8 +510,10 @@ namespace BuildingGen
 	private:
 		/** One stamp per emitted triangle, parallel to Indices / 3. */
 		std::vector<uint8_t> TriangleSlots;
+		std::vector<uint8_t> TriangleTags;
 
 		EMaterialSlot CurrentSlot = EMaterialSlot::Timber;
+		uint8_t CurrentTag = TAG_NONE;
 
 		/**
 		 * The only place indices are appended, so the stamps cannot fall out of step with the
@@ -469,6 +568,17 @@ namespace BuildingGen
 
 	/** Shared rectangular/polygonal support. The plinth replaces the bottom of the shaft. */
 	void AddBuildingColumn(const BuildingSpec& Spec, MeshAccumulator& Mesh, const Vector3& Base, uint32_t ComponentId);
+
+	/**
+	 * Open-bay infill between two column centres at floor level (坐凳栏杆 / 美人靠 / 倒挂楣子, per
+	 * Spec.RailingKind and Spec.bHangingFascia). Outward is the horizontal direction away from
+	 * the building. Entrance bays get the fascia only. Shared by rectangular and polygonal plans.
+	 */
+	void AddOpenBayInfill(const BuildingSpec& Spec, MeshAccumulator& Mesh, const Vector3& From, const Vector3& To,
+		const Vector3& Outward, bool bEntrance);
+
+	/** 桩台 deck (榭): a timber floor on piles, for a plan outline (4 corners = rectangle). */
+	void AddStiltDeck(const BuildingSpec& Spec, MeshAccumulator& Mesh, const std::vector<Vector2>& Outline);
 
 	/**
 	 * The 举架 down-slope profile, from the eave up to the ridge. Each entry is
@@ -585,6 +695,11 @@ namespace BuildingGen
 		bool bPolygonal = false;
 		int32_t Sides = 4;
 		float Radius = 1.0f;
+		/**
+		 * Rectangular plans: which corners lift. Bit (x<0 ? 1 : 0) | (z<0 ? 2 : 0). All four by
+		 * default; a 连体 wing clears the corners that die into a neighbour's roof.
+		 */
+		uint32_t CornerMask = 0xFu;
 
 		/** 1 at the plan corner, falling to 0 Span away along the eave. */
 		float Weight(float X, float Z) const;
@@ -603,5 +718,50 @@ namespace BuildingGen
 	/** Centralised roof only, so a rectangular plan can also carry a 攒尖. */
 	void BuildCentralisedRoof(const BuildingSpec& Spec, ECentralProfile Profile, MeshAccumulator& OutMesh);
 
+	/**
+	 * The centralised loft with an optional opening: OpenFraction 0 is BuildCentralisedRoof; above
+	 * 0 the loft stops at that fraction of the eave apothem and is closed by a 围脊 instead of a
+	 * 宝顶 — a polygonal 腰檐. Spec.RoofHeight is then the skirt's own rise.
+	 */
+	void BuildCentralisedShell(const BuildingSpec& Spec, ECentralProfile Profile, float OpenFraction,
+		MeshAccumulator& OutMesh);
+
+	/** Polygonal storey stack (重檐亭, polygonal 阁). BuildPolygonalBuilding routes here. */
+	void BuildPolygonalStoreys(const BuildingSpec& Spec, ECentralProfile Profile, MeshAccumulator& OutMesh);
+
+	/**
+	 * Rise of a 腰檐 over its plan run (Inset). A 腰檐 spans only the 廊步 in front of the upper
+	 * storey's wall, with its own 举架, so it is not the bottom slice of a full-depth roof curve.
+	 */
+	float WaistRiseFor(const BuildingSpec& Spec, float Inset);
+
+	/** Shrinks a 腰檐's 起翘/出翘 with its run (Inset) relative to a full roof's (FullRun). */
+	void ScaleWaistCornerFlip(BuildingSpec& Waist, float Inset, float FullRun);
+
 	void BuildBuilding(const BuildingSpec& Spec, MeshAccumulator& OutMesh);
+
+	/** One storey of a (possibly) multi-storey building, as BuildBuilding lays it out. */
+	struct StoreyFrame
+	{
+		/** Floor the walls stand on (the platform top for the ground storey). */
+		float Floor = 0.0f;
+		/** Where the columns start — below Floor for 通柱 continuing from the storey below. */
+		float ColumnFoot = 0.0f;
+		float ColumnTop = 0.0f;
+		float RoofBase = 0.0f;
+		/** Height of this storey's 腰檐 围脊; -1 on the top storey, which has a roof instead. */
+		float BreakTop = -1.0f;
+		float Width = 0.0f;
+		float Depth = 0.0f;
+		/**
+		 * Rectangular plans: the column line positions across X and Z. Polygonal plans have no
+		 * grid; there the two arrays are paired, one entry per column (its x and z).
+		 */
+		std::vector<float> ColumnLinesX;
+		std::vector<float> ColumnLinesZ;
+	};
+
+	/** The storey stack BuildBuilding builds for this spec. One frame for a single storey. */
+	void DescribeStoreys(const BuildingSpec& Spec, std::vector<StoreyFrame>& Out);
+	void DescribePolygonalStoreys(const BuildingSpec& Spec, std::vector<StoreyFrame>& Out);
 } // namespace BuildingGen

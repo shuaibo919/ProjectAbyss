@@ -40,6 +40,31 @@ const OVERRIDE_BOOLS := ["ab_fence", "ab_walls", "ab_steps",
 	# 民居形制. 地基 (ab_platform) is the "does this building stand on a 台基 at all" switch.
 	"ab_platform", "ab_platform_top_joints", "ab_platform_edge_lip",
 	"ab_paving", "ab_paving_joint_geometry", "ab_step_side_cheek", "ab_column_base_square"]
+# 屋面色 (2026-09-28, River Town): landmarks carry their own glaze — blue-grey on the gate
+# tower, red on the riverside 重楼 — so the colour is part of a variant's identity.
+const OVERRIDE_COLORS := ["ab_tile_color"]
+
+# 结构 (2026-09-29): 多层 / 砖石作 / 亭台. Every one of these changes the silhouette, so each is part of
+# a variant's identity when the graph writes it — and absent streams leave the parameter at its
+# default, i.e. the legacy single-storey building on a 台基.
+# [stream, parameter, type (i/f/b), key quantum for floats]
+const STRUCT_STREAMS := [
+	["ab_sides", "sides", "i", 0.0],
+	["ab_storey_count", "storey_count", "i", 0.0],
+	["ab_storey_setback", "storey_setback_bays", "i", 0.0],
+	["ab_upper_column_scale", "upper_column_height_scale", "f", 0.05],
+	["ab_storey_balcony", "storey_balcony", "b", 0.0],
+	["ab_base_kind", "base_kind", "i", 0.0],
+	["ab_base_height", "masonry_base_height", "f", 0.1],
+	["ab_base_margin", "masonry_base_margin", "f", 0.1],
+	["ab_base_arches", "base_arch_count", "i", 0.0],
+	["ab_base_parapet", "base_parapet", "i", 0.0],
+	["ab_masonry_storeys", "masonry_storeys", "i", 0.0],
+	["ab_railing", "railing_kind", "i", 0.0],
+	["ab_hanging_fascia", "hanging_fascia", "b", 0.0],
+	["ab_module_span", "module_span", "f", 0.1],
+	["ab_stilt_depth", "stilt_depth", "f", 0.25],
+]
 
 # 形制字段入 `_combo_key` 的口径（见该函数）。连续量按步长量化后再入键。
 const FORM_BOOLS := ["ab_platform", "ab_platform_top_joints", "ab_platform_edge_lip",
@@ -222,6 +247,19 @@ func _combo_key(ov: Dictionary, quantum: float) -> String:
 		if ov.has(entry[0]):
 			# 连续量先量化再入键：同一格内的差异不分裂变体。
 			parts.append("f:%s=%d" % [entry[0], int(round(float(ov[entry[0]]) / float(entry[1])))])
+	for stream in OVERRIDE_COLORS:
+		if ov.has(stream):
+			parts.append("c:%s=%s" % [stream, (ov[stream] as Color).to_html(false)])
+	for entry in STRUCT_STREAMS:
+		if not ov.has(entry[0]):
+			continue
+		match entry[2]:
+			"f":
+				parts.append("s:%s=%d" % [entry[0], int(round(float(ov[entry[0]]) / float(entry[3])))])
+			"b":
+				parts.append("s:%s=%d" % [entry[0], 1 if ov[entry[0]] else 0])
+			_:
+				parts.append("s:%s=%d" % [entry[0], int(ov[entry[0]])])
 	return ",".join(parts)
 
 
@@ -231,7 +269,8 @@ func _combo_key(ov: Dictionary, quantum: float) -> String:
 ## path instead of doing null arithmetic in `_combo_key`.
 func _collect_overrides(in_data: FlowData.Data, point_count: int):
 	var found := false
-	for sname in OVERRIDE_FLOATS + OVERRIDE_INTS + OVERRIDE_BOOLS:
+	var struct_names := STRUCT_STREAMS.map(func(e): return e[0])
+	for sname in OVERRIDE_FLOATS + OVERRIDE_INTS + OVERRIDE_BOOLS + OVERRIDE_COLORS + struct_names:
 		if in_data.hasStream(sname):
 			found = true
 			break
@@ -267,6 +306,21 @@ func _collect_overrides(in_data: FlowData.Data, point_count: int):
 		var container: PackedByteArray = stream.container
 		for i in point_count:
 			overrides[i][sname] = container[FlowData.bcast_idx(container.size(), i)] != 0
+	for sname in OVERRIDE_COLORS:
+		var stream = in_data.findStream(sname)
+		if stream == null:
+			continue
+		var container: PackedColorArray = stream.container
+		for i in point_count:
+			overrides[i][sname] = container[FlowData.bcast_idx(container.size(), i)]
+	for entry in STRUCT_STREAMS:
+		var stream = in_data.findStream(entry[0])
+		if stream == null:
+			continue
+		var container = stream.container
+		for i in point_count:
+			var value = container[FlowData.bcast_idx(container.size(), i)]
+			overrides[i][entry[0]] = (value != 0) if entry[2] == "b" else value
 
 	# Optional streams missing from the input fall back to node settings.
 	var defaults := {
@@ -435,7 +489,10 @@ func _bake_from_params(ov: Dictionary, rng: RandomNumberGenerator) -> Mesh:
 	params.stone_color = settings.stone_color
 	params.timber_color = settings.timber_color
 	params.plaster_color = settings.plaster_color
-	params.tile_color = settings.tile_color
+	params.tile_color = _form_value(ov, "ab_tile_color", settings.tile_color)
+	for entry in STRUCT_STREAMS:
+		if ov.has(entry[0]):
+			_apply_if_present(params, entry[1], ov[entry[0]])
 
 	var building = ClassDB.instantiate("AncientBuilding")
 	building.auto_regenerate = false

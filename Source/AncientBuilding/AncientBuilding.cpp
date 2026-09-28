@@ -4,7 +4,9 @@
 #include <godot_cpp/classes/mesh.hpp>
 #include <godot_cpp/core/class_db.hpp>
 #include <godot_cpp/variant/callable_method_pointer.hpp>
+#include <godot_cpp/variant/dictionary.hpp>
 #include <godot_cpp/variant/packed_color_array.hpp>
+#include <godot_cpp/variant/packed_float32_array.hpp>
 #include <godot_cpp/variant/packed_int32_array.hpp>
 #include <godot_cpp/variant/packed_vector2_array.hpp>
 #include <godot_cpp/variant/packed_vector3_array.hpp>
@@ -123,6 +125,7 @@ namespace
 void AncientBuilding::_bind_methods()
 {
 	ClassDB::bind_method(D_METHOD("generate"), &AncientBuilding::Generate);
+	ClassDB::bind_method(D_METHOD("get_storey_frames"), &AncientBuilding::GetStoreyFrames);
 	ClassDB::bind_method(D_METHOD("bake_mesh"), &AncientBuilding::BakeMesh);
 
 	ClassDB::bind_method(D_METHOD("set_parameters", "value"), &AncientBuilding::SetParameters);
@@ -247,8 +250,19 @@ void AncientBuilding::EnsureMaterial()
 
 void AncientBuilding::CollectSpec(BuildingGen::BuildingSpec& OutSpec) const
 {
-	const Ref<AncientBuildingParameters>& P = Parameters;
+	CollectSpecFrom(Parameters, OutSpec);
+	for (int32_t Kind = 0; Kind < BuildingGen::RIDGE_ORNAMENT_KIND_COUNT; ++Kind)
+	{
+		if (RidgeOrnamentMeshes[Kind].is_valid())
+		{
+			OutSpec.RidgeOrnamentMeshMask |= BuildingGen::RidgeOrnamentBit(
+				BuildingGen::ERidgeOrnamentKind(Kind));
+		}
+	}
+}
 
+void AncientBuilding::CollectSpecFrom(const Ref<AncientBuildingParameters>& P, BuildingGen::BuildingSpec& OutSpec)
+{
 	OutSpec.Width = P->GetWidth();
 	OutSpec.Depth = P->GetDepth();
 	OutSpec.BaysX = std::max(P->GetBaysX(), 1);
@@ -263,8 +277,34 @@ void AncientBuilding::CollectSpec(BuildingGen::BuildingSpec& OutSpec) const
 	// quantity that includes it comes down by the same amount and the whole building drops onto
 	// the ground plane instead of floating or leaving a gap under the eave.
 	const float FullPlatformHeight = P->GetPlatformHeight();
-	const float HeightShift = OutSpec.bGeneratePlatform ? 0.0f : FullPlatformHeight;
-	OutSpec.PlatformHeight = OutSpec.bGeneratePlatform ? FullPlatformHeight : 0.0f;
+	// 城台 / 高台: the building stands on the terrace top instead, with its own proportions
+	// unchanged (PreserveColumnHeight). The shift below then *lifts* everything by the difference.
+	const int32_t BaseKind = std::clamp(P->GetBaseKind(), 0, 3);
+	const bool bTerrace = BaseKind == 1 || BaseKind == 2;
+	const float Floor = bTerrace
+		? std::fmax(P->GetMasonryBaseHeight(), 0.0f)
+		: (OutSpec.bGeneratePlatform ? FullPlatformHeight : 0.0f);
+	const float HeightShift = FullPlatformHeight - Floor;
+	OutSpec.PlatformHeight = Floor;
+	// 高台 is a tall 台基 — the platform generator, not the masonry one — so it keeps kind 0.
+	OutSpec.BaseKind = (BaseKind == 2) ? 0 : BaseKind;
+	OutSpec.bGeneratePlatform = OutSpec.bGeneratePlatform || bTerrace;
+	OutSpec.StiltDepth = std::fmax(P->GetStiltDepth(), 0.0f);
+	OutSpec.RailingKind = std::clamp(P->GetRailingKind(), 0, 2);
+	OutSpec.bHangingFascia = P->HasHangingFascia();
+	OutSpec.bPlatformSumeru = P->HasPlatformSumeru();
+	OutSpec.MasonryHalfWidth = P->GetWidth() * 0.5f + std::fmax(P->GetMasonryBaseMargin(), 0.0f);
+	OutSpec.MasonryHalfDepth = (P->IsPolygonal() ? P->GetWidth() : P->GetDepth()) * 0.5f
+		+ std::fmax(P->GetMasonryBaseMargin(), 0.0f);
+	OutSpec.MasonryBatter = std::fmax(P->GetMasonryBatter(), 0.0f);
+	OutSpec.BaseArchCount = std::max(P->GetBaseArchCount(), 0);
+	OutSpec.BaseArchWidth = std::fmax(P->GetBaseArchWidth(), 0.0f);
+	OutSpec.BaseArchHeightRatio = P->GetBaseArchHeightRatio();
+	OutSpec.BaseArchProfile = std::clamp(P->GetBaseArchProfile(), 0, 2);
+	OutSpec.BaseArchAxis = std::clamp(P->GetBaseArchAxis(), 0, 1);
+	OutSpec.BaseParapet = std::clamp(P->GetBaseParapet(), 0, 2);
+	OutSpec.MasonryStoreys = std::max(P->GetMasonryStoreys(), 0);
+	OutSpec.BrickColor = P->GetBrickColor();
 	OutSpec.PlatformHalfWidth = P->GetPlatformHalfWidth();
 	OutSpec.PlatformHalfDepth = P->GetPlatformHalfDepth();
 	OutSpec.bGenerateFence = P->ShouldGenerateFence();
@@ -274,6 +314,14 @@ void AncientBuilding::CollectSpec(BuildingGen::BuildingSpec& OutSpec) const
 	OutSpec.StepRunCount = P->GetStepRunCount();
 	OutSpec.StepCount = std::max(P->GetStepCount(), 1);
 	OutSpec.StepRunDepth = P->GetStepRunDepth();
+	if (BaseKind == 2)
+	{
+		// A 高台 is climbed, not stepped onto: keep the riser near 0.16 m and the flight at about
+		// 30 degrees, so a tall terrace grows a long stair instead of a ladder. [自定] Riser and
+		// pitch are ordinary stair practice, not a 则例 value.
+		OutSpec.StepCount = std::max(OutSpec.StepCount, int32_t(std::ceil(Floor / 0.16f)));
+		OutSpec.StepRunDepth = std::fmax(OutSpec.StepRunDepth, Floor * 1.7f);
+	}
 	OutSpec.bPlatformTopJoints = P->ShouldGeneratePlatformTopJoints();
 	OutSpec.bPlatformEdgeLip = P->ShouldGeneratePlatformEdgeLip();
 	OutSpec.bPaving = P->ShouldGeneratePaving();
@@ -298,6 +346,12 @@ void AncientBuilding::CollectSpec(BuildingGen::BuildingSpec& OutSpec) const
 	OutSpec.BracketHeight = P->GetBracketHeight();
 	OutSpec.RoofBase = P->GetRoofBase() - HeightShift;
 
+	OutSpec.StoreyCount = std::max(P->GetStoreyCount(), 1);
+	OutSpec.StoreySetbackBays = std::max(P->GetStoreySetbackBays(), 0);
+	OutSpec.UpperColumnHeightScale = P->GetUpperColumnHeightScale();
+	OutSpec.bStoreyBalcony = P->HasStoreyBalcony();
+	OutSpec.BalconyProjection = OutSpec.Module * std::fmax(P->GetBalconyProjectionScale(), 0.0f);
+
 	OutSpec.EaveOverhang = P->GetEaveOverhang();
 	OutSpec.RoofHeight = P->GetRoofHeight();
 	OutSpec.RafterCourses = std::max(P->GetRafterCourses(), 3);
@@ -320,14 +374,6 @@ void AncientBuilding::CollectSpec(BuildingGen::BuildingSpec& OutSpec) const
 	OutSpec.RidgeBeastSize = std::fmax(P->GetRidgeBeastSize(), 0.0f);
 	OutSpec.RidgeWalkerSize = std::fmax(P->GetRidgeWalkerSize(), 0.0f);
 	OutSpec.RidgeWalkerCount = std::max(P->GetRidgeWalkerCount(), 0);
-	for (int32_t Kind = 0; Kind < BuildingGen::RIDGE_ORNAMENT_KIND_COUNT; ++Kind)
-	{
-		if (RidgeOrnamentMeshes[Kind].is_valid())
-		{
-			OutSpec.RidgeOrnamentMeshMask |= BuildingGen::RidgeOrnamentBit(
-				BuildingGen::ERidgeOrnamentKind(Kind));
-		}
-	}
 	OutSpec.GableRatio = P->GetGableRatio();
 	OutSpec.GableOverhang = P->GetGableOverhang();
 	OutSpec.RollRadius = P->GetRollRadius();
@@ -347,6 +393,35 @@ void AncientBuilding::CollectSpec(BuildingGen::BuildingSpec& OutSpec) const
 	OutSpec.RidgeColor = P->GetRidgeColor();
 	OutSpec.BracketColor = P->GetBracketColor();
 	OutSpec.ColorMottle = AncientBuildingParameters::GetStyleMottle(P->GetMaterialStyle());
+}
+
+Array AncientBuilding::GetStoreyFrames()
+{
+	EnsureParameters();
+
+	BuildingGen::BuildingSpec Spec;
+	CollectSpec(Spec);
+
+	std::vector<BuildingGen::StoreyFrame> Frames;
+	BuildingGen::DescribeStoreys(Spec, Frames);
+
+	Array Result;
+	for (const BuildingGen::StoreyFrame& Frame : Frames)
+	{
+		Dictionary Entry;
+		Entry["floor"] = Frame.Floor;
+		Entry["column_foot"] = Frame.ColumnFoot;
+		Entry["column_top"] = Frame.ColumnTop;
+		Entry["roof_base"] = Frame.RoofBase;
+		Entry["break_top"] = Frame.BreakTop;
+		Entry["width"] = Frame.Width;
+		Entry["depth"] = Frame.Depth;
+		Entry["column_lines_x"] = ToPacked<PackedFloat32Array>(Frame.ColumnLinesX);
+		Entry["column_lines_z"] = ToPacked<PackedFloat32Array>(Frame.ColumnLinesZ);
+		Result.push_back(Entry);
+	}
+
+	return Result;
 }
 
 void AncientBuilding::Generate()

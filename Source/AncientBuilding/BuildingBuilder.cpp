@@ -1,7 +1,11 @@
 #include "AncientBuilding/BuildingBuilder.h"
 
+#include "AncientBuilding/Masonry.h"
 #include "AncientBuilding/RoofCurve.h"
 #include "AncientBuilding/TileSkin.h"
+
+#include <godot_cpp/core/error_macros.hpp>
+#include <godot_cpp/variant/string.hpp>
 
 #include <algorithm>
 #include <cmath>
@@ -333,6 +337,21 @@ void MeshAccumulator::PushTriangle(int32_t A, int32_t B, int32_t C)
 	Indices.push_back(B);
 	Indices.push_back(C);
 	TriangleSlots.push_back(uint8_t(CurrentSlot));
+	TriangleTags.push_back(CurrentTag);
+}
+
+void MeshAccumulator::AddRawTriangle(const Vector3 Positions[3], const Vector3 VertexNormals[3],
+	const Vector2 Coords[3], const Color VertexColors[3])
+{
+	const int32_t Base = int32_t(Vertices.size());
+	for (int32_t Index = 0; Index < 3; ++Index)
+	{
+		Vertices.push_back(Positions[Index]);
+		Normals.push_back(VertexNormals[Index]);
+		UVs.push_back(Coords[Index]);
+		Colors.push_back(VertexColors[Index]);
+	}
+	PushTriangle(Base, Base + 1, Base + 2);
 }
 
 void MeshAccumulator::BuildSurfaces(std::vector<SurfaceData>& Out) const
@@ -648,6 +667,15 @@ void BuildingGen::AddBuildingColumn(const BuildingSpec& Spec, MeshAccumulator& M
 {
 	const float R = Spec.ColumnRadius;
 	if (R <= 0.0f || Spec.ColumnHeight <= 0.0f) return;
+	// Columns are structure: a 连体 junction keeps them whatever else it trims.
+	const uint8_t PreviousTag = Mesh.GetTag();
+	Mesh.SetTag(MeshAccumulator::TAG_FIXED);
+	struct RestoreTag
+	{
+		MeshAccumulator& Target;
+		uint8_t Tag;
+		~RestoreTag() { Target.SetTag(Tag); }
+	} Restore{ Mesh, PreviousTag };
 	const float H = std::clamp(Spec.ColumnBaseHeight, 0.0f, Spec.ColumnHeight * 0.15f);
 	if (H > BUILD_EPSILON)
 	{
@@ -687,6 +715,175 @@ void BuildingGen::AddBuildingColumn(const BuildingSpec& Spec, MeshAccumulator& M
 	const float BottomRadius = R * (1.0f - 0.12f * H / Spec.ColumnHeight);
 	Mesh.AddColumn(Base + Vector3(0, H, 0), Spec.ColumnHeight - H,
 		BottomRadius, R * 0.88f, Spec.ColumnSides, Spec.TimberColor, Spec.bSmoothColumns, ComponentId);
+}
+
+// ==================== Open bays (亭 / 廊 / 榭) ====================
+
+void BuildingGen::AddOpenBayInfill(const BuildingSpec& Spec, MeshAccumulator& Mesh, const Vector3& From,
+	const Vector3& To, const Vector3& Outward, bool bEntrance)
+{
+	Vector3 Along = To - From;
+	Along.y = 0.0f;
+	const float Span = Along.length();
+	const float Clear = Span - Spec.ColumnRadius * 2.1f;
+	if (Clear < 0.3f)
+	{
+		return;
+	}
+	Along /= Span;
+	Vector3 Out = Outward;
+	Out.y = 0.0f;
+	Out = (Out - Along * Out.dot(Along)).normalized();
+	const Vector3 Up(0.0f, 1.0f, 0.0f);
+	const Vector3 Mid = (From + To) * 0.5f;
+	const float HalfClear = Clear * 0.5f;
+
+	Mesh.SetSlot(EMaterialSlot::Timber);
+	const Color Frame = Spec.TimberColor * 1.12f;
+
+	// 倒挂楣子: a lattice frame hanging under the architrave. [自定] 0.12 of the column, at most
+	// 0.45 m, bars at about 0.25 m — the plate shows the frame, not its dimensions.
+	if (Spec.bHangingFascia)
+	{
+		const float Top = Mid.y + Spec.ColumnHeight - Spec.Module * 0.05f;
+		const float Depth = std::fmin(Spec.ColumnHeight * 0.12f, 0.45f);
+		const float Rail = std::fmin(0.04f, Depth * 0.12f);
+		for (const float Y : { Top - Rail, Top - Depth + Rail })
+		{
+			Mesh.AddOrientedBox(Vector3(Mid.x, Y, Mid.z), Along, Up, Out,
+				Vector3(HalfClear, Rail, Rail * 1.2f), Frame);
+		}
+		const int32_t Bars = std::max(int32_t(Clear / 0.25f), 2);
+		for (int32_t Index = 1; Index < Bars; ++Index)
+		{
+			const float T = -HalfClear + Clear * float(Index) / float(Bars);
+			Mesh.AddOrientedBox(Mid + Along * T + Vector3(0.0f, Top - Depth * 0.5f - Mid.y, 0.0f), Along, Up, Out,
+				Vector3(Rail * 0.5f, Depth * 0.5f - Rail, Rail * 0.7f), Frame);
+		}
+	}
+
+	if (bEntrance || Spec.RailingKind <= 0)
+	{
+		return;
+	}
+
+	// 坐凳栏杆: a bench seat on the column line over a 坐凳楣子 skirt. [自定] Seat at 0.48 m,
+	// 0.36 m deep — sitting height, since the plate gives the form but no numbers.
+	const float SeatY = Mid.y + 0.48f;
+	const float SeatDepth = 0.36f;
+	const float SeatThick = 0.06f;
+	Mesh.AddOrientedBox(Vector3(Mid.x, SeatY - SeatThick * 0.5f, Mid.z), Along, Up, Out,
+		Vector3(HalfClear, SeatThick * 0.5f, SeatDepth * 0.5f), Spec.TimberColor * 1.2f);
+	const float SkirtTop = SeatY - SeatThick;
+	const float SkirtBottom = Mid.y + 0.08f;
+	Mesh.AddOrientedBox(Vector3(Mid.x, (SkirtTop + SkirtBottom) * 0.5f, Mid.z), Along, Up, Out,
+		Vector3(HalfClear - 0.02f, (SkirtTop - SkirtBottom) * 0.5f, 0.025f), Spec.TimberColor * 0.92f);
+
+	if (Spec.RailingKind < 2)
+	{
+		return;
+	}
+
+	// 美人靠: slats rising from the seat's outer edge and leaning out, capped by a rail. [自定]
+	// 0.55 m tall with 0.22 m of lean, slats at 0.12 m.
+	const float Height = 0.55f;
+	const float Lean = 0.22f;
+	const Vector3 Foot = Mid + Out * (SeatDepth * 0.5f) + Vector3(0.0f, SeatY - Mid.y, 0.0f);
+	const Vector3 Head = Foot + Out * Lean + Up * Height;
+	const Vector3 Slope = (Head - Foot).normalized();
+	const Vector3 Across = Along.cross(Slope).normalized();
+	const float Length = (Head - Foot).length();
+	const int32_t Slats = std::max(int32_t(Clear / 0.12f), 2);
+	for (int32_t Index = 0; Index <= Slats; ++Index)
+	{
+		const float T = -HalfClear + Clear * float(Index) / float(Slats);
+		Mesh.AddOrientedBox((Foot + Head) * 0.5f + Along * T, Along, Slope, Across,
+			Vector3(0.018f, Length * 0.5f, 0.018f), Frame);
+	}
+	Mesh.AddOrientedBox(Head, Along, Up, Out, Vector3(HalfClear, 0.035f, 0.05f), Spec.TimberColor * 1.2f);
+}
+
+void BuildingGen::AddStiltDeck(const BuildingSpec& Spec, MeshAccumulator& Mesh, const std::vector<Vector2>& Outline)
+{
+	const float Top = Spec.PlatformHeight;
+	if (Top <= 0.0f || Outline.size() < 3)
+	{
+		return;
+	}
+
+	// [自定] Deck 0.35 D thick on piles at about 2.4 m, 0.28 D in radius.
+	const float Thick = Spec.Module * 0.35f;
+	const float Bottom = Top - Thick;
+	const size_t Count = Outline.size();
+
+	Mesh.SetSlot(EMaterialSlot::Timber);
+	for (size_t Side = 0; Side < Count; ++Side)
+	{
+		const Vector2& A = Outline[Side];
+		const Vector2& B = Outline[(Side + 1) % Count];
+		const Vector3 OutwardDir = Vector3((A.x + B.x) * 0.5f, 0.0f, (A.y + B.y) * 0.5f).normalized();
+		Mesh.AddQuadOriented(Vector3(A.x, Bottom, A.y), Vector3(B.x, Bottom, B.y),
+			Vector3(B.x, Top, B.y), Vector3(A.x, Top, A.y), OutwardDir, Spec.TimberColor * 1.2f);
+	}
+	std::vector<Vector3> Cap;
+	std::vector<Vector3> Soffit;
+	for (const Vector2& Point : Outline)
+	{
+		Cap.push_back(Vector3(Point.x, Top, Point.y));
+		Soffit.push_back(Vector3(Point.x, Bottom, Point.y));
+	}
+	Mesh.AddPolygon(Cap, Vector3(0, 1, 0), Spec.TimberColor * 1.25f);
+	Mesh.AddPolygon(Soffit, Vector3(0, -1, 0), Spec.TimberColor * 0.9f);
+
+	// Piles on a grid clipped to the (convex) outline, pulled in from its edge.
+	float MinX = Outline[0].x;
+	float MaxX = MinX;
+	float MinZ = Outline[0].y;
+	float MaxZ = MinZ;
+	for (const Vector2& Point : Outline)
+	{
+		MinX = std::fmin(MinX, Point.x);
+		MaxX = std::fmax(MaxX, Point.x);
+		MinZ = std::fmin(MinZ, Point.y);
+		MaxZ = std::fmax(MaxZ, Point.y);
+	}
+	const float Inset = Spec.Module * 0.4f;
+	const auto Inside = [&Outline, Count, Inset](const Vector2& P) -> bool
+	{
+		for (size_t Side = 0; Side < Count; ++Side)
+		{
+			const Vector2& A = Outline[Side];
+			const Vector2& B = Outline[(Side + 1) % Count];
+			const Vector2 Edge = (B - A).normalized();
+			// Signed distance to the edge line, positive towards the outline's centre.
+			const float Distance = (Vector2(-Edge.y, Edge.x)).dot(P - A);
+			const Vector2 Centre = (A + B) * 0.5f;
+			const float Sign = (Vector2(-Edge.y, Edge.x)).dot(-Centre) >= 0.0f ? 1.0f : -1.0f;
+			if (Distance * Sign < Inset)
+			{
+				return false;
+			}
+		}
+		return true;
+	};
+	const int32_t Cols = std::max(int32_t((MaxX - MinX) / 2.4f), 1);
+	const int32_t Rows = std::max(int32_t((MaxZ - MinZ) / 2.4f), 1);
+	const float Radius = Spec.Module * 0.28f;
+	Mesh.SetSlot(EMaterialSlot::Stone);
+	for (int32_t I = 0; I <= Cols; ++I)
+	{
+		for (int32_t J = 0; J <= Rows; ++J)
+		{
+			const Vector2 P(MinX + Inset + (MaxX - MinX - 2.0f * Inset) * float(I) / float(Cols),
+				MinZ + Inset + (MaxZ - MinZ - 2.0f * Inset) * float(J) / float(Rows));
+			if (!Inside(P + Vector2(1e-3f, 1e-3f)) && !Inside(P))
+			{
+				continue;
+			}
+			Mesh.AddColumn(Vector3(P.x, -Spec.StiltDepth, P.y), Bottom + Spec.StiltDepth,
+				Radius, Radius * 0.9f, 8, Spec.StoneColor * 0.9f);
+		}
+	}
 }
 
 // ==================== Roof profile ====================
@@ -926,6 +1123,16 @@ float CornerFlip::Weight(float X, float Z) const
 	}
 
 	const float T = 1.0f - std::fmin(Distance / std::fmax(Span, BUILD_EPSILON), 1.0f);
+
+	// Corners joined to another wing (连体) have no 翼角: the eave there dies into a valley.
+	if (!bPolygonal && CornerMask != 0xFu)
+	{
+		const uint32_t Bit = (X >= 0.0f ? 0u : 1u) | (Z >= 0.0f ? 0u : 2u);
+		if ((CornerMask & (1u << Bit)) == 0u)
+		{
+			return 0.0f;
+		}
+	}
 
 	// Squared falloff: the lift stays flat along most of the eave and turns up sharply near the
 	// corner, which is what the real 角梁 geometry does.
@@ -1410,10 +1617,38 @@ namespace
 		const float BodyHeight = Spec.PlatformHeight - CapHeight;
 		const float Inset = Spec.Module * 0.12f;
 
-		Mesh.AddBox(
-			Vector3(0.0f, BodyHeight * 0.5f, 0.0f),
-			Vector3(Spec.PlatformHalfWidth - Inset, BodyHeight * 0.5f, Spec.PlatformHalfDepth - Inset),
-			Spec.StoneColor);
+		if (Spec.bPlatformSumeru)
+		{
+			// 须弥座: 圭脚 / 下枋 / 下枭 / 束腰 / 上枭 / 上枋, bottom to top, as (height fraction,
+			// inset in D). [待定标] The handbook lists the band proportions as missing; these only
+			// make the profile read as a pedestal — a waisted band between two projecting ones.
+			struct Band
+			{
+				float Fraction;
+				float InsetD;
+			};
+			const Band Bands[6] = {
+				{ 0.12f, 0.02f }, { 0.16f, 0.0f }, { 0.12f, 0.16f },
+				{ 0.26f, 0.34f }, { 0.12f, 0.16f }, { 0.22f, 0.0f } };
+			float Bottom = 0.0f;
+			for (const Band& Current : Bands)
+			{
+				const float Height = BodyHeight * Current.Fraction;
+				const float Pull = Spec.Module * Current.InsetD;
+				Mesh.AddBox(
+					Vector3(0.0f, Bottom + Height * 0.5f, 0.0f),
+					Vector3(Spec.PlatformHalfWidth - Pull, Height * 0.5f, Spec.PlatformHalfDepth - Pull),
+					Spec.StoneColor * (Current.InsetD > 0.2f ? 0.9f : 1.0f));
+				Bottom += Height;
+			}
+		}
+		else
+		{
+			Mesh.AddBox(
+				Vector3(0.0f, BodyHeight * 0.5f, 0.0f),
+				Vector3(Spec.PlatformHalfWidth - Inset, BodyHeight * 0.5f, Spec.PlatformHalfDepth - Inset),
+				Spec.StoneColor);
+		}
 
 		// 沿口 (60_台基地面 R6): a moulded band standing proud of the cap, so the edge steps
 		// out instead of dropping straight to the body. [自定] Height and projection: the plate
@@ -1668,12 +1903,27 @@ namespace
 		}
 	}
 
-	/** Balustrade posts, panels and a swept rail, broken by a gap at each culling angle. */
-	void BuildFence(const BuildingSpec& Spec, MeshAccumulator& Mesh)
+	/**
+	 * Balustrade posts, panels and a swept rail, broken by a gap at each culling angle.
+	 * The tint is Spec.StoneColor; a 平座 勾栏 passes a spec carrying its timber colour there
+	 * and the timber slot.
+	 */
+	void BuildFenceRuns(const BuildingSpec& Spec, MeshAccumulator& Mesh);
+
+	void BuildFence(const BuildingSpec& Spec, MeshAccumulator& Mesh, EMaterialSlot Slot = EMaterialSlot::Stone)
 	{
 		// 栏杆 is a stone balustrade here — rail, posts and panels all take its tint, so they all
 		// belong on the stone surface.
-		Mesh.SetSlot(EMaterialSlot::Stone);
+		Mesh.SetSlot(Slot);
+		// Not structure: where a 连体 neighbour joins, the balustrade is what gets opened.
+		const uint8_t PreviousTag = Mesh.GetTag();
+		Mesh.SetTag(MeshAccumulator::TAG_NONE);
+		BuildFenceRuns(Spec, Mesh);
+		Mesh.SetTag(PreviousTag);
+	}
+
+	void BuildFenceRuns(const BuildingSpec& Spec, MeshAccumulator& Mesh)
+	{
 
 		const float PostHalf = Spec.Module * 0.16f;
 		const float RailHeight = Spec.PlatformHeight + Spec.FenceHeight;
@@ -1797,8 +2047,22 @@ namespace
 		const float Base = Spec.PlatformHeight;
 		const float ColumnTop = Base + Spec.ColumnHeight;
 
-		const std::vector<float> XPositions = BayPositions(HalfWidth, Spec.BaysX);
-		const std::vector<float> ZPositions = BayPositions(HalfDepth, Spec.BaysZ);
+		const std::vector<float> XPositions = Spec.ColumnLinesX.empty()
+			? BayPositions(HalfWidth, Spec.BaysX) : Spec.ColumnLinesX;
+		const std::vector<float> ZPositions = Spec.ColumnLinesZ.empty()
+			? BayPositions(HalfDepth, Spec.BaysZ) : Spec.ColumnLinesZ;
+
+		// 通柱: an upper storey's columns may continue down through the storey below. Only the
+		// shafts reach down; the walls stay on this storey's floor.
+		BuildingSpec DroppedColumns;
+		const bool bDropColumns = Spec.ColumnFootDrop > BUILD_EPSILON;
+		if (bDropColumns)
+		{
+			DroppedColumns = Spec;
+			DroppedColumns.ColumnHeight += Spec.ColumnFootDrop;
+		}
+		const BuildingSpec& ColumnSpec = bDropColumns ? DroppedColumns : Spec;
+		const float ColumnFoot = Base - Spec.ColumnFootDrop;
 
 		// Columns stand on the bay grid's perimeter — the paper's "connection line of the
 		// column's pivot" used as the body frame.
@@ -1817,8 +2081,23 @@ namespace
 					{
 						continue;
 					}
+					// 连体: a column line shared with a neighbour is the neighbour's to build.
+					if (Spec.NoColumnSides != 0)
+					{
+						// Millimetre tolerance: a snapped compound width is computed, not typed.
+						const float Tolerance = 1e-3f;
+						const uint32_t Sides =
+							(std::abs(Z - HalfDepth) < Tolerance ? 1u : 0u)
+							| (std::abs(Z + HalfDepth) < Tolerance ? 2u : 0u)
+							| (std::abs(X - HalfWidth) < Tolerance ? 4u : 0u)
+							| (std::abs(X + HalfWidth) < Tolerance ? 8u : 0u);
+						if ((Sides & Spec.NoColumnSides) != 0u)
+						{
+							continue;
+						}
+					}
 
-					AddBuildingColumn(Spec, Mesh, Vector3(X, Base, Z),
+					AddBuildingColumn(ColumnSpec, Mesh, Vector3(X, ColumnFoot, Z),
 						0x100000u + uint32_t(XI * ZPositions.size() + ZI));
 				}
 			}
@@ -1899,6 +2178,47 @@ namespace
 						WallHeight,
 						bIsDoor,
 						Mesh);
+				}
+			}
+		}
+
+		// 亭 / 廊 / 榭: an open body gets its bench railings and hanging fascia between the columns,
+		// with the approached bays left clear — the same bays a walled body would put its doors in.
+		if (!Spec.bGenerateWalls && (Spec.RailingKind > 0 || Spec.bHangingFascia))
+		{
+			const std::vector<float> Angles = CullingAngles(Spec.StepRunCount);
+			const auto IsEntrance = [&Angles](float Angle) -> bool
+			{
+				for (const float Culling : Angles)
+				{
+					if (std::cos(Culling - Angle) > 0.99f)
+					{
+						return true;
+					}
+				}
+				return false;
+			};
+
+			for (int32_t Sign = -1; Sign <= 1; Sign += 2)
+			{
+				const float Z = HalfDepth * float(Sign);
+				const bool bOpen = IsEntrance((Sign > 0) ? 0.0f : BUILD_PI);
+				for (int32_t Bay = 0; Bay < int32_t(XPositions.size()) - 1; ++Bay)
+				{
+					AddOpenBayInfill(Spec, Mesh, Vector3(XPositions[size_t(Bay)], Base, Z),
+						Vector3(XPositions[size_t(Bay) + 1], Base, Z), Vector3(0.0f, 0.0f, float(Sign)),
+						bOpen && Bay == (int32_t(XPositions.size()) - 1) / 2);
+				}
+			}
+			for (int32_t Sign = -1; Sign <= 1; Sign += 2)
+			{
+				const float X = HalfWidth * float(Sign);
+				const bool bOpen = IsEntrance((Sign > 0) ? BUILD_PI * 0.5f : BUILD_PI * 1.5f);
+				for (int32_t Bay = 0; Bay < int32_t(ZPositions.size()) - 1; ++Bay)
+				{
+					AddOpenBayInfill(Spec, Mesh, Vector3(X, Base, ZPositions[size_t(Bay)]),
+						Vector3(X, Base, ZPositions[size_t(Bay) + 1]), Vector3(float(Sign), 0.0f, 0.0f),
+						bOpen && Bay == (int32_t(ZPositions.size()) - 1) / 2);
 				}
 			}
 		}
@@ -2146,6 +2466,28 @@ namespace
 	}
 
 /** How far the hipped shell has closed in at a profile distance: 0 at the eave, 1 at the break. */
+	/**
+	 * Height of a down-slope profile (BuildRoofProfile's eave-first, ridge-last layout) at a
+	 * horizontal distance from the ridge centreline. Shared by the hipped roof and the storey
+	 * stack, which needs a 腰檐's break height before it can place the storey above.
+	 */
+	float ProfileHeightAt(const std::vector<Vector2>& Full, float Distance)
+	{
+		for (size_t Index = 0; Index + 1 < Full.size(); ++Index)
+		{
+			const float High = Full[Index].x;
+			const float Low = Full[Index + 1].x;
+			if (Distance <= High && Distance >= Low)
+			{
+				const float Span = std::fmax(High - Low, BUILD_EPSILON);
+				const float T = (High - Distance) / Span;
+				return Full[Index].y + (Full[Index + 1].y - Full[Index].y) * T;
+			}
+		}
+
+		return Full.back().y;
+	}
+
 	float SkirtInsetFraction(float Distance, float Inset)
 	{
 		return 1.0f - std::fmin(Distance / std::fmax(Inset, BUILD_EPSILON), 1.0f);
@@ -2248,20 +2590,23 @@ namespace
 	{
 		const bool bFullHip = Top == HIP_TOP_RIDGE;
 		const bool bFlatTop = Top == HIP_TOP_FLAT;
+		const bool bOpenTop = Top == HIP_TOP_OPEN;
 		const float RoofBase = Spec.RoofBase;
 		const float HalfWidthEave = Spec.Width * 0.5f + Spec.EaveOverhang;
 		const float HalfDepthEave = Spec.Depth * 0.5f + Spec.EaveOverhang;
 
-		// How far the shell closes in: all the way for 庑殿, to the 收山 break for 歇山, and
-		// only as far as the flat platform for 盝顶.
+		// How far the shell closes in: all the way for 庑殿, to the 收山 break for 歇山, only as
+		// far as the flat platform for 盝顶, and to the upper storey's wall for a 腰檐.
 		const float TopRatio = bFlatTop
 			? (1.0f - std::fmin(std::fmax(Spec.FlatTopRatio, 0.05f), 0.9f))
 			: std::fmin(std::fmax(Spec.GableRatio, 0.05f), 0.9f);
 		const float Inset = bFullHip
 			? HalfDepthEave
-			: std::fmin(
-				HalfDepthEave * TopRatio,
-				std::fmin(HalfWidthEave, HalfDepthEave) * 0.9f);
+			: bOpenTop
+				? std::clamp(Spec.WaistInset, Spec.Module * 0.2f, std::fmin(HalfWidthEave, HalfDepthEave) * 0.95f)
+				: std::fmin(
+					HalfDepthEave * TopRatio,
+					std::fmin(HalfWidthEave, HalfDepthEave) * 0.9f);
 		const float HalfWidthBreak = HalfWidthEave - Inset;
 		const float HalfDepthBreak = HalfDepthEave - Inset;
 
@@ -2269,30 +2614,14 @@ namespace
 		Flip.Rise = Spec.CornerRise;
 		Flip.Extend = Spec.CornerExtend;
 		Flip.Span = Spec.CornerSpan;
+		Flip.CornerMask = Spec.CornerFlipMask;
 		Flip.HalfWidth = HalfWidthEave;
 		Flip.HalfDepth = HalfDepthEave;
 
 		// One curve over the full depth, so the skirt and the tier stay continuous.
 		const std::vector<Vector2> Full = BuildRoofProfile(Spec, HalfDepthEave);
 
-		const auto HeightAt = [&Full](float Distance) -> float
-		{
-			for (size_t Index = 0; Index + 1 < Full.size(); ++Index)
-			{
-				const float High = Full[Index].x;
-				const float Low = Full[Index + 1].x;
-				if (Distance <= High && Distance >= Low)
-				{
-					const float Span = std::fmax(High - Low, BUILD_EPSILON);
-					const float T = (High - Distance) / Span;
-					return Full[Index].y + (Full[Index + 1].y - Full[Index].y) * T;
-				}
-			}
-
-			return Full.back().y;
-		};
-
-		const float BreakHeight = HeightAt(HalfDepthBreak);
+		const float BreakHeight = bOpenTop ? WaistRiseFor(Spec, Inset) : ProfileHeightAt(Full, HalfDepthBreak);
 		const std::vector<Vector2> SkirtProfile = BuildRoofProfileScaled(Spec, Inset, BreakHeight);
 
 		// Enough samples per side that the corner lift curves instead of kinking.
@@ -2591,19 +2920,23 @@ namespace
 		// the 泥背 layer instead of sinking into it. 0 unless the tier builds a bedded skin.
 		const float Bedding = RoofBeddingLift(Spec);
 
-		// 盝顶: cap the opening with a flat platform and ring it with a 围脊.
-		if (bFlatTop)
+		// 盝顶: cap the opening with a flat platform and ring it with a 围脊. A 腰檐 gets the same
+		// 围脊 with no cap — the upper storey's wall rises out of the opening.
+		if (bFlatTop || bOpenTop)
 		{
 			// The 盝顶 deck is the roof's own weathering surface, tinted with the tiles, so it
 			// goes on the tile slot; only the 围脊 ringed round it is ridge.
 			Mesh.SetSlot(EMaterialSlot::Tile);
-			std::vector<Vector3> Cap;
 			const std::vector<Vector2> Plan = BuildRing(HalfWidthBreak, HalfDepthBreak);
-			for (const Vector2& Point : Plan)
+			if (bFlatTop)
 			{
-				Cap.push_back(Vector3(Point.x, Apex + Bedding, Point.y));
+				std::vector<Vector3> Cap;
+				for (const Vector2& Point : Plan)
+				{
+					Cap.push_back(Vector3(Point.x, Apex + Bedding, Point.y));
+				}
+				Mesh.AddPolygon(Cap, Vector3(0, 1, 0), Spec.TileColor * 0.8f);
 			}
-			Mesh.AddPolygon(Cap, Vector3(0, 1, 0), Spec.TileColor * 0.8f);
 
 			Mesh.SetSlot(EMaterialSlot::Ridge);
 			std::vector<Vector3> Knots;
@@ -2636,7 +2969,7 @@ namespace
 		// 正脊 along the apex. On a square 庑殿 plan the ridge has no length — that is a 攒尖
 		// pyramid, and the four diagonal ridges already meet at the point.
 		Mesh.SetSlot(EMaterialSlot::Ridge);
-		if (!bFlatTop && HalfWidthBreak > Spec.Module * 0.15f)
+		if (!bFlatTop && !bOpenTop && HalfWidthBreak > Spec.Module * 0.15f)
 		{
 			std::vector<Vector3> Knots;
 			Knots.push_back(Vector3(-HalfWidthBreak, Apex, 0.0f));
@@ -3500,27 +3833,310 @@ void BuildingGen::SeatRidgeBeasts(MeshAccumulator& Mesh, const BuildingSpec& Spe
 
 // ==================== Entry point ====================
 
-void BuildingGen::BuildBuilding(const BuildingSpec& Spec, MeshAccumulator& OutMesh)
+namespace
 {
-	const bool bCentralRoof = Spec.RoofType == ROOF_PYRAMIDAL
-		|| Spec.RoofType == ROOF_ROUND
-		|| Spec.RoofType == ROOF_HELMET;
-	const ECentralProfile CentralProfile =
-		(Spec.RoofType == ROOF_HELMET) ? CENTRAL_HELMET : CENTRAL_STRAIGHT;
-
-	// Equation 8: a non-rectangular plan must be regular, and only a centralised roof can sit
-	// on one. Both conditions route to the polygonal generator.
-	if (Spec.Sides != 4)
+	/**
+	 * Evenly set-out arched openings along a span: `Count` passages of `Width`, centred, at the
+	 * given spring / rise. Pitch keeps at least a pier as wide as the opening between them.
+	 */
+	std::vector<ArchOpening> SetOutOpenings(int32_t Count, float HalfSpan, float Width, float Sill,
+		float Top, EArchProfile Profile)
 	{
-		BuildPolygonalBuilding(Spec, CentralProfile, OutMesh);
-		return;
+		std::vector<ArchOpening> Result;
+		if (Count <= 0 || Width <= 0.0f)
+		{
+			return Result;
+		}
+
+		const float Pitch = std::fmin(2.0f * HalfSpan / float(Count), Width * 2.2f);
+		const float Rise = (Profile == EArchProfile::Semicircle) ? Width * 0.5f
+			: (Profile == EArchProfile::Pointed) ? Width * 0.62f
+			: std::fmin(Width * 0.18f, 0.6f);
+		for (int32_t Index = 0; Index < Count; ++Index)
+		{
+			ArchOpening Opening;
+			Opening.Centre = (float(Index) - float(Count - 1) * 0.5f) * Pitch;
+			Opening.Width = Width;
+			Opening.Sill = Sill;
+			Opening.Profile = Profile;
+			Opening.Rise = Rise;
+			Opening.Spring = std::fmax(Top - ((Profile == EArchProfile::Flat) ? 0.0f : Rise), Sill + Width * 0.3f);
+			Result.push_back(Opening);
+		}
+
+		return Result;
 	}
 
-	// 台基 optional (地基). With no platform the base is at ground level, so the stairs and the
-	// balustrade — both of which only make sense on a raised base — are skipped with it.
-	// (CollectSpec has already zeroed PlatformHeight in that case.)
-	if (Spec.bGeneratePlatform)
+	/** 城台 / 墩台 under the whole building: the gate passages, 券脸, parapet and 石基 band. */
+	void BuildMasonryBase(const BuildingSpec& Spec, MeshAccumulator& Mesh)
 	{
+		const float Height = Spec.PlatformHeight;
+		if (Height <= 0.0f)
+		{
+			return;
+		}
+
+		const bool bAlongX = Spec.BaseArchAxis == 1;
+		ArchedSlabDesc Desc;
+		Desc.Origin = Vector3(0.0f, 0.0f, 0.0f);
+		// Passages run through the slab's thickness, so "through Z" means the slab's length is X.
+		Desc.AxisU = bAlongX ? Vector3(0, 0, 1) : Vector3(1, 0, 0);
+		Desc.AxisW = bAlongX ? Vector3(1, 0, 0) : Vector3(0, 0, 1);
+		Desc.HalfLength = bAlongX ? Spec.MasonryHalfDepth : Spec.MasonryHalfWidth;
+		Desc.HalfThickness = bAlongX ? Spec.MasonryHalfWidth : Spec.MasonryHalfDepth;
+		Desc.Height = Height;
+		Desc.BatterEnds = Spec.MasonryBatter;
+		Desc.BatterFaces = Spec.MasonryBatter;
+
+		const float TopHalf = Desc.HalfLength - Desc.BatterEnds * Height;
+		const int32_t Count = std::max(Spec.BaseArchCount, 0);
+		// [自定] Default passage: a third of the frontage shared out, capped at 6 m.
+		const float Width = (Spec.BaseArchWidth > 0.0f) ? Spec.BaseArchWidth
+			: std::fmin(2.0f * TopHalf * 0.3f / float(std::max(Count, 1)), 6.0f);
+		Desc.Openings = SetOutOpenings(Count, TopHalf, Width, 0.0f,
+			Height * std::clamp(Spec.BaseArchHeightRatio, 0.2f, 0.9f), EArchProfile(Spec.BaseArchProfile));
+
+		Desc.Parapet = EParapet(Spec.BaseParapet);
+		// [自定] 券脸 ring and 石基 band proportions: no source; sized to read at the M1 view.
+		Desc.RingThickness = std::fmin(0.5f, Width * 0.1f);
+		Desc.RingProjection = 0.08f;
+		Desc.Tint = Spec.BrickColor;
+		Desc.RingTint = Spec.StoneColor * 1.08f;
+		Desc.PlinthHeight = std::fmin(1.1f, Height * 0.14f);
+		Desc.PlinthTint = Spec.StoneColor;
+		AddArchedSlab(Mesh, Desc);
+	}
+
+	/**
+	 * A brick storey: four load-bearing walls instead of columns and panels, 券门 on the approached
+	 * sides and 券窗 in every other bay, and a corbelled 砖檐 carrying the eave. The roof sits on
+	 * the same RoofBase a timber storey would give it, so the storey stack is unchanged.
+	 */
+	void BuildMasonryBody(const BuildingSpec& Spec, MeshAccumulator& Mesh)
+	{
+		const float Floor = Spec.PlatformHeight;
+		const float Height = Spec.RoofBase - Floor;
+		if (Height <= 0.5f)
+		{
+			return;
+		}
+
+		// [自定] Wall thickness: a load-bearing brick wall, 1.2 D and never under 0.6 m.
+		const float Thick = std::fmax(Spec.Module * 1.2f, 0.6f);
+		const float HalfW = Spec.Width * 0.5f;
+		const float HalfD = Spec.Depth * 0.5f;
+		const std::vector<float> XLines = Spec.ColumnLinesX.empty() ? BayPositions(HalfW, Spec.BaysX) : Spec.ColumnLinesX;
+		const std::vector<float> ZLines = Spec.ColumnLinesZ.empty() ? BayPositions(HalfD, Spec.BaysZ) : Spec.ColumnLinesZ;
+		const std::vector<float> Entrances = CullingAngles(Spec.StepRunCount);
+
+		const auto HasEntrance = [&Entrances](float Angle) -> bool
+		{
+			for (const float Culling : Entrances)
+			{
+				if (std::cos(Culling - Angle) > 0.99f)
+				{
+					return true;
+				}
+			}
+			return false;
+		};
+
+		struct Wall
+		{
+			Vector3 Centre;
+			Vector3 Along;
+			Vector3 Out;
+			float HalfLength;
+			const std::vector<float>* Lines;
+			float Angle;
+		};
+		const Wall Walls[4] = {
+			{ Vector3(0, Floor, HalfD), Vector3(1, 0, 0), Vector3(0, 0, 1), HalfW + Thick * 0.5f, &XLines, 0.0f },
+			{ Vector3(0, Floor, -HalfD), Vector3(1, 0, 0), Vector3(0, 0, -1), HalfW + Thick * 0.5f, &XLines, BUILD_PI },
+			{ Vector3(HalfW, Floor, 0), Vector3(0, 0, 1), Vector3(1, 0, 0), HalfD - Thick * 0.5f, &ZLines, BUILD_PI * 0.5f },
+			{ Vector3(-HalfW, Floor, 0), Vector3(0, 0, 1), Vector3(-1, 0, 0), HalfD - Thick * 0.5f, &ZLines, BUILD_PI * 1.5f },
+		};
+
+		const float CorniceHeight = std::fmin(Spec.Module * 0.9f, Height * 0.12f);
+		const float WallHeight = Height - CorniceHeight;
+		for (const Wall& Side : Walls)
+		{
+			ArchedSlabDesc Desc;
+			Desc.Origin = Side.Centre;
+			Desc.AxisU = Side.Along;
+			Desc.AxisW = Side.Out;
+			Desc.HalfLength = Side.HalfLength;
+			Desc.HalfThickness = Thick * 0.5f;
+			Desc.Height = WallHeight;
+			Desc.Tint = Spec.BrickColor;
+			Desc.RingTint = Spec.BrickColor * 1.12f;
+			Desc.RingThickness = 0.28f;
+			Desc.RingProjection = 0.05f;
+			Desc.PlinthHeight = std::fmin(0.9f, WallHeight * 0.16f);
+			Desc.PlinthTint = Spec.StoneColor;
+			Desc.bTopCap = true;
+
+			const std::vector<float>& Lines = *Side.Lines;
+			const int32_t Bays = int32_t(Lines.size()) - 1;
+			const bool bDoor = HasEntrance(Side.Angle);
+			for (int32_t Bay = 0; Bay < Bays; ++Bay)
+			{
+				const float From = Lines[size_t(Bay)];
+				const float To = Lines[size_t(Bay) + 1];
+				const float Span = std::abs(To - From);
+				const float Centre = (From + To) * 0.5f;
+				const bool bIsDoor = bDoor && Bay == Bays / 2;
+				// [自定] 券门 about 0.55 of its bay, 券窗 about 0.34, windows sill at 0.4 of the wall.
+				const float Width = bIsDoor ? std::fmin(Span * 0.55f, 3.4f) : std::fmin(Span * 0.34f, 1.6f);
+				const float Sill = bIsDoor ? 0.0f : WallHeight * 0.4f;
+				const float Top = bIsDoor ? std::fmin(WallHeight * 0.72f, Width * 1.9f) : Sill + Width * 1.35f;
+				std::vector<ArchOpening> One = SetOutOpenings(1, Span * 0.5f, Width, Sill, Top, EArchProfile::Semicircle);
+				if (One.empty())
+				{
+					continue;
+				}
+				One[0].Centre = Centre;
+				Desc.Openings.push_back(One[0]);
+
+				// A timber leaf set back in the opening's straight part, so a door or window reads as
+				// closed rather than as a hole into an empty shell.
+				Mesh.SetSlot(EMaterialSlot::Timber);
+				const float LeafHeight = One[0].Spring - One[0].Sill;
+				Mesh.AddOrientedBox(
+					Side.Centre + Side.Along * Centre + Vector3(0.0f, One[0].Sill + LeafHeight * 0.5f, 0.0f),
+					Side.Along, Vector3(0, 1, 0), Side.Out,
+					Vector3(Width * 0.5f, LeafHeight * 0.5f, Thick * 0.12f),
+					bIsDoor ? Spec.TimberColor : Spec.TimberColor * 0.8f);
+			}
+			AddArchedSlab(Mesh, Desc);
+
+			// 砖檐: three corbelled courses stepping out under the eave.
+			Mesh.SetSlot(EMaterialSlot::Stone);
+			const float Course = CorniceHeight / 3.0f;
+			for (int32_t K = 0; K < 3; ++K)
+			{
+				const float Out = Thick * 0.5f + 0.06f * float(K + 1);
+				// Front and back courses run round the corners; the side ones stop inside them.
+				const bool bRunsCorners = Side.Along.x != 0.0f;
+				const float Length = Side.HalfLength + (bRunsCorners ? 0.06f * float(K + 1) : 0.0f);
+				Mesh.AddOrientedBox(
+					Side.Centre + Vector3(0.0f, WallHeight + Course * (float(K) + 0.5f), 0.0f),
+					Side.Along, Vector3(0, 1, 0), Side.Out,
+					Vector3(Length, Course * 0.5f, Out), Spec.BrickColor * (1.02f + 0.03f * float(K)));
+			}
+		}
+	}
+
+	/** Top roof of a rectangular-plan storey, dispatched on the roof type. */
+	void BuildTopRoof(const BuildingSpec& Spec, MeshAccumulator& OutMesh)
+	{
+		const bool bCentralRoof = Spec.RoofType == ROOF_PYRAMIDAL
+			|| Spec.RoofType == ROOF_ROUND
+			|| Spec.RoofType == ROOF_HELMET;
+
+		// A centralised roof on a square plan is legal — that is exactly the 攒尖 a square 庑殿
+		// already degenerates into, just built deliberately and with a finial.
+		if (bCentralRoof)
+		{
+			BuildCentralisedRoof(Spec,
+				(Spec.RoofType == ROOF_HELMET) ? CENTRAL_HELMET : CENTRAL_STRAIGHT, OutMesh);
+			return;
+		}
+
+		switch (Spec.RoofType)
+		{
+			case ROOF_HIP:
+				BuildHippedRoof(Spec, HIP_TOP_RIDGE, OutMesh);
+				break;
+			case ROOF_GABLE_AND_HIP:
+				BuildHippedRoof(Spec, HIP_TOP_GABLED_TIER, OutMesh);
+				break;
+			case ROOF_HOLLOW:
+				BuildHippedRoof(Spec, HIP_TOP_FLAT, OutMesh);
+				break;
+			case ROOF_OVERHANGING_GABLE:
+				BuildGabledRoof(Spec, true, false, OutMesh);
+				break;
+			case ROOF_ROUND_RIDGE:
+				BuildGabledRoof(Spec, true, true, OutMesh);
+				break;
+			default:
+				BuildGabledRoof(Spec, false, false, OutMesh);
+				break;
+		}
+	}
+
+	/** Base, steps and balustrade, tagged by the caller (BuildBaseLayer). */
+	void BuildBaseLayerTagged(const BuildingSpec& Spec, MeshAccumulator& OutMesh);
+
+	/** Base, steps and balustrade — built once, at the foot of the whole building. */
+	void BuildBaseLayer(const BuildingSpec& Spec, MeshAccumulator& OutMesh)
+	{
+		if (Spec.bRoofOnly)
+		{
+			return;
+		}
+		// The base is structure: a 连体 junction never trims it. The balustrade is not — it is
+		// what opens up where a neighbour joins — so BuildFence drops the tag for itself.
+		OutMesh.SetTag(MeshAccumulator::TAG_FIXED);
+		BuildBaseLayerTagged(Spec, OutMesh);
+		OutMesh.SetTag(MeshAccumulator::TAG_NONE);
+	}
+
+	/** Whether a stair run at this Table 1 culling angle faces a side a neighbour occupies. */
+	bool IsStepSideBlocked(const BuildingSpec& Spec, float Angle)
+	{
+		if (Spec.NoStepSides == 0u)
+		{
+			return false;
+		}
+		const float S = std::sin(Angle);
+		const float C = std::cos(Angle);
+		const uint32_t Side = (C > 0.7f) ? 1u : (C < -0.7f) ? 2u : (S > 0.7f) ? 4u : (S < -0.7f) ? 8u : 0u;
+		return (Side & Spec.NoStepSides) != 0u;
+	}
+
+	void BuildBaseLayerTagged(const BuildingSpec& Spec, MeshAccumulator& OutMesh)
+	{
+		if (Spec.BaseKind == 1)
+		{
+			BuildMasonryBase(Spec, OutMesh);
+			return;
+		}
+
+		if (Spec.BaseKind == 3)
+		{
+			// 桩台 (榭): a timber deck on piles, a timber 勾栏 and the landing stair.
+			const float HW = Spec.PlatformHalfWidth;
+			const float HD = Spec.PlatformHalfDepth;
+			AddStiltDeck(Spec, OutMesh, { Vector2(-HW, -HD), Vector2(HW, -HD), Vector2(HW, HD), Vector2(-HW, HD) });
+			if (Spec.bGenerateFence)
+			{
+				BuildingSpec Rail = Spec;
+				Rail.StoneColor = Spec.TimberColor * 1.1f;
+				BuildFence(Rail, OutMesh, EMaterialSlot::Timber);
+			}
+			if (Spec.bGenerateSteps)
+			{
+				for (const float Angle : CullingAngles(Spec.StepRunCount))
+				{
+					if (!IsStepSideBlocked(Spec, Angle))
+					{
+						BuildStepRun(Spec, Angle, OutMesh);
+					}
+				}
+			}
+			return;
+		}
+
+		// 台基 optional (地基). With no platform the base is at ground level, so the stairs and the
+		// balustrade — both of which only make sense on a raised base — are skipped with it.
+		// (CollectSpec has already zeroed PlatformHeight in that case.)
+		if (!Spec.bGeneratePlatform)
+		{
+			return;
+		}
+
 		BuildPlatform(Spec, OutMesh);
 
 		if (Spec.bGenerateFence)
@@ -3532,42 +4148,319 @@ void BuildingGen::BuildBuilding(const BuildingSpec& Spec, MeshAccumulator& OutMe
 		{
 			for (const float Angle : CullingAngles(Spec.StepRunCount))
 			{
-				BuildStepRun(Spec, Angle, OutMesh);
+				if (!IsStepSideBlocked(Spec, Angle))
+				{
+					BuildStepRun(Spec, Angle, OutMesh);
+				}
 			}
 		}
 	}
 
-	BuildBody(Spec, OutMesh);
+	constexpr int32_t MAX_STOREYS = 5;
 
-	// Only the ridged family is implemented so far; the centralised family (攒尖/盔顶/盝顶)
-	// is a separate generator, per the Eq 8 split.
-	// A centralised roof on a square plan is legal — that is exactly the 攒尖 a square 庑殿
-	// already degenerates into, just built deliberately and with a finial.
-	if (bCentralRoof)
+	/**
+	 * Column lines with `Rings` aisles of width `Aisle` at each end and the remaining bays even.
+	 * That is a 周围廊 plan: the aisle is one 廊步, and stepping a storey in by one ring puts its
+	 * columns exactly on the next line in.
+	 */
+	std::vector<float> AisleBayPositions(float HalfSpan, int32_t Bays, int32_t Rings, float Aisle)
 	{
-		BuildCentralisedRoof(Spec, CentralProfile, OutMesh);
+		const int32_t InnerBays = std::max(Bays - 2 * Rings, 1);
+		const float InnerHalf = HalfSpan - Aisle * float(Rings);
+		std::vector<float> Result;
+		for (int32_t Index = 0; Index < Rings; ++Index)
+		{
+			Result.push_back(-HalfSpan + Aisle * float(Index));
+		}
+		for (int32_t Index = 0; Index <= InnerBays; ++Index)
+		{
+			Result.push_back(-InnerHalf + 2.0f * InnerHalf * float(Index) / float(InnerBays));
+		}
+		for (int32_t Index = Rings - 1; Index >= 0; --Index)
+		{
+			Result.push_back(HalfSpan - Aisle * float(Index));
+		}
+
+		return Result;
+	}
+
+	std::vector<float> TrimLines(const std::vector<float>& Lines, int32_t Rings)
+	{
+		if (Lines.empty() || Rings <= 0 || int32_t(Lines.size()) <= 2 * Rings + 1)
+		{
+			return Lines;
+		}
+
+		return std::vector<float>(Lines.begin() + Rings, Lines.end() - Rings);
+	}
+
+	/**
+	 * 平座 under an upper storey: a floor deck projecting past the storey's column line, the
+	 * 平座铺作 band carrying it, and a 勾栏 round the edge. Spec is the upper storey's own spec;
+	 * Floor is the deck top and BandBottom where the band starts (the 腰檐's 围脊).
+	 */
+	void BuildBalcony(const BuildingSpec& Spec, float Floor, float BandBottom, MeshAccumulator& Mesh)
+	{
+		const float HalfW = Spec.Width * 0.5f + Spec.BalconyProjection;
+		const float HalfD = Spec.Depth * 0.5f + Spec.BalconyProjection;
+		// [自定] Deck thickness and band inset: no source; sized to read as boards on joists.
+		const float Deck = Spec.Module * 0.32f;
+
+		Mesh.SetSlot(EMaterialSlot::Timber);
+		Mesh.AddBox(Vector3(0.0f, Floor - Deck * 0.5f, 0.0f), Vector3(HalfW, Deck * 0.5f, HalfD),
+			Spec.TimberColor * 1.2f);
+
+		// 平座铺作: stands in for the bracket sets under the deck, the way the 阑额 band stands in
+		// for the storey's own. Held back from the deck edge so the edge still reads as a floor.
+		const float BandTop = Floor - Deck;
+		if (BandTop - BandBottom > BUILD_EPSILON)
+		{
+			const float BandHalfY = (BandTop - BandBottom) * 0.5f;
+			const float Back = Spec.BalconyProjection * 0.35f;
+			Mesh.AddBox(Vector3(0.0f, BandBottom + BandHalfY, 0.0f),
+				Vector3(HalfW - Back, BandHalfY, HalfD - Back), Spec.BracketColor);
+		}
+
+		BuildingSpec Rail = Spec;
+		Rail.PlatformHeight = Floor;
+		Rail.PlatformHalfWidth = HalfW - Spec.Module * 0.16f;
+		Rail.PlatformHalfDepth = HalfD - Spec.Module * 0.16f;
+		Rail.FenceGapWidth = 0.0f;
+		Rail.FenceHeight = std::fmin(Spec.FenceHeight, Spec.Module * 1.4f);
+		Rail.StoneColor = Spec.TimberColor * 1.1f;
+		BuildFence(Rail, Mesh, EMaterialSlot::Timber);
+	}
+
+	/**
+	 * One storey of the stack, fully resolved: its own spec (floor, footprint, column lines,
+	 * heights), and — unless it is the top — the 腰檐 spec and where the next storey starts.
+	 */
+	struct StoreyPlan
+	{
+		BuildingSpec Body;
+		BuildingSpec Waist;
+		bool bTop = true;
+		/** Height of the 腰檐's 围脊, where the band under the next floor starts. */
+		float BreakTop = 0.0f;
+		/** The next storey's floor. */
+		float NextFloor = 0.0f;
+	};
+
+	/**
+	 * 重檐 / 楼 / 阁: the storeys grow out of one column grid. Every storey but the top one gets a
+	 * 腰檐 — the hipped skirt opened at the upper storey's wall (HIP_TOP_OPEN) — and, for a 楼阁,
+	 * a 平座 above it; the top storey carries the building's roof type. Module D stays the ground
+	 * storey's throughout (G1: one module per building).
+	 *
+	 * Planned in full before anything is built, so the frames a caller asks for (DescribeStoreys)
+	 * are the same numbers the geometry was built from.
+	 */
+	std::vector<StoreyPlan> PlanStoreys(const BuildingSpec& Spec)
+	{
+		const int32_t Count = std::clamp(Spec.StoreyCount, 1, MAX_STOREYS);
+		const int32_t Setback = std::clamp(Spec.StoreySetbackBays, 0, 2);
+		const int32_t Rings = (Count - 1) * Setback;
+
+		BuildingSpec Current = Spec;
+		float Aisle = 0.0f;
+		if (Rings > 0)
+		{
+			// Each ring needs a bay of its own on both sides, plus at least one bay inside.
+			Current.BaysX = std::max(Spec.BaysX, 2 * Rings + 1);
+			Current.BaysZ = std::max(Spec.BaysZ, 2 * Rings + 1);
+			if (Current.BaysX != Spec.BaysX || Current.BaysZ != Spec.BaysZ)
+			{
+				WARN_PRINT_ONCE(godot::String::utf8("AncientBuilding 多层: storey setback needs at least ")
+					+ godot::String::num_int64(2 * Rings + 1)
+					+ " bays on each axis; the bay counts were raised to fit.");
+			}
+			// One 廊步 on every side, so the setback is the same in both directions and each hip of
+			// the 腰檐 stays at 45 degrees. A 廊步 is narrower than a 明间 — roughly half of one in
+			// 清式 practice. [自定] 0.55 of the narrower of the two even bays.
+			Aisle = 0.55f * std::fmin(Spec.Width / float(Current.BaysX), Spec.Depth / float(Current.BaysZ));
+			Current.ColumnLinesX = AisleBayPositions(Spec.Width * 0.5f, Current.BaysX, Rings, Aisle);
+			Current.ColumnLinesZ = AisleBayPositions(Spec.Depth * 0.5f, Current.BaysZ, Rings, Aisle);
+		}
+
+		std::vector<StoreyPlan> Plans;
+		const float GroundHalfDepthEave = Spec.Depth * 0.5f + Spec.EaveOverhang;
+		for (int32_t Storey = 0; Storey < Count; ++Storey)
+		{
+			StoreyPlan Plan;
+			Plan.Body = Current;
+			Plan.bTop = Storey == Count - 1;
+			if (Plan.bTop)
+			{
+				Plans.push_back(Plan);
+				break;
+			}
+
+			const float Shrink = Aisle * float(Setback);
+			BuildingSpec Next = Current;
+			Next.Width = Current.Width - 2.0f * Shrink;
+			Next.Depth = Current.Depth - 2.0f * Shrink;
+			Next.BaysX = std::max(Current.BaysX - 2 * Setback, 1);
+			Next.BaysZ = std::max(Current.BaysZ - 2 * Setback, 1);
+			Next.ColumnLinesX = TrimLines(Current.ColumnLinesX, Setback);
+			Next.ColumnLinesZ = TrimLines(Current.ColumnLinesZ, Setback);
+
+			// 腰檐: from this storey's eave in to the outer face of the upper storey's columns.
+			Plan.Waist = Current;
+			Plan.Waist.WaistInset = Current.EaveOverhang + Shrink - Spec.ColumnRadius;
+			ScaleWaistCornerFlip(Plan.Waist, Plan.Waist.WaistInset, Current.Depth * 0.5f + Current.EaveOverhang);
+
+			// Same arithmetic as the skirt itself, so the next storey starts exactly on its 围脊.
+			const float HalfDepthEave = Current.Depth * 0.5f + Current.EaveOverhang;
+			const float Inset = std::clamp(Plan.Waist.WaistInset, Spec.Module * 0.2f,
+				std::fmin(Current.Width * 0.5f + Current.EaveOverhang, HalfDepthEave) * 0.95f);
+			Plan.BreakTop = Current.RoofBase + WaistRiseFor(Current, Inset);
+
+			// 平座铺作 lifts the floor above the 围脊 by one bracket band.
+			const float Floor = Plan.BreakTop + (Spec.bStoreyBalcony ? Spec.BracketHeight : 0.0f);
+			Plan.NextFloor = Floor;
+
+			// No 平座 and a setback: the upper columns are 金柱 rising from the storey below (通柱),
+			// visible inside an open 重檐 pavilion. With no setback they stand on the lower
+			// columns' own lines, and continuing them down would double those shafts.
+			Next.ColumnFootDrop = (!Spec.bStoreyBalcony && Setback > 0)
+				? Floor - Current.PlatformHeight + Current.ColumnFootDrop
+				: 0.0f;
+			Next.ColumnBaseHeight = (Next.ColumnFootDrop > 0.0f) ? Spec.ColumnBaseHeight : 0.0f;
+			Next.DadoHeightRatio = 0.0f;
+			Next.DadoTopTrim = 0.0f;
+			Next.PlatformHeight = Floor;
+			Next.ColumnHeight = Spec.ColumnHeight * std::fmax(Spec.UpperColumnHeightScale, 0.05f);
+			Next.EaveHeight = Floor + Next.ColumnHeight;
+			Next.RoofBase = Next.EaveHeight + Spec.BracketHeight;
+			// Equation 10 and the corner span both follow the storey's own depth.
+			Next.RoofHeight = Spec.RoofHeight * Next.Depth / std::fmax(Spec.Depth, BUILD_EPSILON);
+			Next.CornerSpan = Spec.CornerSpan * (Next.Depth * 0.5f + Spec.EaveOverhang)
+				/ std::fmax(GroundHalfDepthEave, BUILD_EPSILON);
+			Next.PlanApothem = Next.Width * 0.5f;
+			Next.WaistInset = 0.0f;
+
+			Plans.push_back(Plan);
+			Current = Next;
+		}
+
+		return Plans;
+	}
+
+	void BuildStoreyedBuilding(const BuildingSpec& Spec, MeshAccumulator& OutMesh)
+	{
+		const std::vector<StoreyPlan> Plans = PlanStoreys(Spec);
+
+		BuildBaseLayer(Spec, OutMesh);
+		for (size_t Index = 0; Index < Plans.size(); ++Index)
+		{
+			const StoreyPlan& Plan = Plans[Index];
+			if (int32_t(Index) < Spec.MasonryStoreys)
+			{
+				BuildMasonryBody(Plan.Body, OutMesh);
+			}
+			else
+			{
+				BuildBody(Plan.Body, OutMesh);
+			}
+			if (Plan.bTop)
+			{
+				BuildTopRoof(Plan.Body, OutMesh);
+				continue;
+			}
+
+			BuildHippedRoof(Plan.Waist, HIP_TOP_OPEN, OutMesh);
+			if (Spec.bStoreyBalcony && Index + 1 < Plans.size())
+			{
+				BuildBalcony(Plans[Index + 1].Body, Plan.NextFloor, Plan.BreakTop, OutMesh);
+			}
+		}
+	}
+} // namespace
+
+void BuildingGen::BuildMasonryTerrace(const BuildingSpec& Spec, MeshAccumulator& Mesh)
+{
+	BuildMasonryBase(Spec, Mesh);
+}
+
+float BuildingGen::WaistRiseFor(const BuildingSpec& Spec, float Inset)
+{
+	// It would otherwise give a short skirt most of a whole roof's rise and stand it at 45
+	// degrees. [自定] The mean rise ratio sits a quarter of the way from the eave's to the
+	// ridge's, about 六举 on the default ratios, which is the usual range for a 下檐.
+	const float Ratio = Spec.EaveRiseRatio + (Spec.RidgeRiseRatio - Spec.EaveRiseRatio) * 0.25f;
+	return Inset * std::fmax(Ratio, 0.05f);
+}
+
+void BuildingGen::ScaleWaistCornerFlip(BuildingSpec& Waist, float Inset, float FullRun)
+{
+	// The corner rafter of a 腰檐 is as long as the skirt is deep, so its 起翘/出翘 shrink with a
+	// short skirt instead of standing up like a full roof's horn. [自定] Full at half the roof's
+	// run or more, never below 40%.
+	const float Scale = std::clamp(2.0f * Inset / std::fmax(FullRun, BUILD_EPSILON), 0.4f, 1.0f);
+	Waist.CornerRise *= Scale;
+	Waist.CornerExtend *= Scale;
+}
+
+void BuildingGen::DescribeStoreys(const BuildingSpec& Spec, std::vector<StoreyFrame>& Out)
+{
+	if (Spec.Sides != 4)
+	{
+		DescribePolygonalStoreys(Spec, Out);
 		return;
 	}
 
-	switch (Spec.RoofType)
+	Out.clear();
+	const std::vector<StoreyPlan> Plans = PlanStoreys(Spec);
+	for (const StoreyPlan& Plan : Plans)
 	{
-		case ROOF_HIP:
-			BuildHippedRoof(Spec, HIP_TOP_RIDGE, OutMesh);
-			break;
-		case ROOF_GABLE_AND_HIP:
-			BuildHippedRoof(Spec, HIP_TOP_GABLED_TIER, OutMesh);
-			break;
-		case ROOF_HOLLOW:
-			BuildHippedRoof(Spec, HIP_TOP_FLAT, OutMesh);
-			break;
-		case ROOF_OVERHANGING_GABLE:
-			BuildGabledRoof(Spec, true, false, OutMesh);
-			break;
-		case ROOF_ROUND_RIDGE:
-			BuildGabledRoof(Spec, true, true, OutMesh);
-			break;
-		default:
-			BuildGabledRoof(Spec, false, false, OutMesh);
-			break;
+		const BuildingSpec& Body = Plan.Body;
+		StoreyFrame Frame;
+		Frame.Floor = Body.PlatformHeight;
+		Frame.ColumnFoot = Body.PlatformHeight - Body.ColumnFootDrop;
+		Frame.ColumnTop = Body.PlatformHeight + Body.ColumnHeight;
+		Frame.RoofBase = Body.RoofBase;
+		Frame.Width = Body.Width;
+		Frame.Depth = Body.Depth;
+		Frame.BreakTop = Plan.bTop ? -1.0f : Plan.BreakTop;
+		Frame.ColumnLinesX = Body.ColumnLinesX.empty()
+			? BayPositions(Body.Width * 0.5f, Body.BaysX) : Body.ColumnLinesX;
+		Frame.ColumnLinesZ = Body.ColumnLinesZ.empty()
+			? BayPositions(Body.Depth * 0.5f, Body.BaysZ) : Body.ColumnLinesZ;
+		Out.push_back(Frame);
 	}
+}
+
+void BuildingGen::BuildBuilding(const BuildingSpec& Spec, MeshAccumulator& OutMesh)
+{
+	const ECentralProfile CentralProfile =
+		(Spec.RoofType == ROOF_HELMET) ? CENTRAL_HELMET : CENTRAL_STRAIGHT;
+
+	// Equation 8: a non-rectangular plan must be regular, and only a centralised roof can sit
+	// on one. Both conditions route to the polygonal generator.
+	if (Spec.Sides != 4)
+	{
+		BuildPolygonalBuilding(Spec, CentralProfile, OutMesh);
+		return;
+	}
+
+	if (Spec.StoreyCount > 1)
+	{
+		BuildStoreyedBuilding(Spec, OutMesh);
+		return;
+	}
+
+	BuildBaseLayer(Spec, OutMesh);
+	if (Spec.bRoofOnly)
+	{
+		// The crossing gable of a 十字脊: its roof sits on its neighbour's frame.
+	}
+	else if (Spec.MasonryStoreys >= 1)
+	{
+		BuildMasonryBody(Spec, OutMesh);
+	}
+	else
+	{
+		BuildBody(Spec, OutMesh);
+	}
+	BuildTopRoof(Spec, OutMesh);
 }

@@ -22,6 +22,8 @@
 #include "AncientBuilding/AncientBuilding.h"
 #include "AncientBuilding/AncientBuildingEditorPlugin.h"
 #include "AncientBuilding/AncientBuildingParameters.h"
+#include "AncientBuilding/AncientMasonry.h"
+#include "AncientBuilding/AncientBuildingCompound.h"
 #include "AncientBuilding/AncientSplineSweep.h"
 // Procedural rocks (CPU port of "Unity Procedural Rock Generation", marching cubes)
 #include "RockGen/ProceduralRock.h"
@@ -96,6 +98,9 @@ void initialize_abyss_module(ModuleInitializationLevel p_level) {
 	GDREGISTER_CLASS(AncientSplineSweep);
 	GDREGISTER_CLASS(AncientBuildingParameters);
 	GDREGISTER_CLASS(AncientBuilding);
+	GDREGISTER_CLASS(AncientMasonry);
+	GDREGISTER_CLASS(AncientBuildingWing);
+	GDREGISTER_CLASS(AncientBuildingCompound);
 
 	GDREGISTER_CLASS(ProceduralRockParameters);
 	GDREGISTER_CLASS(ProceduralRock);
