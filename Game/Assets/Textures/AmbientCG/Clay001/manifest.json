@@ -1,0 +1,16 @@
+{
+  "asset_id": "Clay001",
+  "source_url": "https://ambientcg.com/a/Clay001",
+  "license_spdx": "CC0-1.0",
+  "attribution_text": "ambientCG asset - CC0 1.0 Universal. Attribution not required.",
+  "download_attribute": "1K-PNG",
+  "download_url": "https://ambientcg.com/get?file=Clay001_1K-PNG.zip",
+  "maps": {
+    "albedo": "E:\\ProjectAbyss\\Game\\Assets\\Textures\\AmbientCG\\Clay001\\Clay001_1K-PNG_Color.png",
+    "ao": "E:\\ProjectAbyss\\Game\\Assets\\Textures\\AmbientCG\\Clay001\\Clay001_1K-PNG_AmbientOcclusion.png",
+    "displacement": "E:\\ProjectAbyss\\Game\\Assets\\Textures\\AmbientCG\\Clay001\\Clay001_1K-PNG_Displacement.png",
+    "normal": "E:\\ProjectAbyss\\Game\\Assets\\Textures\\AmbientCG\\Clay001\\Clay001_1K-PNG_NormalGL.png",
+    "roughness": "E:\\ProjectAbyss\\Game\\Assets\\Textures\\AmbientCG\\Clay001\\Clay001_1K-PNG_Roughness.png"
+  },
+  "material": "E:\\ProjectAbyss\\Game\\Assets\\Textures\\AmbientCG\\Clay001\\Clay001.tres"
+}

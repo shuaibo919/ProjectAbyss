@@ -38,6 +38,9 @@ extends NodeSettings
 @export_range(1, 3, 1) var gate_tower_tiers : int = 3
 ## The inner city climbs this much behind the wall, so its roofs read over it.
 @export_range(0.0, 20.0, 0.5) var terrace_rise : float = 7.0
+## Qin 2023 symmetry factor SYM for the inner city's lanes about the gate axis:
+## 1 = a mirror image, 0 = no symmetry; in between, later lanes lose their mirror.
+@export_range(0.0, 1.0, 0.05) var symmetry : float = 0.6
 
 @export_group("Bridge")
 
@@ -51,8 +54,20 @@ extends NodeSettings
 @export_group("Waterfront Bank")
 
 @export_range(4.0, 14.0, 0.5) var street_width : float = 7.5
-## Rows of houses behind the waterfront street (the river row not counted).
-@export_range(0, 3, 1) var back_rows : int = 2
+
+@export_group("Terrain")
+
+## Leave the ground to a terrain (Terrain3D): no land or water sheets and no backdrop ridges, the
+## 驳岸 only along the town (with a coping that hides the terrain's step at the wall), and the
+## ground shape published as `stamp_path` commands in the node's `last_terrain` static.
+@export var terrain_ground : bool = false
+
+@export_group("Bamboo Forest")
+
+## Average distance between three-culm bamboo clumps. Scaled by settlement density.
+@export_range(1.8, 5.0, 0.1) var bamboo_spacing : float = 2.4
+## Depth of the continuous woodland behind the waterfront; the city belt is narrower.
+@export_range(15.0, 100.0, 1.0) var bamboo_forest_depth : float = 54.0
 
 @export_group("Output")
 

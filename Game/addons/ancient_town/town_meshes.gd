@@ -144,6 +144,7 @@ const MASONRY_DARK := Color( 0.47, 0.46, 0.43 )  # waterline band / plinth
 const CITY_WALL_COL := Color( 0.56, 0.53, 0.48 ) # grey brick city wall
 const WATER_COL := Color( 0.50, 0.57, 0.60 )
 const LAND_COL := Color( 0.57, 0.57, 0.48 )    # packed earth with a green cast
+const QUAY_COL := Color( 0.62, 0.61, 0.58 )    # 石板河沿
 const PAVING_COL := Color( 0.66, 0.63, 0.58 )
 const HULL_COL := Color( 0.42, 0.33, 0.24 )
 const CANOPY_COL := Color( 0.20, 0.20, 0.19 )    # 乌篷: black bamboo matting
@@ -357,7 +358,32 @@ static func revetment( pts: PackedVector3Array, outward: PackedVector3Array, top
 				Vector3( p1.x, y_hi, p1.z ), Vector3( p0.x, y_hi, p0.z ), n, band[ 2 ] )
 	st.generate_normals()
 	st.set_material( _material() )
-	return st.commit()
+	var mesh := st.commit()
+	mesh.set_meta( "town_material", "revetment" )
+	return mesh
+
+
+## A paved quay (石板河沿) along the top of a revetment, `width` inland, at `top_y`, with a skirt
+## down its inland edge. Over a terrain it covers the step where the ground drops from quay
+## height to the river bed behind the wall — a terrain grid cannot make that step vertical.
+static func quay( pts: PackedVector3Array, outward: PackedVector3Array, top_y: float, width: float, skirt: float ) -> ArrayMesh:
+	var st := SurfaceTool.new()
+	st.begin( Mesh.PRIMITIVE_TRIANGLES )
+	for i in pts.size() - 1:
+		var p0 := pts[ i ]
+		var p1 := pts[ i + 1 ]
+		var q0 := p0 - outward[ i ] * width
+		var q1 := p1 - outward[ i + 1 ] * width
+		var n := ( outward[ i ] + outward[ i + 1 ] ).normalized()
+		_quad_facing( st, Vector3( p0.x, top_y, p0.z ), Vector3( p1.x, top_y, p1.z ),
+			Vector3( q1.x, top_y, q1.z ), Vector3( q0.x, top_y, q0.z ), Vector3.UP, QUAY_COL )
+		_quad_facing( st, Vector3( q0.x, top_y - skirt, q0.z ), Vector3( q1.x, top_y - skirt, q1.z ),
+			Vector3( q1.x, top_y, q1.z ), Vector3( q0.x, top_y, q0.z ), -n, QUAY_COL )
+	st.generate_normals()
+	st.set_material( _material() )
+	var mesh := st.commit()
+	mesh.set_meta( "town_material", "paving" )
+	return mesh
 
 
 ## A far mountain range: a strip of peaks along local X, `length` long, facing
@@ -419,6 +445,150 @@ static func _hull( st: SurfaceTool, length: float, beam: float, freeboard: float
 			_quad_facing( st, prev[ 2 ], cur[ 2 ], cur[ 3 ], prev[ 3 ], Vector3( 0, 0, 1 ), HULL_COL )
 			_quad_facing( st, prev[ 3 ], cur[ 3 ], cur[ 0 ], prev[ 0 ], Vector3.UP, TIMBER_DARK )
 		prev = cur
+
+
+# --- streets and courtyards (town layout) --------------------------------
+
+const PLASTER_COL := Color( 0.90, 0.89, 0.85 )   # 粉墙
+const COPING_COL := Color( 0.24, 0.25, 0.26 )    # 黛瓦 wall coping
+const STREET_COLS := [ Color( 0.58, 0.56, 0.52 ), Color( 0.63, 0.61, 0.56 ), Color( 0.67, 0.64, 0.58 ),
+	Color( 0.69, 0.66, 0.60 ) ]
+
+
+## The paved street network of one `TownStreetGraph` as a single mesh. Each street is a ribbon
+## trimmed short of its junctions, each junction a patch over the hull of the trimmed ends, so no
+## two paving faces overlap where streets cross (the old one-box-per-segment roads z-fought at
+## every crossing). `to_world` maps a layout point to world space, ground height included; long
+## ribbons are resampled every `step` metres so they follow a curved frame and the terrain.
+static func street_surface( graph: TownStreetGraph, to_world: Callable, lift: float = 0.12, skirt: float = 0.35,
+		step: float = 4.0 ) -> ArrayMesh:
+	var st := SurfaceTool.new()
+	st.begin( Mesh.PRIMITIVE_TRIANGLES )
+	var trim := PackedFloat32Array()
+	trim.resize( graph.point_count() )
+	for p in graph.point_count():
+		var widest := 0.0
+		if graph.degree( p ) >= 2:
+			for e in graph.edges_at( p ):
+				widest = maxf( widest, graph.edge_width[ e ] * 0.5 )
+		trim[ p ] = widest
+	var ends := {}   # point id -> PackedVector2Array of trimmed end corners
+	for e in graph.alive_edges():
+		if graph.edge_level[ e ] >= TownStreetGraph.BOUNDARY:
+			continue
+		var ia := graph.edge_a[ e ]
+		var ib := graph.edge_b[ e ]
+		var a := graph.points[ ia ]
+		var b := graph.points[ ib ]
+		var length := a.distance_to( b )
+		if length < 1e-3:
+			continue
+		var dir := ( b - a ) / length
+		var side := Vector2( -dir.y, dir.x ) * graph.edge_width[ e ] * 0.5
+		var t0 := minf( trim[ ia ], length * 0.5 )
+		var t1 := length - minf( trim[ ib ], length * 0.5 )
+		var col: Color = STREET_COLS[ clampi( graph.edge_level[ e ], 0, STREET_COLS.size() - 1 ) ]
+		for pair in [ [ ia, t0 ], [ ib, t1 ] ]:
+			var q: Vector2 = a + dir * float( pair[ 1 ] )
+			var list: PackedVector2Array = ends.get( pair[ 0 ], PackedVector2Array() )
+			list.append( q + side )
+			list.append( q - side )
+			ends[ pair[ 0 ] ] = list
+		if t1 - t0 < 0.05:
+			continue
+		var n := maxi( ceili( ( t1 - t0 ) / step ), 1 )
+		var prev_l := Vector3.ZERO
+		var prev_r := Vector3.ZERO
+		for k in n + 1:
+			var q := a + dir * lerpf( t0, t1, float( k ) / float( n ) )
+			var l: Vector3 = to_world.call( q + side ) + Vector3( 0, lift, 0 )
+			var r: Vector3 = to_world.call( q - side ) + Vector3( 0, lift, 0 )
+			if k > 0:
+				_quad_facing( st, prev_l, l, r, prev_r, Vector3.UP, col )
+				_skirt( st, prev_l, l, skirt, col )
+				_skirt( st, r, prev_r, skirt, col )
+			prev_l = l
+			prev_r = r
+	for p in ends:
+		var corners: PackedVector2Array = ends[ p ]
+		if graph.degree( p ) < 2 or corners.size() < 4:
+			continue
+		var hull := Geometry2D.convex_hull( corners )
+		if hull.size() < 4:
+			continue
+		var col: Color = STREET_COLS[ 0 ]
+		var best := TownStreetGraph.BOUNDARY
+		for e in graph.edges_at( p ):
+			best = mini( best, graph.edge_level[ e ] )
+		col = STREET_COLS[ clampi( best, 0, STREET_COLS.size() - 1 ) ]
+		var centre: Vector3 = to_world.call( graph.points[ p ] ) + Vector3( 0, lift + 0.004, 0 )
+		# convex_hull closes the loop by repeating the first point.
+		for i in hull.size() - 1:
+			var h0: Vector3 = to_world.call( hull[ i ] ) + Vector3( 0, lift + 0.004, 0 )
+			var h1: Vector3 = to_world.call( hull[ i + 1 ] ) + Vector3( 0, lift + 0.004, 0 )
+			var tri_n := ( h0 - centre ).cross( h1 - centre )
+			if tri_n.dot( Vector3.UP ) > 0.0:
+				_tri( st, centre, h1, h0, col )
+			else:
+				_tri( st, centre, h0, h1, col )
+			_skirt( st, h0, h1, skirt, col )
+	st.generate_normals()
+	st.set_material( _material() )
+	var mesh := st.commit()
+	mesh.set_meta( "town_material", "paving" )
+	return mesh
+
+
+## A vertical band hanging `depth` below the edge a→b, facing away from the street it trims. The
+## side is picked from the edge's left in plan, which is outward for the callers' winding.
+static func _skirt( st: SurfaceTool, a: Vector3, b: Vector3, depth: float, col: Color ) -> void:
+	var along := b - a
+	var out := Vector3( along.z, 0.0, -along.x ).normalized()
+	var a2 := a - Vector3( 0, depth, 0 )
+	var b2 := b - Vector3( 0, depth, 0 )
+	# Both windings: a skirt is seen from whichever side the street edge turns to the camera.
+	_quad_facing( st, a, b, b2, a2, out, col.darkened( 0.12 ) )
+	_quad_facing( st, a, b, b2, a2, -out, col.darkened( 0.12 ) )
+
+
+## 粉墙黛瓦 courtyard wall as a unit segment (x, y, z ∈ [-0.5, 0.5]) for the Yard Walls stream,
+## which scales it by length / height / thickness: white plaster body, dark tile coping that
+## overhangs both faces, a thin ridge on top.
+static func yard_wall() -> ArrayMesh:
+	var st := SurfaceTool.new()
+	st.begin( Mesh.PRIMITIVE_TRIANGLES )
+	_box( st, Vector3( -0.5, -0.5, -0.5 ), Vector3( 0.5, 0.36, 0.5 ), PLASTER_COL )
+	_box( st, Vector3( -0.5, 0.36, -0.78 ), Vector3( 0.5, 0.44, 0.78 ), COPING_COL )
+	_box( st, Vector3( -0.5, 0.44, -0.3 ), Vector3( 0.5, 0.5, 0.3 ), COPING_COL )
+	st.generate_normals()
+	st.set_material( _material() )
+	return st.commit()
+
+
+## 院门 gate: two plaster piers and a small tiled canopy over a 2.4 m opening, real scale,
+## origin on the ground at the wall line, +Z out to the street.
+static func yard_gate() -> ArrayMesh:
+	var st := SurfaceTool.new()
+	st.begin( Mesh.PRIMITIVE_TRIANGLES )
+	for sx in [ -1.0, 1.0 ]:
+		var cx: float = sx * 1.45
+		_box( st, Vector3( cx - 0.28, 0.0, -0.3 ), Vector3( cx + 0.28, 3.2, 0.3 ), PLASTER_COL )
+	_box( st, Vector3( -1.2, 2.55, -0.18 ), Vector3( 1.2, 2.8, 0.18 ), TIMBER_DARK )
+	# Canopy: a shallow gable of two slabs.
+	var hw := 2.1
+	var eave_y := 3.15
+	var ridge_y := 3.75
+	for sz in [ -1.0, 1.0 ]:
+		var e0 := Vector3( -hw, eave_y, sz * 0.95 )
+		var e1 := Vector3( hw, eave_y, sz * 0.95 )
+		var r0 := Vector3( -hw, ridge_y, 0.0 )
+		var r1 := Vector3( hw, ridge_y, 0.0 )
+		_quad_facing( st, e0, e1, r1, r0, Vector3( 0, 1, sz ), COPING_COL )
+		_quad_facing( st, e0, e1, r1, r0, Vector3( 0, -1, -sz ), COPING_COL )
+	_box( st, Vector3( -hw, ridge_y - 0.05, -0.12 ), Vector3( hw, ridge_y + 0.12, 0.12 ), COPING_COL )
+	st.generate_normals()
+	st.set_material( _material() )
+	return st.commit()
 
 
 # --- helpers -------------------------------------------------------------

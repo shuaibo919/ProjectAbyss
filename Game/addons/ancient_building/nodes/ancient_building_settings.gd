@@ -105,6 +105,9 @@ var dwelling_style_scope : int = 1
 ## 官式 / 茅草 / 土木. Selecting 茅草 or 土木 overwrites the colour palette below; hand-tune
 ## afterwards as needed. The geometry (硬山) is unchanged.
 @export_enum("Traditional 官式:0", "Thatched 茅草:1", "Earthen 土木:2") var material_style : int = 0
+## Per-slot materials (瓦, 木构, 石作, 墙面, 脊, 山花 — AncientBuilding.SLOT_*), baked into every
+## variant as separate surfaces. Empty = one vertex-coloured surface, the legacy mesh.
+@export var slot_materials : Array[Material] = []
 
 @export_group("Colors")
 @export var stone_color : Color = Color(0.60, 0.58, 0.54)

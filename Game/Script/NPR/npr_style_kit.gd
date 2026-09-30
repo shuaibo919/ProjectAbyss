@@ -9,18 +9,22 @@ extends RefCounted
 #   ink          InkPainting three-pass stack (ink_surface → ink_outline_0 → _1)
 #   outline      plain + baked mesh-edge outline (CartoonOutlineBuilder)
 #   ink_outline  both
+#   textured     ambientCG albedo + normal maps (town_texture_library.gd): meshes with their own
+#                surface materials keep them (buildings baked with slot materials), meshes tagged
+#                `town_material` get that set, everything else stays plain
 #
 # Meshes tagged with `town_water` meta keep a water material in every style.
 #
 # Usage: const NprStyleKit := preload("res://Script/NPR/npr_style_kit.gd")
 #        NprStyleKit.apply(town_root, NprStyleKit.parse("ink"), { "fill_dirs": [...] })
 
-enum EStyle { PLAIN, INK, OUTLINE, INK_OUTLINE }
+enum EStyle { PLAIN, INK, OUTLINE, INK_OUTLINE, TEXTURED }
 
-const STYLE_NAMES := ["plain", "ink", "outline", "ink_outline"]
+const STYLE_NAMES := ["plain", "ink", "outline", "ink_outline", "textured"]
 const SHADER_DIR := "res://Assets/Shaders/InkPainting"
 const TEX_DIR := "res://Assets/Shaders/InkPainting/Textures"
 const InkBrush := preload("res://Develop/Tools/ink_brush.gd")
+const TownTextures := preload("res://Script/NPR/town_texture_library.gd")
 
 
 static func parse(style_name: String) -> int:
@@ -59,8 +63,23 @@ static func apply(root: Node, style: int, opts: Dictionary = {}) -> Dictionary:
 	for g in targets:
 		var mesh := _mesh_of(g)
 		var is_water := mesh != null and mesh.has_meta("town_water")
-		g.material_override = water if is_water else surface
-		if outline_mat != null and mesh != null and not is_water:
+		var is_masked_tree: bool = mesh != null and bool(mesh.get_meta("treegen_masked_foliage", false))
+		if is_water:
+			g.material_override = water
+		elif is_masked_tree:
+			# Alpha-tested clusters must keep their mask; a solid override exposes the cards.
+			g.material_override = null
+			for child in g.get_children():
+				if child.get_meta("npr_outline", false):
+					g.remove_child(child)
+					child.queue_free()
+		elif style == EStyle.TEXTURED and mesh != null and _has_surface_materials(mesh):
+			g.material_override = null
+		elif style == EStyle.TEXTURED and mesh != null and TownTextures.has_set(mesh.get_meta("town_material", "")):
+			g.material_override = TownTextures.material(mesh.get_meta("town_material"))
+		else:
+			g.material_override = surface
+		if outline_mat != null and mesh != null and not is_water and not is_masked_tree:
 			if _attach_outline(g, mesh, outline_mat, outline_cache):
 				outlined += 1
 	return { "styled": targets.size(), "outlined": outlined }
@@ -151,6 +170,17 @@ static func _collect(node: Node, out: Array[GeometryInstance3D]) -> void:
 		out.append(node)
 	for child in node.get_children():
 		_collect(child, out)
+
+
+## True for a mesh baked with its own per-surface materials (AncientBuilding slot materials).
+static func _has_surface_materials(mesh: Mesh) -> bool:
+	if mesh.get_surface_count() < 2:
+		return false
+	for s in mesh.get_surface_count():
+		var m := mesh.surface_get_material(s) as BaseMaterial3D
+		if m != null and m.albedo_texture != null:
+			return true
+	return false
 
 
 static func _mesh_of(g: GeometryInstance3D) -> Mesh:

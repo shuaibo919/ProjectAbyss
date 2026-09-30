@@ -1,28 +1,35 @@
 @tool
-extends "res://addons/ancient_town/nodes/town_lots.gd"
+extends "res://addons/ancient_town/nodes/town_layout_base.gd"
 
 # River Town Lots — a 水城 layout in one deterministic pass: a river through the
 # middle, a walled city on the +side bank (wall, gate pier + tiered gate tower,
-# water gate, watch towers, a terraced inner city climbing to a temple), a
-# waterfront street of 河房 on the −side bank (river row with landing steps,
-# street, back rows, riverside 重楼), and an arch bridge carrying a covered
-# gallery between the two gates.
+# water gate, watch towers, a terraced inner city climbing to a 衙署), a
+# waterfront of 河房 and 前店后宅 on the −side bank, and an arch bridge carrying a
+# covered gallery between them.
+#
+# Both banks are laid out as 街巷 → 街区 → 地块 → 院落 by the layout library in
+# addons/ancient_town/layout/ (TownStreetGraph / TownStreetGrowth / TownBlocks /
+# TownParcels / TownCourtyards / TownLevelField), in each bank's river frame
+# (u = arc length, v = offset inland), so streets square to the grid are square to
+# the river. The city grows its lanes with Qin 2023's SE L-System about the gate
+# axis; the waterfront is a comb of lanes off the 河街, each ending at a 河埠头.
 #
 # Reuses the Ancient Town node's building parametrisation and stream packing
 # (this script extends town_lots.gd), so the Buildings output feeds the Ancient
 # Building node exactly the same way. Outputs:
 #
 #   0 "Buildings"  one point per building — `ab_*` streams, plus `ab_tile_color`
-#                  and a per-point `ab_platform` (tiered towers stack buildings
-#                  without a 台基, so the flag is no longer level-derived).
-#   1 "Roads"      paving strips (unit box, size = len / thickness / width).
+#                  and a per-point `ab_platform`.
+#   1 "Roads"      paving strips (unit box, size = len / thickness / width); the
+#                  street network itself is a Structures mesh.
 #   2 "Walls"      city-wall segments (unit box, size = len / height / thickness).
 #   3 "Props"      prop_type: 0 stall, 1 well, 2 牌坊, 3 垛口 merlon, 4 乌篷船,
-#                  5 cargo junk, 6/7 figures, 8 landing steps.
-#   4 "Trees"      tree points, `size` carries per-tree scale.
+#                  5 cargo junk, 6/7 figures, 8 landing steps, 9 院门.
+#   4 "Trees"      peach trees and bamboo groves; `tree_variant` selects the shared mesh.
 #   5 "Structures" one-off whitebox meshes (water, land, 驳岸, piers, bridge,
-#                  distant ridges) in a Resource stream — spawn with
+#                  street surfaces, distant ridges) in a Resource stream — spawn with
 #                  mesh_attribute = settings.structure_mesh_attribute.
+#   6 "Yard Walls" 院墙 segments (unit segment, size = len / height / thickness).
 #
 # Optional input "River Path": ordered points (e.g. Sample Spline on a Path3D)
 # used as the river centreline instead of the built-in meander.
@@ -33,25 +40,16 @@ extends "res://addons/ancient_town/nodes/town_lots.gd"
 # revetment line into the land.
 
 const RiverSettings = preload("res://addons/ancient_town/nodes/river_town_lots_settings.gd")
-const Meshes = preload("res://addons/ancient_town/town_meshes.gd")
+const Vegetation = preload("res://Script/PCG/river_town_vegetation.gd")
 
-const PROP_MERLON := 3
-const PROP_BOAT := 4
-const PROP_CARGO := 5
-const PROP_FIGURE_A := 6
-const PROP_FIGURE_B := 7
-const PROP_STEPS := 8
 
 const SIDE_CITY := 1.0
 const SIDE_WATERFRONT := -1.0
 
-# Row kinds. Width palettes are disjoint where the rows differ in fields the
-# Ancient Building node leaves out of its variant key (steps, fence), so two
-# kinds can never end up sharing one baked mesh.
-const ROW_WATERFRONT := 0     # 河房: backs on the river, faces the street, no steps
-const ROW_STREET := 1         # shops across the street, with steps
-const ROW_BACK := 2           # plain dwellings behind a lane
-const ROW_CITY := 3           # inner city on the terrace
+# 城门楼: the tower's plan and the 城台 margin round it (the terrace reaches into the city).
+const GATE_TOWER_W := 18.0
+const GATE_TOWER_D := 11.5
+const GATE_MARGIN := 3.0
 
 const SAMPLE_STEP := 4.0
 const TOWPATH := 2.0
@@ -59,13 +57,34 @@ const PLATFORM_MARGIN := 0.7
 const LAND_OFFSETS := [0.0, 4.0, 10.0, 16.0, 24.0, 32.0, 40.0, 50.0, 60.0, 70.0,
 	80.0, 95.0, 115.0, 140.0, 180.0, 240.0, 320.0]
 
-const TILE_GREY := Color(0.26, 0.29, 0.31)
-const TILE_GLAZED := Color(0.22, 0.31, 0.40)   # gate tower
-const TILE_RED := Color(0.56, 0.30, 0.21)      # riverside 重楼, bridgehead
 const ROBE_A := Color(0.30, 0.33, 0.38)
 const ROBE_B := Color(0.66, 0.58, 0.44)
 
-var _structures: Array[Dictionary] = []
+# Terrain ground (settings.terrain_ground). The 驳岸 runs this far past the town ends; beyond it the
+# banks are natural. A paved quay tops it: the terrain drops from quay height to the river bed
+# underneath the paving, which must span a whole terrain cell measured diagonally (2 m spacing,
+# up to 2.6 m across a triangle for a river within ~25° of a grid axis) on either side of the step.
+const REVETMENT_MARGIN := 24.0
+const QUAY_WIDTH := 5.4
+const QUAY_RISE := 0.08
+const QUAY_STEP := 2.7           # the terrain step, inland of the wall line
+const VALLEY_EXTENSION := 1800.0 # the valley runs on past the modelled river to the map edge
+const NATURAL_BANK := 8.0        # natural bank: waterline to quay height over this many metres
+const VALLEY_FLAT := 60.0        # flat valley floor beyond the natural bank
+const VALLEY_FALLOFF := 280.0    # then a long blend into whatever the terrain had (mountains)
+const TOWN_REACH := 150.0        # town ground inland from the revetment
+const TOWN_FALLOFF := 60.0
+const TOWN_END_FALLOFF := 45.0
+const BED_CENTRE := 3.2          # river bed depth below the water at the centre
+const BED_EDGE := 1.7            # and at the foot of the 驳岸
+
+## The terrain description of the last layout (settings.terrain_ground): `stamps` (stamp_path
+## commands, apply in order), `water_y`, the centreline. Empty when the ground is sheets.
+static var last_terrain := {}
+
+## The last layout's street graphs, for tests and plan-view debugging.
+var _last_city_graph: TownStreetGraph
+var _last_waterfront_graph: TownStreetGraph
 
 # River frame, sampled every SAMPLE_STEP metres of arc length.
 var _c := PackedVector3Array()
@@ -76,8 +95,6 @@ var _hw := PackedFloat32Array()
 var _s_town0 := 0.0
 var _s_town1 := 0.0
 var _water_y := 0.0
-# Footprints already taken: (x, z, radius).
-var _claims := PackedVector3Array()
 
 
 func _init() -> void:
@@ -92,6 +109,7 @@ func _init() -> void:
 			{"label": "Props"},
 			{"label": "Trees"},
 			{"label": "Structures"},
+			{"label": "Yard Walls"},
 		],
 		"aliases": ["Water Town", "水城", "Canal Town", "Riverside"],
 		"category": "Generator",
@@ -107,13 +125,7 @@ func getTitle() -> String:
 
 
 func execute(_ctx: FlowData.EvaluationContext) -> void:
-	_lots.clear()
-	_roads.clear()
-	_walls.clear()
-	_props.clear()
-	_trees.clear()
-	_structures.clear()
-	_claims.clear()
+	_reset_layout()
 
 	if not _build_frame():
 		setError("River path needs at least two points.")
@@ -121,19 +133,26 @@ func execute(_ctx: FlowData.EvaluationContext) -> void:
 
 	var s_bridge: float = lerpf(_s_town0, _s_town1, settings.bridge_position)
 	_build_river()
-	_build_land()
+	if not settings.terrain_ground:
+		_build_land()
 	_build_bridge(s_bridge)
 	_build_city_bank(s_bridge)
 	_build_waterfront_bank(s_bridge)
 	_build_boats(s_bridge)
-	_build_backdrop()
+	_grow_bamboo_patches(s_bridge)
+	if settings.terrain_ground:
+		last_terrain = _terrain_description()
+	else:
+		last_terrain = {}
+		_build_backdrop()
 
-	set_output(0, _pack_river_buildings())
+	set_output(0, _pack_layout_buildings())
 	set_output(1, _pack_strips(_roads))
 	set_output(2, _pack_strips(_walls))
 	set_output(3, _pack_props())
 	set_output(4, _pack_trees())
 	set_output(5, _pack_structures())
+	set_output(6, _pack_strips(_yard_walls))
 
 
 # =========================================================================
@@ -231,6 +250,12 @@ func _bank(s: float, side: float, off: float) -> Vector3:
 	return p
 
 
+## The river town lays each bank out in its own river frame: u = arc length, v = offset inland
+## from the revetment. A street square to that grid is square to the river and follows its bends.
+func _world(side: float, q: Vector2) -> Vector3:
+	return _bank(q.x, side, q.y)
+
+
 ## Direction from the bank into the land.
 func _inland(s: float, side: float) -> Vector3:
 	var n: Vector3 = _at(s).n
@@ -254,99 +279,9 @@ func _wall_inner() -> float:
 	return TOWPATH + settings.wall_thickness
 
 
-## Rejects a footprint that overlaps an earlier one. Circles, because rows bend
-## with the river and an axis-aligned test would be wrong at every curve.
-func _claim(p: Vector3, radius: float) -> bool:
-	for c in _claims:
-		if Vector2(p.x - c.x, p.z - c.y).length() < radius + c.z:
-			return false
-	_claims.append(Vector3(p.x, p.z, radius))
-	return true
-
-
-## `role` is stamped on the mesh as `town_role` meta so a scene can find the
-## landmarks (gate pier, bridge…) in the spawned MultiMeshes and frame cameras
-## on them without re-deriving the layout.
-func _add_structure(pos: Vector3, yaw: float, mesh: Mesh, role: String = "") -> void:
-	if role != "":
-		mesh.set_meta("town_role", role)
-	_structures.append({"pos": pos, "yaw": yaw, "mesh": mesh})
-
-
 # =========================================================================
 # Building parameters
 # =========================================================================
-
-func _house(level: int, w: float, d: float, roof: int, material: int) -> Dictionary:
-	return {
-		"width": w,
-		"depth": d,
-		"roof_type": roof,
-		"bays_x": 3 if w >= 7.0 else 1,
-		"bays_z": 2 if d >= 5.5 else 1,
-		"material_style": material,
-		"rafter_courses": clampi(roundi(w / 2.2), 3, 9),
-		"tile_coverage": 1.0,
-		"tile_course_width": 0.34,
-		"corner_rise_scale": 1.6,
-		"fence": false,
-		"walls": true,
-		"steps": false,
-		"fence_lambda": 0,
-		"platform": true,
-		"tile_color": TILE_GREY,
-	}
-
-
-func _pick_house(kind: int) -> Dictionary:
-	var r := rng
-	var p: Dictionary
-	match kind:
-		ROW_WATERFRONT:
-			var w: float = [7.0, 8.0, 9.0][r.randi() % 3]
-			var roof := ROOF_FLUSH_GABLE if r.randf() < 0.6 else ROOF_OVERHANGING
-			p = _house(1, w, snappedf(w * 0.72, 0.5), roof, MAT_EARTHEN if r.randf() < 0.15 else MAT_TRADITIONAL)
-			p["level"] = 1
-		ROW_STREET:
-			var w: float = [8.5, 9.5, 10.5][r.randi() % 3]
-			var roof := ROOF_OVERHANGING if r.randf() < 0.7 else ROOF_GABLE_AND_HIP
-			p = _house(2, w, snappedf(w * 0.68, 0.5), roof, MAT_TRADITIONAL)
-			p["steps"] = true
-			p["level"] = 2
-		ROW_BACK:
-			var w: float = [6.0, 6.5][r.randi() % 2]
-			var roof: int = [ROOF_FLUSH_GABLE, ROOF_OVERHANGING, ROOF_ROUND_RIDGE][r.randi() % 3]
-			p = _house(1, w, snappedf(w * 0.75, 0.5), roof, MAT_EARTHEN if r.randf() < 0.3 else MAT_TRADITIONAL)
-			p["level"] = 1
-		_:
-			var w: float = [7.5, 8.5][r.randi() % 2]
-			var u := r.randf()
-			var roof := ROOF_FLUSH_GABLE if u < 0.45 else (ROOF_OVERHANGING if u < 0.9 else ROOF_GABLE_AND_HIP)
-			p = _house(2 if roof == ROOF_GABLE_AND_HIP else 1, w, snappedf(w * 0.72, 0.5), roof, MAT_TRADITIONAL)
-			p["level"] = 2 if roof == ROOF_GABLE_AND_HIP else 1
-	return p
-
-
-## Extent of a building's front stair run, Table 1: ω × 1.1 with ω = 3.2D.
-static func _steps_depth(p: Dictionary) -> float:
-	if not p.steps:
-		return 0.0
-	return 3.2 * p.width * 0.8 / 11.0 * 1.1
-
-
-## A multi-storey building (重檐 / 楼 / 阁) as one lot — AncientBuilding grows the storeys
-## natively, each from the column grid below, so nothing is stacked or sunk into a roof.
-## `extra` overrides any field of the base parameter set.
-func _add_storeyed(pos: Vector3, yaw: float, w: float, d: float, roof: int, storeys: int, tile: Color,
-		level: int, lot_type: int, extra: Dictionary = {}) -> void:
-	var p := _house(level, w, d, roof, MAT_TRADITIONAL)
-	p["storey_count"] = storeys
-	p["fence"] = true
-	p["fence_lambda"] = 1
-	p["tile_color"] = tile
-	p["corner_rise_scale"] = 1.9
-	p.merge(extra, true)
-	_add_lot(pos, yaw, level, lot_type, -1, p)
 
 
 ## A building standing on its own 城台 (base_kind 1): the terrace is part of the building, so its
@@ -374,15 +309,8 @@ func _masonry_mesh(values: Dictionary, fallback: Callable) -> Mesh:
 		m.set(key, values[key])
 	var mesh: Mesh = m.bake_mesh()
 	m.free()
+	mesh.set_meta("town_material", "brick")
 	return mesh
-
-
-## A hidden marker inside a masonry body, so a scene can still find a landmark by `town_role`
-## now that the landmark itself is part of a building mesh.
-func _add_marker(pos: Vector3, role: String) -> void:
-	var box := BoxMesh.new()
-	box.size = Vector3(0.05, 0.05, 0.05)
-	_add_structure(pos + Vector3(0.0, 1.0, 0.0), 0.0, box, role)
 
 
 # =========================================================================
@@ -390,6 +318,9 @@ func _add_marker(pos: Vector3, role: String) -> void:
 # =========================================================================
 
 func _build_river() -> void:
+	if settings.terrain_ground:
+		_build_town_revetment()
+		return
 	var a_line := PackedVector3Array()
 	var b_line := PackedVector3Array()
 	var a_rev := PackedVector3Array()
@@ -425,6 +356,96 @@ func _build_land() -> void:
 				row.append(p)
 			rows.append(row)
 		_add_structure(Vector3.ZERO, 0.0, Meshes.sheet(rows, Meshes.LAND_COL))
+
+
+## Terrain ground: the 驳岸 only along the town, with a coping over the terrain step.
+func _build_town_revetment() -> void:
+	var a_rev := PackedVector3Array()
+	var b_rev := PackedVector3Array()
+	var a_out := PackedVector3Array()
+	var b_out := PackedVector3Array()
+	for i in _town_indices():
+		a_rev.append(_c[i] + _n[i] * _hw[i])
+		b_rev.append(_c[i] - _n[i] * _hw[i])
+		a_out.append(-_n[i])
+		b_out.append(_n[i])
+	var top: float = settings.origin.y + QUAY_RISE
+	var band := _water_y + 0.7
+	var bottom := _water_y - BED_EDGE - 0.3
+	for rev in [[a_rev, a_out], [b_rev, b_out]]:
+		_add_structure(Vector3.ZERO, 0.0, Meshes.revetment(rev[0], rev[1], top, band, bottom))
+		_add_structure(Vector3.ZERO, 0.0, Meshes.quay(rev[0], rev[1], top, QUAY_WIDTH, 0.5))
+
+
+## Frame samples of the walled / quayed stretch.
+func _town_indices() -> PackedInt32Array:
+	var out := PackedInt32Array()
+	for i in _c.size():
+		if _s[i] >= _s_town0 - REVETMENT_MARGIN and _s[i] <= _s_town1 + REVETMENT_MARGIN:
+			out.append(i)
+	return out
+
+
+## Ground shape for a terrain, as stamp_path commands (Terrain3DAgent) over the river centreline:
+## the whole valley first (natural banks, a flat floor, then a long blend into the mountains), then
+## the town (quays under the coping, the city terrace from `_ground`). Heights are absolute.
+func _terrain_description() -> Dictionary:
+	var y0: float = settings.origin.y
+	var bed_centre := _water_y - BED_CENTRE
+	var bed_edge := _water_y - BED_EDGE
+	var centre := PackedVector3Array()
+	var widths := []
+	for i in _c.size():
+		centre.append(Vector3(_c[i].x, y0, _c[i].z))
+		widths.append(_hw[i])
+	# The valley runs straight on from both ends of the modelled river to the edge of the map.
+	var valley_points := centre.duplicate()
+	var valley_widths := widths.duplicate()
+	var last := _c.size() - 1
+	var steps := int(VALLEY_EXTENSION / 50.0)
+	for k in range(1, steps + 1):
+		var head := _c[0] - _t[0] * 50.0 * k
+		var tail := _c[last] + _t[last] * 50.0 * k
+		valley_points.insert(0, Vector3(head.x, y0, head.z))
+		valley_points.append(Vector3(tail.x, y0, tail.z))
+		valley_widths.insert(0, _hw[0])
+		valley_widths.append(_hw[last])
+
+	var natural := [[-30.0, bed_centre], [-8.0, bed_edge], [0.0, _water_y + 0.25],
+		[NATURAL_BANK, y0], [NATURAL_BANK + VALLEY_FLAT, y0]]
+	var valley := {
+		"op": "stamp_path", "points": valley_points, "half_widths": valley_widths, "profile": natural,
+		"falloff": VALLEY_FALLOFF, "auto_regions": false,
+	}
+
+	var town_points := PackedVector3Array()
+	var town_widths := []
+	for i in _town_indices():
+		town_points.append(centre[i])
+		town_widths.append(_hw[i])
+	# The step from river bed to quay height sits under the paved quay.
+	var quay := [[-30.0, bed_centre], [-6.0, bed_edge], [QUAY_STEP, bed_edge], [QUAY_STEP + 0.05, y0]]
+	var waterfront := quay.duplicate(true)
+	waterfront.append([TOWN_REACH, y0])
+	var city := quay.duplicate(true)
+	var off := QUAY_WIDTH + 2.0
+	while off <= TOWN_REACH:
+		city.append([off, y0 + _ground(SIDE_CITY, off)])
+		off += 4.0
+	var town := {
+		"op": "stamp_path", "points": town_points, "half_widths": town_widths,
+		"profile_left": city, "profile_right": waterfront,
+		"falloff": TOWN_FALLOFF, "end_falloff": TOWN_END_FALLOFF, "auto_regions": false,
+	}
+	return {
+		"stamps": [valley, town],
+		"water_y": _water_y,
+		"bed_centre": bed_centre,
+		"centre": centre,
+		"half_widths": widths,
+		"town_path": town_points,
+		"town_half_widths": town_widths,
+	}
 
 
 ## Hills up-river and behind both banks. Fog does the atmospheric perspective.
@@ -535,13 +556,16 @@ func _build_city_bank(s_bridge: float) -> void:
 	var wall_h: float = settings.wall_height
 	var thick: float = settings.wall_thickness
 	var gaps: Array[Vector2] = []
+	var s_wg := _s_town0 + len_town * 0.16
+	if not settings.city_wall or absf(s_wg - s_bridge) <= 40.0:
+		s_wg = -1.0
 
 	if settings.city_wall:
 		# 城门楼 over the bridge landing: one building — its 城台 with the gate passage, and the
 		# storeyed tower growing out of the terrace top.
-		var tower_w := 18.0
-		var tower_d := 11.5
-		var margin := 3.0
+		var tower_w := GATE_TOWER_W
+		var tower_d := GATE_TOWER_D
+		var margin := GATE_MARGIN
 		var pier_w := tower_w + 2.0 * margin
 		var pier_d := tower_d + 2.0 * margin
 		var pier_h := wall_h + 1.5
@@ -557,8 +581,7 @@ func _build_city_bank(s_bridge: float) -> void:
 		_add_marker(pier, "gate_pier")
 
 		# Water gate (水门) downstream.
-		var s_wg := _s_town0 + len_town * 0.16
-		if absf(s_wg - s_bridge) > 40.0:
+		if s_wg >= 0.0:
 			var wg := _bank(s_wg, SIDE_CITY, _wall_centre())
 			var wg_values := { "length": 12.0, "thickness": thick + 0.8, "height": wall_h, "batter_faces": 0.08,
 				"arch_count": 1, "arch_width": 5.0, "arch_height_ratio": 0.6, "arch_profile": 1, "parapet": 1 }
@@ -588,101 +611,7 @@ func _build_city_bank(s_bridge: float) -> void:
 				"storey_count": 2, "storey_setback": 1, "upper_column_scale": 0.45 }, true)
 			_add_lot(at, 0.0, 3, LOT_TOWER, -1, cp)
 
-	# Street inside the wall.
-	var street0 := _wall_inner() + 0.6
-	_road_along(SIDE_CITY, street0 + 3.0, 6.0, _s_town0 + 4.0, _s_town1 - 4.0, 0.3)
-
-	# Gate axis street up the terrace to the temple.
-	var axis_len := 0.0
-	var row_edge := street0 + 6.6
-	var rows := 4
-	var axis_half := 5.0
-	var skip_axis: Array[Vector2] = [Vector2(s_bridge - axis_half - 1.0, s_bridge + axis_half + 1.0)]
-	for r in rows:
-		var depth_max := 7.5
-		var skips := skip_axis.duplicate()
-		if r == 0:
-			for g in gaps:
-				skips.append(g)
-		# Rows alternate facing so pairs stand back to back across a lane, the way
-		# a 坊 block fills in, instead of every house staring at the next one's back.
-		_fill_row(SIDE_CITY, row_edge, r % 2 == 0, _s_town0 + 7.0, _s_town1 - 7.0, ROW_CITY, skips)
-		row_edge += PLATFORM_MARGIN * 2.0 + depth_max + 0.8
-		# Lane behind the row.
-		_road_along(SIDE_CITY, row_edge + 2.0, 4.0, _s_town0 + 7.0, _s_town1 - 7.0, 0.3)
-		row_edge += 4.4
-	axis_len = row_edge - street0
-
-	var axis_from := street0
-	var step := 4.0
-	var k := 0.0
-	while k < axis_len:
-		var a := _bank(s_bridge, SIDE_CITY, axis_from + k)
-		var b := _bank(s_bridge, SIDE_CITY, axis_from + minf(k + step, axis_len))
-		_roads.append({"pos": (a + b) * 0.5 + Vector3(0.0, 0.1, 0.0), "yaw": _road_yaw(b - a),
-			"len": a.distance_to(b) + 0.4, "width": axis_half * 2.0, "height": 0.4})
-		k += step
-
-	# Temple compound at the head of the axis: main hall facing the gate, two side halls.
-	var hall_off := row_edge + 9.0
-	var hall := _bank(s_bridge, SIDE_CITY, hall_off)
-	var n_axis: Vector3 = _at(s_bridge).n
-	var t_axis: Vector3 = _at(s_bridge).t
-	var hp := _house(4, 16.0, 10.5, ROOF_HIP, MAT_TRADITIONAL)
-	hp["fence"] = true
-	hp["steps"] = true
-	hp["fence_lambda"] = 1
-	hp["tile_color"] = TILE_GLAZED
-	_add_lot(hall, _yaw_to(-n_axis), 4, LOT_LANDMARK, -1, hp)
-	_claim(hall, 11.0)
-	for sd in [-1.0, 1.0]:
-		var sh := _bank(s_bridge + sd * 16.0, SIDE_CITY, hall_off - 12.0)
-		var sp := _house(3, 10.0, 6.5, ROOF_GABLE_AND_HIP, MAT_TRADITIONAL)
-		sp["steps"] = true
-		sp["fence_lambda"] = 0
-		if _claim(sh, 5.0):
-			_add_lot(sh, _yaw_to(-t_axis * sd), 3, LOT_LANDMARK, -1, sp)
-	for i in 6:
-		var tp := _bank(s_bridge + rng.randf_range(-26.0, 26.0), SIDE_CITY, hall_off + rng.randf_range(10.0, 22.0))
-		_add_tree(tp, rng.randf_range(1.0, 1.6))
-
-	# 楼阁 on the hill, off-axis: three storeys stepping in, a 平座 on each, under a 攒尖.
-	var s_pagoda := clampf(s_bridge + 62.0, _s_town0 + 20.0, _s_town1 - 20.0)
-	var pg := _bank(s_pagoda, SIDE_CITY, hall_off + 4.0)
-	if _claim(pg, 7.0):
-		_add_storeyed(pg, _yaw_to(-_at(s_pagoda).n), 10.0, 10.0, ROOF_PYRAMIDAL, 3, TILE_GLAZED, 4, LOT_LANDMARK,
-			{ "bays_x": 5, "bays_z": 5, "storey_setback": 1, "storey_balcony": true, "upper_column_scale": 0.75 })
-
-	# A 亭 on the slope below it, open, with 美人靠.
-	var s_ting := clampf(s_bridge - 48.0, _s_town0 + 20.0, _s_town1 - 20.0)
-	var tg := _bank(s_ting, SIDE_CITY, hall_off + 6.0)
-	if _claim(tg, 4.5):
-		var ting := _house(2, 6.0, 6.0, ROOF_PYRAMIDAL, MAT_TRADITIONAL)
-		ting.merge({ "sides": 6, "walls": false, "fence": false, "steps": true, "railing": 2,
-			"hanging_fascia": true }, true)
-		_add_lot(tg, _yaw_to(-_at(s_ting).n), 2, LOT_LANDMARK, -1, ting)
-
-	# Figures along the axis and the inner street.
-	for i in roundi(22.0 * settings.density):
-		var on_axis := i % 2 == 0
-		var fp: Vector3
-		if on_axis:
-			fp = _bank(s_bridge + rng.randf_range(-axis_half + 0.8, axis_half - 0.8), SIDE_CITY,
-				axis_from + rng.randf_range(2.0, axis_len))
-		else:
-			fp = _bank(rng.randf_range(_s_town0 + 8.0, _s_town1 - 8.0), SIDE_CITY,
-				street0 + rng.randf_range(0.8, 5.2))
-		_add_prop(fp, rng.randf() * 360.0, PROP_FIGURE_A + (i % 2))
-
-	# Trees: along the inside of the wall and on the hillside beyond the rows.
-	for i in roundi(34.0 * settings.density):
-		var s_tree := rng.randf_range(_s_town0 - 30.0, _s_town1 + 30.0)
-		var off := rng.randf_range(hall_off + 8.0, hall_off + 60.0)
-		if s_tree < _s_town0 or s_tree > _s_town1:
-			off = rng.randf_range(6.0, hall_off + 40.0)
-		var tp := _bank(s_tree, SIDE_CITY, off)
-		if _claim(tp, 2.0):
-			_add_tree(tp, rng.randf_range(0.9, 1.7))
+	_layout_city(s_bridge, s_wg)
 
 
 ## City wall along the city bank between the town ends, with openings at `gaps`
@@ -731,82 +660,6 @@ static func _in_gaps(s: float, gaps: Array[Vector2], pad: float) -> bool:
 	return false
 
 
-## Paving strip following the river at a constant bank offset.
-func _road_along(side: float, centre_off: float, width: float, s0: float, s1: float, height: float) -> void:
-	var step := 8.0
-	var s := s0
-	while s < s1 - 0.01:
-		var s_next := minf(s + step, s1)
-		var a := _bank(s, side, centre_off)
-		var b := _bank(s_next, side, centre_off)
-		_roads.append({"pos": (a + b) * 0.5 + Vector3(0.0, 0.05, 0.0), "yaw": _road_yaw(b - a),
-			"len": a.distance_to(b) + 0.6, "width": width, "height": height})
-		s = s_next
-
-
-# =========================================================================
-# Rows of houses
-# =========================================================================
-
-## Walks one row of lots along the river on `side`. `edge` is the row's near
-## boundary (bank offset); houses face the river when `face_river`, else inland.
-## Returns nothing — the caller advances offsets by the row's maximum depth.
-func _fill_row(side: float, edge: float, face_river: bool, s0: float, s1: float, kind: int,
-		skips: Array) -> void:
-	var s := s0 + rng.randf_range(0.0, 3.0)
-	var since_gap := 0
-	var gap_after := rng.randi_range(3, 5)
-	var since_tower := 0
-	var tower_after := rng.randi_range(6, 9)
-	while s < s1:
-		# Waterfront rhythm: landing steps every few houses, a red 重楼 now and then.
-		if kind == ROW_WATERFRONT and since_gap >= gap_after:
-			if _landing(s + 3.5, side):
-				s += 7.0
-				since_gap = 0
-				gap_after = rng.randi_range(3, 5)
-				continue
-		var tower := kind == ROW_WATERFRONT and since_tower >= tower_after
-		var p: Dictionary
-		if tower:
-			p = _house(3, 9.5, 7.0, ROOF_GABLE_AND_HIP, MAT_TRADITIONAL)
-		else:
-			p = _pick_house(kind)
-		var w: float = p.width
-		var d: float = p.depth
-		var ext := w * 1.3 + 0.8
-		if s + ext > s1:
-			break
-		var blocked := false
-		for g in skips:
-			if s + ext > g.x and s < g.y:
-				s = g.y + 1.0
-				blocked = true
-				break
-		if blocked:
-			continue
-
-		var sc := s + ext * 0.5
-		var steps := _steps_depth(p)
-		var off := edge + PLATFORM_MARGIN + d * 0.5 + (steps if face_river else 0.0)
-		var pos := _bank(sc, side, off)
-		var inland := _inland(sc, side)
-		var face := -inland if face_river else inland
-		if _claim(pos, 0.42 * maxf(w, d)):
-			if tower:
-				# 重楼: two storeys, 叉柱造, a 平座 on the street side.
-				_add_storeyed(pos, _yaw_to(face), w, d, ROOF_GABLE_AND_HIP, 2, TILE_RED, 3, LOT_SHOP,
-					{ "storey_setback": 0, "storey_balcony": true, "upper_column_scale": 0.8, "fence": false })
-				since_tower = 0
-				tower_after = rng.randi_range(6, 9)
-			else:
-				_add_lot(pos, _yaw_to(face), p.level, LOT_SHOP if kind == ROW_STREET else LOT_RESIDENCE,
-					0, p)
-				since_tower += 1
-			since_gap += 1
-		s += ext
-
-
 ## Landing steps down to the water at arc length s, with a moored boat and a
 ## tree. Returns false when the spot is taken.
 func _landing(s: float, side: float) -> bool:
@@ -832,7 +685,7 @@ func _landing(s: float, side: float) -> bool:
 
 func _build_waterfront_bank(s_bridge: float) -> void:
 	var side := SIDE_WATERFRONT
-	var bridge_skip: Array = [Vector2(s_bridge - 12.0, s_bridge + 12.0)] if settings.bridge else []
+	var pavilions := PackedFloat32Array()
 
 	# 水榭 out over the water on piles, placed first so the river row leaves room for them.
 	# Their stair lands on the quay, so they face the land.
@@ -847,55 +700,9 @@ func _build_waterfront_bank(s_bridge: float) -> void:
 			xie.merge({ "base_kind": 3, "stilt_depth": settings.water_depth + 1.5, "walls": false,
 				"fence": false, "steps": true, "fence_lambda": 0, "railing": 2, "hanging_fascia": true }, true)
 			_add_lot(xie_pos, _yaw_to(_inland(s_x, side)), 2, LOT_LANDMARK, -1, xie)
+			pavilions.append(s_x)
 
-	# River row: backs on the water, fronts on the street.
-	var edge := 0.3
-	var river_row_depth := 7.0
-	_fill_row(side, edge, false, _s_town0, _s_town1, ROW_WATERFRONT, bridge_skip)
-	edge += PLATFORM_MARGIN * 2.0 + river_row_depth + 1.2
-
-	# The street.
-	var street_w: float = settings.street_width
-	_road_along(side, edge + street_w * 0.5, street_w, _s_town0 - 10.0, _s_town1 + 10.0, 0.1)
-	var street_edge := edge
-	edge += street_w + 0.4
-
-	# Shops across the street, then back rows behind lanes.
-	_fill_row(side, edge, true, _s_town0 + 4.0, _s_town1 - 4.0, ROW_STREET, [])
-	edge += 3.0 + PLATFORM_MARGIN * 2.0 + 7.5 + 0.6
-	for r in settings.back_rows:
-		_road_along(side, edge + 1.75, 3.5, _s_town0 + 8.0, _s_town1 - 8.0, 0.1)
-		edge += 4.0
-		_fill_row(side, edge, true, _s_town0 + 8.0 + r * 6.0, _s_town1 - 8.0 - r * 6.0, ROW_BACK, [])
-		edge += PLATFORM_MARGIN * 2.0 + 5.0 + 0.6
-
-	# Market life on the street: stalls at the river-row edge, crowds in the middle.
-	for i in roundi(16.0 * settings.density):
-		var s := rng.randf_range(_s_town0 + 6.0, _s_town1 - 6.0)
-		var sp := _bank(s, side, street_edge + 1.1)
-		if _claim(sp, 1.1):
-			_add_prop(sp, _yaw_to(_inland(s, side)), PROP_STALL)
-	for i in roundi(80.0 * settings.density):
-		var s := rng.randf_range(_s_town0, _s_town1)
-		var fp := _bank(s, side, street_edge + rng.randf_range(0.6, street_w - 0.6))
-		_add_prop(fp, rng.randf() * 360.0, PROP_FIGURE_A + (i % 2))
-	var w_s := _bank(lerpf(_s_town0, _s_town1, 0.3), side, street_edge + street_w + 1.2)
-	if _claim(w_s, 1.0):
-		_add_prop(w_s, 0.0, PROP_WELL)
-
-	# 牌坊 across the street at both ends of the town.
-	for s_end in [_s_town0 + 2.0, _s_town1 - 2.0]:
-		_add_prop(_bank(s_end, side, street_edge + street_w * 0.5), _yaw_to(_at(s_end).t), PROP_ARCH)
-
-	# Groves behind the last row, and willows beyond the town ends.
-	for i in roundi(46.0 * settings.density):
-		var s := rng.randf_range(_s_town0 - 40.0, _s_town1 + 40.0)
-		var off := rng.randf_range(edge + 3.0, edge + 50.0)
-		if s < _s_town0 or s > _s_town1:
-			off = rng.randf_range(3.0, edge + 40.0)
-		var tp := _bank(s, side, off)
-		if _claim(tp, 2.0):
-			_add_tree(tp, rng.randf_range(0.8, 1.6))
+	_layout_waterfront(s_bridge, pavilions)
 
 
 func _build_boats(s_bridge: float) -> void:
@@ -913,82 +720,399 @@ func _build_boats(s_bridge: float) -> void:
 
 
 # =========================================================================
+# 街巷 → 街区 → 地块 → 院落 (addons/ancient_town/layout/)
+# =========================================================================
+
+
+## Inner city: the street inside the wall, the gate axis (大街) up to a cross street, a 衙署 at the
+## axis head, and lanes grown by the SE L-System about the axis between them.
+func _layout_city(s_bridge: float, s_wg: float) -> void:
+	var side := SIDE_CITY
+	var g := TownStreetGraph.new()
+	var u0 := _s_town0 + 4.5
+	var u1 := _s_town1 - 4.5
+	var v_street := _wall_inner() + 3.6
+	var v_cross := v_street + 42.0
+	var v_back := v_street + 112.0
+	var main_w := 9.0
+
+	# Skeleton — the streets an artist would draw first (the "手摆道路" stage of the GDC talk).
+	var pier_half := GATE_TOWER_W * 0.5 + GATE_MARGIN
+	var pier_in := 0.3 + GATE_TOWER_D + 2.0 * GATE_MARGIN
+	var gate_on: bool = settings.city_wall and settings.bridge
+	if gate_on:
+		# The 城台 reaches across the wall street; the street stops at it and the axis leaves
+		# from its inner face, through the gate passage.
+		g.insert_segment(Vector2(_s_town0 + 1.5, v_street), Vector2(s_bridge - pier_half, v_street), STREET, 6.0)
+		g.insert_segment(Vector2(s_bridge + pier_half, v_street), Vector2(_s_town1 - 1.5, v_street), STREET, 6.0)
+		g.insert_segment(Vector2(s_bridge - pier_half, v_street), Vector2(s_bridge - pier_half, pier_in), BOUNDARY, 0.2)
+		g.insert_segment(Vector2(s_bridge - pier_half, pier_in), Vector2(s_bridge + pier_half, pier_in), BOUNDARY, 0.2)
+		g.insert_segment(Vector2(s_bridge + pier_half, pier_in), Vector2(s_bridge + pier_half, v_street), BOUNDARY, 0.2)
+		g.insert_segment(Vector2(s_bridge, pier_in), Vector2(s_bridge, v_cross), MAIN, main_w)
+	else:
+		g.insert_segment(Vector2(_s_town0 + 1.5, v_street), Vector2(_s_town1 - 1.5, v_street), STREET, 6.0)
+		g.insert_segment(Vector2(s_bridge, v_street), Vector2(s_bridge, v_cross), MAIN, main_w)
+	for u in [u0, u1]:
+		g.insert_segment(Vector2(u, v_street), Vector2(u, v_back), LANE, 3.2)
+	g.insert_segment(Vector2(u0, v_cross), Vector2(u1, v_cross), STREET, 6.0)
+	g.insert_segment(Vector2(u0, v_back), Vector2(u1, v_back), BOUNDARY, 0.2)
+	if s_wg >= 0.0:
+		g.insert_segment(Vector2(s_wg, v_street), Vector2(s_wg, v_cross), LANE, 3.2)
+
+	# Reserved ground: the 衙署 on the axis head, the 楼阁 and the 亭 on the hill.
+	# 64 m deep: gate hall, a court long enough for 两庑 clear of both hipped eaves, the hall and its
+	# stair, a rear hall — TownCourtyards drops the 庑 and the rear hall first when it is shorter.
+	var office_w := 38.0
+	var office_d := minf(64.0, v_back - v_cross - 5.0)
+	var office := {"origin": Vector2(s_bridge - office_w * 0.5, v_cross + 3.2), "f": Vector2(1.0, 0.0),
+		"n": Vector2(0.0, 1.0), "width": office_w, "depth": office_d, "level": STREET}
+	var office_centre: Vector2 = office.origin + Vector2(office_w * 0.5, office_d * 0.5)
+	var reserved: Array[PackedVector2Array] = [_rect(s_bridge - office_w * 0.5 - 0.5, v_cross + 3.0,
+		s_bridge + office_w * 0.5 + 0.5, v_cross + 3.2 + office_d + 0.6)]
+	var s_pagoda := clampf(s_bridge + 60.0, u0 + 14.0, u1 - 14.0)
+	var s_ting := clampf(s_bridge - 56.0, u0 + 10.0, u1 - 10.0)
+	var v_pagoda := v_cross + 30.0
+	var v_ting := v_cross + 38.0
+	reserved.append(_rect(s_pagoda - 9.0, v_pagoda - 9.0, s_pagoda + 9.0, v_pagoda + 9.0))
+	reserved.append(_rect(s_ting - 5.5, v_ting - 5.5, s_ting + 5.5, v_ting + 5.5))
+
+	# Lanes: SE L-System, mirrored about the gate axis with SYM of local asymmetry.
+	var growth := TownStreetGrowth.new(g, rng)
+	growth.zone = _rect(u0, v_street, u1, v_back)
+	growth.axis = s_bridge
+	growth.sym = settings.symmetry
+	growth.obstacles = reserved
+	growth.grid = 6.0
+	growth.min_spacing = 19.0
+	growth.min_length = 9.0
+	growth.max_level = LANE
+	growth.level_rules[LANE].length = Vector2(18.0, 30.0)
+	growth.level_rules[LANE].branch = 0.55
+	growth.add_seed(Vector2(s_bridge - 30.0, v_cross), Vector2(0.0, 1.0), LANE)
+	growth.add_seed(Vector2(s_bridge - 30.0, v_street), Vector2(0.0, 1.0), LANE)
+	growth.add_seed(Vector2(s_bridge, (v_street + v_cross) * 0.5), Vector2(-1.0, 0.0), LANE)
+	growth.add_seed(Vector2(s_bridge - 70.0, v_cross), Vector2(0.0, 1.0), LANE)
+	growth.grow()
+
+	var levels := TownLevelField.new(settings.random_seed)
+	levels.extent = 240.0
+	levels.foci = [office_centre]
+
+	# 市: the biggest parcel on the axis inside the gate (parcels arrive largest first).
+	var market := {"taken": false}
+	var use_of := func(_parcel: Dictionary, rect: Dictionary, centre: Vector2) -> int:
+		match int(rect.level):
+			MAIN:
+				if not market.taken and centre.y < v_cross:
+					market.taken = true
+					return USE.MARKET
+				return USE.SHOP
+			STREET:
+				return USE.SHOP if rng.randf() < 0.45 else USE.RESIDENCE
+			-1:
+				return USE.GARDEN
+		return USE.RESIDENCE
+	_fill_blocks(side, g, reserved, TownParcels.rules({"width_min": 10.8, "width_max": 21.6, "depth_max": 32.0}),
+		levels, use_of, Callable())
+
+	var office_level := levels.level(office_centre, 5, 6)
+	_emit_courtyard(side, TownCourtyards.plan(_metric_rect(side, office), TownCourtyards.Kind.OFFICIAL, USE.OFFICIAL,
+		office_level, rng))
+	_add_marker(_world(side, office_centre), "office")
+	_emit_streets(side, g)
+	_last_city_graph = g
+
+	# Landmarks on their reserved plots.
+	var pg := _world(side, Vector2(s_pagoda, v_pagoda))
+	_claim(pg, 7.0)
+	_add_storeyed(pg, _yaw_to(-_inland(s_pagoda, side)), 10.0, 10.0, ROOF_PYRAMIDAL, 3, TILE_GLAZED, 4, LOT_LANDMARK,
+		{ "bays_x": 5, "bays_z": 5, "storey_setback": 1, "storey_balcony": true, "upper_column_scale": 0.75 })
+	var tg := _world(side, Vector2(s_ting, v_ting))
+	_claim(tg, 4.5)
+	var ting := _house(2, 6.0, 6.0, ROOF_PYRAMIDAL, MAT_TRADITIONAL)
+	ting.merge({ "sides": 6, "walls": false, "fence": false, "steps": true, "railing": 2,
+		"hanging_fascia": true }, true)
+	_add_lot(tg, _yaw_to(-_inland(s_ting, side)), 2, LOT_LANDMARK, -1, ting)
+
+	# 牌坊 on the axis inside the gate and before the 衙署.
+	for v in [pier_in + 5.0 if gate_on else v_street + 6.0, v_cross - 7.0]:
+		_add_prop(_world(side, Vector2(s_bridge, v)), _yaw_to(_inland(s_bridge, side)), PROP_ARCH)
+
+	# People on the axis and the street inside the wall.
+	for i in roundi(22.0 * settings.density):
+		var q := Vector2(s_bridge + rng.randf_range(-main_w * 0.4, main_w * 0.4), rng.randf_range(pier_in, v_cross))
+		if i % 2 == 1:
+			q = Vector2(rng.randf_range(u0, u1), v_street + rng.randf_range(-2.2, 2.2))
+		_add_prop(_world(side, q), rng.randf() * 360.0, PROP_FIGURE_A + (i % 2))
+
+	# Woods on the hill behind the town and beyond its ends.
+	for i in roundi(40.0 * settings.density):
+		var s_tree := rng.randf_range(_s_town0 - 30.0, _s_town1 + 30.0)
+		var off := rng.randf_range(v_back + 4.0, v_back + 60.0)
+		if s_tree < _s_town0 or s_tree > _s_town1:
+			off = rng.randf_range(6.0, v_back + 40.0)
+		var tp := _bank(s_tree, side, off)
+		if _claim(tp, 2.0):
+			_add_tree(tp, rng.randf_range(0.9, 1.7))
+			_trees.back().merge({"woodland": true, "bank_side": side, "bank_pos": Vector2(s_tree, off), "town_edge": v_back})
+
+
+## Waterfront: the 河街 along the river row, a 后街 behind, a bridge street inland from the
+## bridgehead, and a comb of lanes square to the river — each one either running on inland or
+## ending at the water as a 河埠头.
+func _layout_waterfront(s_bridge: float, pavilions: PackedFloat32Array) -> void:
+	var side := SIDE_WATERFRONT
+	var g := TownStreetGraph.new()
+	var sw: float = settings.street_width
+	var v_quay := 0.3
+	var v_street := 9.9 + sw * 0.5
+	var v_back := v_street + sw * 0.5 + 36.0
+	var v_edge := v_back + 1.8 + 26.0
+	var ua := _s_town0 - 2.0
+	var ub := _s_town1 + 2.0
+
+	g.insert_segment(Vector2(_s_town0 - 10.0, v_street), Vector2(_s_town1 + 10.0, v_street), STREET, sw)
+	g.insert_segment(Vector2(ua, v_back), Vector2(ub, v_back), LANE, 3.6)
+	g.insert_segment(Vector2(ua, v_quay), Vector2(ub, v_quay), BOUNDARY, 0.2)
+	g.insert_segment(Vector2(ua, v_quay), Vector2(ua, v_edge), BOUNDARY, 0.2)
+	g.insert_segment(Vector2(ub, v_quay), Vector2(ub, v_edge), BOUNDARY, 0.2)
+	g.insert_segment(Vector2(ua, v_edge), Vector2(ub, v_edge), BOUNDARY, 0.2)
+	if settings.bridge:
+		g.insert_segment(Vector2(s_bridge, v_street), Vector2(s_bridge, v_edge), MAIN, 7.0)
+
+	var reserved: Array[PackedVector2Array] = []
+	if settings.bridge:
+		reserved.append(_rect(s_bridge - 9.5, v_quay - 1.0, s_bridge + 9.5, v_street - sw * 0.5))
+	for s_x in pavilions:
+		reserved.append(_rect(s_x - 6.0, v_quay - 1.0, s_x + 6.0, 5.5))
+
+	# The comb. Lanes keep clear of the bridge street, the pavilions' stairs and the town ends.
+	var busy := func(u: float) -> bool:
+		if settings.bridge and absf(u - s_bridge) < 14.0:
+			return true
+		for s_x in pavilions:
+			if absf(u - s_x) < 8.0:
+				return true
+		return u < ua + 8.0 or u > ub - 8.0
+	var teeth := PackedFloat32Array()
+	var landings := PackedFloat32Array()
+	var u := ua + rng.randf_range(10.0, 18.0)
+	while u < ub - 10.0:
+		if not busy.call(u):
+			g.insert_segment(Vector2(u, v_street), Vector2(u, v_back), LANE, 3.2)
+			teeth.append(u)
+			if rng.randf() < 0.6:
+				g.insert_segment(Vector2(u, v_back), Vector2(u, v_edge), LANE, 2.8)
+			if rng.randf() < 0.5:
+				g.insert_segment(Vector2(u, v_quay), Vector2(u, v_street), LANE, 2.6)
+				landings.append(u)
+		u += rng.randf_range(24.0, 40.0)
+	# More 河埠头 lanes between the teeth, so the river row breaks every 20–40 m.
+	u = ua + rng.randf_range(20.0, 30.0)
+	while u < ub - 10.0:
+		var clear: bool = not busy.call(u)
+		for l in landings:
+			if absf(l - u) < 12.0:
+				clear = false
+		for t in teeth:
+			if absf(t - u) < 10.0:
+				clear = false
+		if clear:
+			g.insert_segment(Vector2(u, v_quay), Vector2(u, v_street), LANE, 2.6)
+			landings.append(u)
+		u += rng.randf_range(22.0, 34.0)
+	for l in landings:
+		_landing(l, side)
+	# A comb tooth near the bridge, for the lane-level camera.
+	var best := INF
+	var lane_u := -1.0
+	for t in teeth:
+		if absf(t - (s_bridge - 45.0)) < best:
+			best = absf(t - (s_bridge - 45.0))
+			lane_u = t
+	if lane_u >= 0.0:
+		_add_marker(_world(side, Vector2(lane_u, v_street + sw * 0.5 + 3.0)), "lane")
+
+	var levels := TownLevelField.new(settings.random_seed + 1)
+	levels.extent = 200.0
+	levels.foci = [Vector2(s_bridge, v_street)]
+
+	var market := {"taken": false}
+	var use_of := func(_parcel: Dictionary, rect: Dictionary, centre: Vector2) -> int:
+		match int(rect.level):
+			MAIN:
+				if not market.taken and centre.y < v_back:
+					market.taken = true
+					return USE.MARKET
+				return USE.SHOP
+			STREET:
+				return USE.SHOP
+			-1:
+				return USE.GARDEN
+		return USE.RESIDENCE
+	# A 重楼 now and then among the 河房: two storeys, red roof, 平座 over the street.
+	var tall := func(plan: Dictionary) -> void:
+		for b in plan.buildings:
+			if b.role == "shop" and _is_river_row(b, v_street) and b.w >= 7.0 and rng.randf() < 0.14:
+				b["storeys"] = 2
+				b["tile"] = TILE_RED
+				b["balcony"] = true
+	_fill_blocks(side, g, reserved, TownParcels.rules({"width_min": 6.0, "width_max": 11.0, "depth_max": 22.0}),
+		levels, use_of, tall)
+	_emit_streets(side, g)
+	_last_waterfront_graph = g
+
+	# Market life on the 河街: stalls at the river-row edge, crowds in the middle.
+	var street_edge := v_street - sw * 0.5
+	for i in roundi(16.0 * settings.density):
+		var s := rng.randf_range(_s_town0 + 6.0, _s_town1 - 6.0)
+		var sp := _bank(s, side, street_edge + 1.1)
+		if _claim(sp, 1.1):
+			_add_prop(sp, _yaw_to(_inland(s, side)), PROP_STALL)
+	for i in roundi(80.0 * settings.density):
+		var s := rng.randf_range(_s_town0, _s_town1)
+		_add_prop(_bank(s, side, street_edge + rng.randf_range(0.6, sw - 0.6)), rng.randf() * 360.0,
+			PROP_FIGURE_A + (i % 2))
+	# 牌坊 across the 河街 at both ends of the town.
+	for s_end in [_s_town0 + 2.0, _s_town1 - 2.0]:
+		_add_prop(_bank(s_end, side, v_street), _yaw_to(_at(s_end).t), PROP_ARCH)
+	# Woodland candidates become bamboo patches and scattered peach trees after both banks are built.
+	for i in roundi(46.0 * settings.density):
+		var s := rng.randf_range(_s_town0 - 40.0, _s_town1 + 40.0)
+		var off := rng.randf_range(v_edge + 3.0, v_edge + 50.0)
+		if s < ua or s > ub:
+			off = rng.randf_range(3.0, v_edge + 40.0)
+		var tp := _bank(s, side, off)
+		if _claim(tp, 2.0):
+			_add_tree(tp, rng.randf_range(0.8, 1.6))
+			_trees.back().merge({"woodland": true, "bank_side": side, "bank_pos": Vector2(s, off), "town_edge": v_edge})
+
+
+## Continuous woodland behind both banks. Sample in physical metres, compensating for the
+## curved river frame, and use a spatial hash so dense planting does not become quadratic.
+## This RNG never advances the town planner's state.
+func _grow_bamboo_patches(s_bridge: float) -> void:
+	var plants := RandomNumberGenerator.new()
+	plants.seed = settings.random_seed + 711
+	var occupied := {}
+	for claim in _claims:
+		_bamboo_reserve(occupied, claim)
+	var buildings: Array[Rect2] = []
+	for lot in _lots:
+		var basis := Basis(Vector3.UP, deg_to_rad(lot.yaw))
+		var extent := basis.x.abs() * float(lot.params.width) * 0.5 + basis.z.abs() * float(lot.params.depth) * 0.5
+		var half_size := Vector2(extent.x, extent.z) + Vector2.ONE
+		buildings.append(Rect2(Vector2(lot.pos.x, lot.pos.z) - half_size, half_size * 2.0))
+	var spacing: float = settings.bamboo_spacing / sqrt(settings.density)
+	var clearance := spacing * 0.27
+	var u0 := _s_town0 + 10.0
+	var u1 := _s_town1 - 10.0
+	var bamboo_anchor := Vector3.ZERO
+	var anchor_score := INF
+	for side in [SIDE_CITY, SIDE_WATERFRONT]:
+		var edge := -1.0
+		for tree in _trees:
+			if tree.get("woodland", false) and tree.bank_side == side:
+				edge = tree.town_edge
+				break
+		if edge < 0.0:
+			continue
+		var depth: float = settings.bamboo_forest_depth * (0.65 if side == SIDE_CITY else 1.0)
+		var grove_id := 0 if side == SIDE_CITY else 1
+		for tree in _trees:
+			if not tree.get("woodland", false) or tree.bank_side != side:
+				continue
+			var q: Vector2 = tree.bank_pos
+			if q.x > u0 and q.x < u1 and q.y > edge + 7.0 and q.y < edge + 7.0 + depth:
+				tree.merge({"species": Vegetation.Species.BAMBOO, "grove": grove_id,
+					"scale": plants.randf_range(0.82, 1.24)}, true)
+		var v := edge + 7.0 + spacing * 0.5
+		while v < edge + 7.0 + depth:
+			var u := u0 + plants.randf() * spacing
+			while u < u1:
+				var step := spacing / maxf(_stretch(side, Vector2(u, v), Vector2.RIGHT), 0.30)
+				var q := Vector2(u + plants.randf_range(-0.34, 0.34) * step, v + plants.randf_range(-0.34, 0.34) * spacing)
+				u += step
+				var end_fade := smoothstep(0.0, 14.0, minf(q.x - u0, u1 - q.x))
+				var outer := edge + 7.0 + depth * end_fade * (0.92 + 0.08 * sin(q.x * 0.073 + side))
+				if q.y > outer or q.y < edge + 7.0:
+					continue
+				var point := _world(side, q)
+				var blocked := false
+				for footprint in buildings:
+					if footprint.has_point(Vector2(point.x, point.z)):
+						blocked = true
+						break
+				if blocked or not _bamboo_has_space(occupied, point, clearance):
+					continue
+				var claim := Vector3(point.x, point.z, clearance)
+				_bamboo_reserve(occupied, claim)
+				_claims.append(claim)
+				_trees.append({"pos": point, "scale": plants.randf_range(0.82, 1.24),
+					"species": Vegetation.Species.BAMBOO, "grove": grove_id,
+					"woodland": true, "bank_side": side, "bank_pos": q, "town_edge": edge})
+				var score := absf(q.x - s_bridge) + absf(q.y - edge - 12.0)
+				if side == SIDE_WATERFRONT and score < anchor_score:
+					anchor_score = score
+					bamboo_anchor = point
+			v += spacing
+	if anchor_score < INF:
+		_add_marker(bamboo_anchor, "bamboo_grove")
+	# Keep a close-up camera near a peach at the populated town edge.
+	var peach_distance := INF
+	var peach_pos := Vector3.ZERO
+	for tree in _trees:
+		if tree.get("species", Vegetation.Species.PEACH) != Vegetation.Species.PEACH or not tree.get("woodland", false):
+			continue
+		var q: Vector2 = tree.bank_pos
+		var distance := absf(q.x - s_bridge) + q.y * 0.1
+		if tree.bank_side == SIDE_WATERFRONT and distance < peach_distance:
+			peach_distance = distance
+			peach_pos = tree.pos
+	if peach_distance < INF:
+		_add_marker(peach_pos, "peach_garden")
+
+
+const BAMBOO_CLAIM_CELL := 4.0
+
+
+func _bamboo_reserve(occupied: Dictionary, claim: Vector3) -> void:
+	for x in range(floori((claim.x - claim.z) / BAMBOO_CLAIM_CELL), floori((claim.x + claim.z) / BAMBOO_CLAIM_CELL) + 1):
+		for z in range(floori((claim.y - claim.z) / BAMBOO_CLAIM_CELL), floori((claim.y + claim.z) / BAMBOO_CLAIM_CELL) + 1):
+			var cell := Vector2i(x, z)
+			if not occupied.has(cell):
+				occupied[cell] = []
+			occupied[cell].append(claim)
+
+
+func _bamboo_has_space(occupied: Dictionary, point: Vector3, radius: float) -> bool:
+	for x in range(floori((point.x - radius) / BAMBOO_CLAIM_CELL), floori((point.x + radius) / BAMBOO_CLAIM_CELL) + 1):
+		for z in range(floori((point.z - radius) / BAMBOO_CLAIM_CELL), floori((point.z + radius) / BAMBOO_CLAIM_CELL) + 1):
+			for claim in occupied.get(Vector2i(x, z), []):
+				var offset := Vector2(point.x - claim.x, point.z - claim.y)
+				if offset.length_squared() < (radius + claim.z) * (radius + claim.z):
+					return false
+	return true
+
+
+## A building of the river row (between the water and the 河街). Its layout position is in the
+## bank frame, so v is simply its offset.
+static func _is_river_row(b: Dictionary, v_street: float) -> bool:
+	return (b.pos as Vector2).y < v_street
+
+
+# =========================================================================
 # Packing
 # =========================================================================
 
-func _pack_river_buildings() -> FlowData.Data:
-	var d := _pack_buildings()
-	# The gallery bays stand on the bridge deck without a 台基, so the level-derived default
-	# from town_lots is replaced by each lot's own flag.
-	var plat := PackedByteArray()
-	var tile := PackedColorArray()
-	plat.resize(_lots.size())
-	tile.resize(_lots.size())
-	for i in _lots.size():
-		var p: Dictionary = _lots[i].params
-		plat[i] = 1 if p.get("platform", true) else 0
-		tile[i] = p.get("tile_color", TILE_GREY)
-	d.registerStream("ab_platform", plat, FlowData.DataType.Bool)
-	d.registerStream("ab_tile_color", tile, FlowData.DataType.Color)
-
-	# Structure (多层 / 城台 / 亭台榭): one stream per field, the default written for ordinary
-	# houses so every point says what it is. [lot key, stream, default]
-	var fields := [
-		["sides", "ab_sides", 4], ["storey_count", "ab_storey_count", 1],
-		["storey_setback", "ab_storey_setback", 0], ["upper_column_scale", "ab_upper_column_scale", 0.8],
-		["storey_balcony", "ab_storey_balcony", false], ["base_kind", "ab_base_kind", 0],
-		["base_height", "ab_base_height", 7.0], ["base_margin", "ab_base_margin", 4.0],
-		["base_arches", "ab_base_arches", 1], ["base_parapet", "ab_base_parapet", 1],
-		["masonry_storeys", "ab_masonry_storeys", 0], ["railing", "ab_railing", 0],
-		["hanging_fascia", "ab_hanging_fascia", false], ["module_span", "ab_module_span", 0.0],
-		["stilt_depth", "ab_stilt_depth", 2.0],
-	]
-	for field in fields:
-		var default_value = field[2]
-		var container
-		var data_type: int
-		match typeof(default_value):
-			TYPE_BOOL:
-				container = PackedByteArray()
-				data_type = FlowData.DataType.Bool
-			TYPE_FLOAT:
-				container = PackedFloat32Array()
-				data_type = FlowData.DataType.Float
-			_:
-				container = PackedInt32Array()
-				data_type = FlowData.DataType.Int
-		container.resize(_lots.size())
-		for i in _lots.size():
-			var value = _lots[i].params.get(field[0], default_value)
-			container[i] = (1 if value else 0) if data_type == FlowData.DataType.Bool else value
-		d.registerStream(field[1], container, data_type)
-	return d
-
-
-func _pack_structures() -> FlowData.Data:
-	var d := FlowData.Data.new()
-	var n := _structures.size()
-	var pos := PackedVector3Array()
-	var rot := PackedVector3Array()
-	var size := PackedVector3Array()
-	var tint := PackedColorArray()
-	pos.resize(n)
-	rot.resize(n)
-	size.resize(n)
-	tint.resize(n)
-	var meshes = d.newContainerOfType(FlowData.DataType.Resource)
-	meshes.resize(n)
-	for i in n:
-		var st: Dictionary = _structures[i]
-		pos[i] = st.pos
-		rot[i] = Vector3(0.0, st.yaw, 0.0)
-		size[i] = Vector3.ONE
-		# White instance colour: forces use_colors on, see _pack_strips.
-		tint[i] = Color.WHITE
-		meshes[i] = st.mesh
-	d.registerStream(FlowData.AttrPosition, pos, FlowData.DataType.Vector)
-	d.registerStream(FlowData.AttrRotation, rot, FlowData.DataType.Vector)
-	d.registerStream(FlowData.AttrSize, size, FlowData.DataType.Vector)
-	d.registerStream("color", tint, FlowData.DataType.Color)
-	d.registerStream(settings.structure_mesh_attribute, meshes, FlowData.DataType.Resource)
-	return d
+func _pack_trees() -> FlowData.Data:
+	var data := super._pack_trees()
+	var species := PackedInt32Array()
+	var variants := PackedInt32Array()
+	for tree in _trees:
+		var kind: int = tree.get("species", Vegetation.Species.PEACH)
+		species.append(kind)
+		variants.append(Vegetation.variant_for(kind, FlowData.point_seed(tree.pos, settings.random_seed)))
+	data.registerStream(Vegetation.SPECIES_ATTRIBUTE, species, FlowData.DataType.Int)
+	data.registerStream(Vegetation.VARIANT_ATTRIBUTE, variants, FlowData.DataType.Int)
+	return data

@@ -392,6 +392,7 @@ func _build_variants() -> Array[Mesh]:
 		var building = ClassDB.instantiate("AncientBuilding")
 		building.auto_regenerate = false
 		building.parameters = params
+		_apply_slot_materials(building)
 		var mesh: Mesh = building.bake_mesh()
 		# bake_mesh() returns the node's own mesh, which outlives the node.
 		building.free()
@@ -497,6 +498,13 @@ func _bake_from_params(ov: Dictionary, rng: RandomNumberGenerator) -> Mesh:
 	var building = ClassDB.instantiate("AncientBuilding")
 	building.auto_regenerate = false
 	building.parameters = params
+	_apply_slot_materials(building)
 	var mesh: Mesh = building.bake_mesh()
 	building.free()
 	return mesh
+
+
+## Settings `slot_materials` onto a throwaway building before it bakes. Older DLLs lack the property.
+func _apply_slot_materials(building: Object) -> void:
+	if not settings.slot_materials.is_empty() and "slot_materials" in building:
+		building.slot_materials = settings.slot_materials
