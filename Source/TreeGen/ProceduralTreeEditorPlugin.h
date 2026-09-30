@@ -21,6 +21,7 @@
 namespace godot
 {
 	class ProceduralTree;
+	class FoldableContainer;
 
 	class ProceduralTreeEditorPlugin : public EditorPlugin
 	{
@@ -52,6 +53,21 @@ namespace godot
 		HSlider* RootThicknessSlider = nullptr;
 		HSlider* BranchThicknessSlider = nullptr;
 		HSlider* BranchDensitySlider = nullptr;
+		CheckBox* CrossedFoliageCheck = nullptr;
+		CheckBox* SpeciesRulesCheck = nullptr;
+		CheckBox* StructuralBranchesCheck = nullptr;
+		CheckBox* ShowLeavesCheck = nullptr;
+		VBoxContainer* GrowthTuningBox = nullptr;
+		FoldableContainer* GrowthFoldout = nullptr;
+		HSlider* TrunkBendSlider = nullptr;
+		HSlider* BranchBendSlider = nullptr;
+		HSlider* ForkingSlider = nullptr;
+		VBoxContainer* BambooTuningBox = nullptr;
+		HSlider* BambooInternodeSlider = nullptr;
+		HSlider* BambooNodeSlider = nullptr;
+		HSlider* BambooLeafSlider = nullptr;
+		HSlider* SlowLeafDensitySlider = nullptr;
+		HSlider* SlowSeasonSlider = nullptr;
 
 		/** The tree currently being edited, or null. Only touched through ResolveTree(). */
 		ObjectID EditedTreeId;
@@ -78,6 +94,11 @@ namespace godot
 		void OnBackendChanged(int64_t Index);
 		void OnSlowTreePresetChanged(int64_t Index);
 		void OnGpuTessellationToggled(bool bPressed);
+		void OnCrossedFoliageToggled(bool bPressed);
+		void OnSpeciesRulesToggled(bool bPressed);
+		void OnStructuralBranchesToggled(bool bPressed);
+		void OnShowLeavesToggled(bool bPressed);
+		void OnGrowthValueChanged(double Value, const StringName& Property);
 		void OnSeedChanged(double Value);
 		void OnSeasonChanged(double Value);
 		void OnWindChanged(double Value);

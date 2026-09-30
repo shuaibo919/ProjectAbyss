@@ -3,6 +3,7 @@
 // OpenGL 渲染层被剥离, 仅保留 CPU 侧网格数据结构: MeshBatch / TreeMeshData /
 // LightingParams / WindParams。见 UPSTREAM_SYNC.md。
 #include "SlowTreeTypes.h"
+#include "SlowTreeFoliage.h"
 #include <godot_cpp/variant/quaternion.hpp>
 #include <godot_cpp/variant/vector2.hpp>
 #include <godot_cpp/variant/vector3.hpp>
@@ -21,6 +22,12 @@ struct MeshBatch {
     std::vector<uint32_t> indices;
     MaterialParams        material;
     bool                  isLeaf = false;
+    bool                  bMaskedFoliage = false;
+	// Optional generated culm colours; keeps the upstream 10-float wood format intact.
+	std::vector<godot::Vector3> WoodColors;
+	bool bBambooCulm = false;
+	int32_t BarkPreset = -1;
+	std::vector<godot::Vector4> WoodTangents;
     // 实例化代理: 该 batch 是散布叶的"视口预览烘焙"(几何已在 protos 里实例化导出)。
     // 导出 USD 时必须跳过, 否则每片叶完整几何会被重复并入 base 网格(面数/体积爆炸)。
     bool                  instanced = false;
@@ -28,6 +35,11 @@ struct MeshBatch {
 
 struct TreeMeshData {
     std::vector<MeshBatch> batches;
+    std::vector<godot::TreeFoliageCard> FoliageCards;
+    uint32_t FoliageCardCount = 0;
+    bool bFoliageBudgetApplied = false;
+    bool bSegmentBudgetApplied = false;
+	godot::TreeGrowthDiagnostics Growth;
     // 实例化叶原型(FBX 散布用): 一份原型网格 + 一组每实例 transform。
     // 视口渲染时烘成普通 batch; 导出 USD 时成为 PointInstancer(引擎里只存 1 份原型, 省内存)。
     // bone: 该实例刚性绑定的骨索引(骨骼 Nanite Assembly 用; -1=无骨骼/不绑定)。
@@ -72,7 +84,21 @@ struct TreeMeshData {
     // 拾取三角形: 每个三角形记录三个世界坐标顶点 + 所属节点 id, 供鼠标射线拾取。
     struct PickTri { godot::Vector3 a, b, c; uint32_t node; };
     std::vector<PickTri>  pickTris;
-    void clear() { batches.clear(); protos.clear(); hlVerts.clear(); hlIdx.clear(); pickTris.clear(); skeleton.clear(); skinBase = {}; }
+    void clear()
+    {
+        batches.clear();
+        FoliageCards.clear();
+        FoliageCardCount = 0;
+        bFoliageBudgetApplied = false;
+        bSegmentBudgetApplied = false;
+        Growth = {};
+        protos.clear();
+        hlVerts.clear();
+        hlIdx.clear();
+        pickTris.clear();
+        skeleton.clear();
+        skinBase = {};
+    }
 };
 
 struct LightingParams {

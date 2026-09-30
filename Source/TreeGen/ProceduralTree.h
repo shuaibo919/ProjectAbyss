@@ -2,16 +2,18 @@
 
 // Scene-facing node for the ported "Real-Time GPU Tree Generation" model.
 //
-// Deliberately asset-free: geometry, colours and materials are all produced in code, so a
-// tree needs nothing on disk beyond this extension. Colours ride on vertex colours, which
-// StandardMaterial3D consumes as albedo.
+// Geometry, masks and materials are generated in code. SlowTree previews prepare private
+// graph/vertex buffers in a worker; only the main thread commits rendering resources.
 
 #include "TreeGen/ProceduralTreeParameters.h"
+#include "TreeGen/ProceduralTreeGrowthParameters.h"
 #include "TreeGen/SlowTree/SlowTreeGenerator.h"
 #include "TreeGen/TreeMeshBuilder.h"
 
 #include <godot_cpp/classes/mesh_instance3d.hpp>
 #include <godot_cpp/classes/standard_material3d.hpp>
+#include <future>
+#include <chrono>
 
 namespace godot
 {
@@ -29,13 +31,26 @@ namespace godot
 
 	private:
 		Ref<ProceduralTreeParameters> Parameters;
+		Ref<ProceduralTreeGrowthParameters> GrowthParameters;
+		bool bStructuralBranches = true;
 		int32_t Seed = 0;
 
 		// SlowTree 后端: 预设模板 id + 全局种子(0 = 模板原样, 非 0 = Mix32 派生变种)。
 		int32_t Backend = BACKEND_WEBER_PENN;
 		int32_t SlowTreePreset = 0;
-		// Stage 2: 细分走 compute 管线(默认关, 与 CPU 路径输出等价; 大数据量下更快)。
+		// Explicit generate/bake can use compute. Automatic previews always use a CPU worker.
 		bool bUseGpuTessellation = false;
+		int32_t FoliageMode = 1;
+		bool bSpeciesRules = true;
+		bool bPreviewPending = false;
+		uint64_t RequestedRevision = 0;
+		uint64_t WorkingRevision = 0;
+		uint64_t CommittedRevision = 0;
+		std::future<SlowTreePreparedMesh> PreviewJob;
+		std::shared_ptr<std::atomic<bool>> PreviewCancelled;
+		float LastGenerationMs = 0.0f;
+		float LastCommitMs = 0.0f;
+		uint64_t GenerationCount = 0;
 
 		float Season = 2.0f;
 		float WindStrength = 0.0f;
@@ -78,6 +93,9 @@ namespace godot
 		void EnsureMaterials();
 		void OnParametersChanged();
 		void RequestRegenerate();
+		SlowTreeTuning CollectSlowTreeTuning() const;
+		void ApplySlowTreeResult(const SlowTreeMeshResult& Result);
+		void UpdateFoliageMaterial();
 
 		/** SlowTree 后端生成路径: 预设模板 → 全局种子派生 → facade → set_mesh + 统计。 */
 		void GenerateSlowTree();
@@ -99,15 +117,21 @@ namespace godot
 		ProceduralTree();
 
 		void _ready() override;
+		void _process(double Delta) override;
+		void _exit_tree() override;
 
 		/** Rebuilds the mesh in place. Safe to call from tools, game code or PCG graphs. */
 		void Generate();
 
-		/** Builds and returns a mesh without touching this node, for baking or MultiMesh use. */
+		/** Rebuilds synchronously and returns this node's mesh, for baking or MultiMesh use. */
 		Ref<ArrayMesh> BakeMesh();
 
 		void SetParameters(const Ref<ProceduralTreeParameters>& Value);
 		Ref<ProceduralTreeParameters> GetParameters() const { return Parameters; }
+		void SetGrowthParameters(const Ref<ProceduralTreeGrowthParameters>& Value);
+		Ref<ProceduralTreeGrowthParameters> GetGrowthParameters() const { return GrowthParameters; }
+		void SetStructuralBranches(bool bValue);
+		bool GetStructuralBranches() const { return bStructuralBranches; }
 
 		/** Convenience wrapper so a tree can be re-seeded to one of the paper's species. */
 		void ApplyPreset(int32_t Preset);
@@ -126,6 +150,32 @@ namespace godot
 		/** SlowTree 细分是否走 GPU compute 管线(仅 SlowTree 后端生效)。 */
 		void SetUseGpuTessellation(bool bValue);
 		bool ShouldUseGpuTessellation() const { return bUseGpuTessellation; }
+		void SetFoliageMode(int32_t Value);
+		int32_t GetFoliageMode() const
+		{
+			return FoliageMode;
+		}
+		void SetSpeciesRules(bool bValue);
+		bool HasSpeciesRules() const
+		{
+			return bSpeciesRules;
+		}
+		bool IsPreviewPending() const
+		{
+			return bPreviewPending || PreviewJob.valid();
+		}
+		float GetGenerationMs() const
+		{
+			return LastGenerationMs;
+		}
+		float GetCommitMs() const
+		{
+			return LastCommitMs;
+		}
+		int64_t GetGenerationCount() const
+		{
+			return int64_t(GenerationCount);
+		}
 
 		void SetSeason(float Value);
 		float GetSeason() const { return Season; }

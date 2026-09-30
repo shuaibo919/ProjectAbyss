@@ -25,8 +25,19 @@ public:
     // Stage 2 GPU 发射: 传入非空指针后, 各 emit 位点发射描述子而非顶点
     // (中心线/RNG/附着计算完全共享 CPU 代码); nullptr 恢复纯 CPU 路径。
     void EnableGpuEmission(godot::TreeGpuEmission* emission);
+    void SetFoliageOptions(const godot::TreeFoliageOptions& Options)
+    {
+        FoliageOptions = Options;
+    }
 
 private:
+    godot::TreeFoliageOptions FoliageOptions;
+    int32_t GeneratedSegments = 0;
+    bool ShouldStop() const
+    {
+        return (m_out && m_out->bSegmentBudgetApplied) ||
+            (FoliageOptions.Cancelled && FoliageOptions.Cancelled->load(std::memory_order_relaxed));
+    }
     TreeMeshData* m_out = nullptr;
     NodeId        m_hlNode = INVALID_NODE;   // 被选中的高亮节点
     bool          m_hlCapture = false;       // 当前是否正在生成被选中节点"自身"的几何

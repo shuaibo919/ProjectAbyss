@@ -27,6 +27,7 @@ namespace
 
 ProceduralTree::ProceduralTree()
 {
+	set_process(false);
 }
 
 void ProceduralTree::_bind_methods()
@@ -78,6 +79,24 @@ void ProceduralTree::_bind_methods()
 	ClassDB::bind_method(D_METHOD("should_use_gpu_tessellation"), &ProceduralTree::ShouldUseGpuTessellation);
 	ADD_PROPERTY(PropertyInfo(Variant::BOOL, "use_gpu_tessellation"),
 		"set_use_gpu_tessellation", "should_use_gpu_tessellation");
+
+	ClassDB::bind_method(D_METHOD("set_foliage_mode", "value"), &ProceduralTree::SetFoliageMode);
+	ClassDB::bind_method(D_METHOD("get_foliage_mode"), &ProceduralTree::GetFoliageMode);
+	ADD_PROPERTY(PropertyInfo(Variant::INT, "foliage_mode", PROPERTY_HINT_ENUM, "Geometry,Crossed clusters (SlowTree)"),
+				 "set_foliage_mode", "get_foliage_mode");
+	ClassDB::bind_method(D_METHOD("set_species_rules", "value"), &ProceduralTree::SetSpeciesRules);
+	ClassDB::bind_method(D_METHOD("has_species_rules"), &ProceduralTree::HasSpeciesRules);
+	ADD_PROPERTY(PropertyInfo(Variant::BOOL, "species_rules"), "set_species_rules", "has_species_rules");
+	ClassDB::bind_method(D_METHOD("is_preview_pending"), &ProceduralTree::IsPreviewPending);
+	ClassDB::bind_method(D_METHOD("get_generation_ms"), &ProceduralTree::GetGenerationMs);
+	ClassDB::bind_method(D_METHOD("get_commit_ms"), &ProceduralTree::GetCommitMs);
+	ClassDB::bind_method(D_METHOD("get_generation_count"), &ProceduralTree::GetGenerationCount);
+	ADD_SIGNAL(MethodInfo("generation_completed"));
+	ClassDB::bind_method(D_METHOD("set_growth_parameters", "value"), &ProceduralTree::SetGrowthParameters);
+	ClassDB::bind_method(D_METHOD("get_growth_parameters"), &ProceduralTree::GetGrowthParameters);
+	ADD_PROPERTY(PropertyInfo(Variant::OBJECT, "growth_parameters", PROPERTY_HINT_RESOURCE_TYPE, "ProceduralTreeGrowthParameters"),
+		"set_growth_parameters", "get_growth_parameters");
+	TREE_BIND(Variant::BOOL, "structural_branches", StructuralBranches)
 
 	TREE_BIND_RANGE(Variant::INT, "seed", Seed, "0,65535,1,or_greater")
 	TREE_BIND_RANGE(Variant::FLOAT, "season", Season, "0,4,0.01")
@@ -311,6 +330,13 @@ void ProceduralTree::CollectTreeParams(TreeGen::TreeParams& OutParams) const
 
 void ProceduralTree::Generate()
 {
+	if (PreviewCancelled)
+	{
+		PreviewCancelled->store(true, std::memory_order_relaxed);
+	}
+	CommittedRevision = ++RequestedRevision;
+	bPreviewPending = false;
+	++GenerationCount;
 	if (Backend == BACKEND_SLOWTREE)
 	{
 		GenerateSlowTree();
@@ -398,45 +424,161 @@ void ProceduralTree::Generate()
 	}
 }
 
-void ProceduralTree::GenerateSlowTree()
+SlowTreeTuning ProceduralTree::CollectSlowTreeTuning() const
 {
-	const int32_t PresetCount = SlowTreeGenerator::GetPresetCount();
-	const int32_t Preset = std::clamp(SlowTreePreset, 0, std::max(0, PresetCount - 1));
-
-	// Season 是两个后端共用的旋钮: Weber-Penn 侧在网格构建时着色, SlowTree 侧在装配
-	// 单 surface 时按逐叶锚点哈希着色。语义相同(0/4 冬, 2 夏)。
-	// 形变旋钮以字典直通 Generator(缺省键 = 1.0 预设原样)。
-	Dictionary SlowTreeTuningDict;
-	SlowTreeTuningDict["trunk_thickness"] = TrunkThickness;
-	SlowTreeTuningDict["root_thickness"] = RootThickness;
-	SlowTreeTuningDict["branch_thickness"] = BranchThickness;
-	SlowTreeTuningDict["branch_density"] = BranchDensity;
-	const Dictionary Result = SlowTreeGenerator::Generate(
-		Preset, int64_t(Seed), bUseGpuTessellation, Season, SlowTreeTuningDict);
-	const String Error = Result["error"];
-	if (!Error.is_empty())
+	SlowTreeTuning Tuning;
+	Tuning.TrunkThickness = TrunkThickness;
+	Tuning.RootThickness = RootThickness;
+	Tuning.BranchThickness = BranchThickness;
+	Tuning.BranchDensity = BranchDensity;
+	Tuning.Foliage.bCrossedCards = FoliageMode == 1;
+	Tuning.Foliage.bSpeciesRules = bSpeciesRules;
+	Tuning.Foliage.bGenerateLeaves = bGenerateLeaves;
+	Tuning.Foliage.Density = LeafDensity;
+	Tuning.Foliage.MaxCards = MaxLeaves;
+	Tuning.Foliage.MaxSegments = MaxSegments;
+	Tuning.Foliage.RadialSegments = RadialSegments;
+	Tuning.Foliage.Preset = SlowTreePreset;
+	if (GrowthParameters.is_valid())
 	{
-		UtilityFunctions::push_warning(
-			"ProceduralTree '", get_name(), "' SlowTree generation failed: ", Error);
+		Tuning.Foliage.Growth = GrowthParameters->MakeSnapshot();
+	}
+	Tuning.Foliage.Growth.bEnabled = bStructuralBranches;
+	return Tuning;
+}
+
+void ProceduralTree::UpdateFoliageMaterial()
+{
+	const Ref<Mesh> CurrentMesh = get_mesh();
+	if (CurrentMesh.is_null())
+	{
 		return;
 	}
-
-	const Ref<ArrayMesh> Mesh = Result["mesh"];
-	set_mesh(Mesh);
-
-	// 统计映射: SlowTree 没有段/叶独立计数, surface 数最有意义; 叶数为 0(Stage 2/3 可补)。
-	LastVertexCount = int32_t(Result["vertex_count"]);
-	LastTriangleCount = int32_t(Result["triangle_count"]);
-	LastSegmentCount = int32_t(Result["surface_count"]);
-	LastLeafCount = 0;
-	bLastResultTruncated = bool(Result["truncated"]);
-
-	if (bLastResultTruncated)
+	for (int32_t Index = 0; Index < CurrentMesh->get_surface_count(); ++Index)
 	{
-		UtilityFunctions::push_warning(
-			"ProceduralTree '", get_name(), "' SlowTree generation hit the vertex budget "
-			"and was truncated. Reduce the preset's leaf/spine counts.");
+		SlowTreeFoliage::UpdateMaterial(CurrentMesh->surface_get_material(Index), Season, WindStrength, WindTime);
 	}
+}
+
+void ProceduralTree::ApplySlowTreeResult(const SlowTreeMeshResult& Result)
+{
+	if (Result.IsError())
+	{
+		UtilityFunctions::push_warning("ProceduralTree: ", Result.Error);
+		return;
+	}
+	set_mesh(Result.Mesh);
+	LastVertexCount = int32_t(Result.VertexCount);
+	LastTriangleCount = int32_t(Result.TriangleCount);
+	LastSegmentCount = int32_t(Result.Growth.Segments > 0 ? Result.Growth.Segments : Result.SurfaceCount);
+	LastLeafCount = int32_t(Result.LeafCount);
+	bLastResultTruncated = Result.Truncated;
+	LastGenerationMs = Result.GenerationMs + Result.ConvertMs;
+	UpdateFoliageMaterial();
+	emit_signal("generation_completed");
+}
+
+void ProceduralTree::GenerateSlowTree()
+{
+	SlowTreeMeshResult Result;
+	if (bUseGpuTessellation)
+	{
+		Dictionary Tuning;
+		Tuning["trunk_thickness"] = TrunkThickness;
+		Tuning["root_thickness"] = RootThickness;
+		Tuning["branch_thickness"] = BranchThickness;
+		Tuning["branch_density"] = BranchDensity;
+		Tuning["crossed_cards"] = FoliageMode == 1;
+		Tuning["species_rules"] = bSpeciesRules;
+		Tuning["generate_leaves"] = bGenerateLeaves;
+		Tuning["leaf_density"] = LeafDensity;
+		Tuning["max_leaves"] = MaxLeaves;
+		Tuning["max_segments"] = MaxSegments;
+		Tuning["radial_segments"] = RadialSegments;
+		Tuning["growth_parameters"] = GrowthParameters;
+		Tuning["structural_branches"] = bStructuralBranches;
+		const Dictionary Generated = SlowTreeGenerator::Generate(SlowTreePreset, Seed, true, Season, Tuning);
+		Result.Mesh = Generated["mesh"];
+		Result.Error = Generated["error"];
+		Result.VertexCount = uint32_t(Generated["vertex_count"]);
+		Result.TriangleCount = uint32_t(Generated["triangle_count"]);
+		Result.SurfaceCount = uint32_t(Generated["surface_count"]);
+		Result.LeafCount = uint32_t(Generated["leaf_count"]);
+		Result.Truncated = bool(Generated["truncated"]);
+		Result.GenerationMs = float(Generated["generation_ms"]);
+		Result.ConvertMs = float(Generated["convert_ms"]);
+		const Dictionary GrowthStats = Generated.get("growth_stats", Dictionary());
+		Result.Growth.Segments = uint32_t(GrowthStats.get("segments", 0));
+		LastCommitMs = Result.ConvertMs;
+	}
+	else
+	{
+		const SlowTreePreparedMesh Prepared =
+			SlowTreeGenerator::PreparePreset(SlowTreePreset, Seed, Season, CollectSlowTreeTuning());
+		const auto Started = std::chrono::steady_clock::now();
+		SlowTreeGenerator::CommitMesh(Prepared, Result, Season);
+		LastCommitMs =
+			float(std::chrono::duration<double, std::milli>(std::chrono::steady_clock::now() - Started).count());
+	}
+	ApplySlowTreeResult(Result);
+}
+
+void ProceduralTree::_process(double Delta)
+{
+	(void)Delta;
+	if (PreviewJob.valid() && PreviewJob.wait_for(std::chrono::seconds(0)) == std::future_status::ready)
+	{
+		const SlowTreePreparedMesh Prepared = PreviewJob.get();
+		// One running job and one latest request. A completed older preview can be shown while
+		// dragging, but can never overwrite a newer explicit generate/bake/backend change.
+		if (WorkingRevision > CommittedRevision && Backend == BACKEND_SLOWTREE && bAutoRegenerate)
+		{
+			SlowTreeMeshResult Result;
+			const auto Started = std::chrono::steady_clock::now();
+			SlowTreeGenerator::CommitMesh(Prepared, Result, Season);
+			LastCommitMs =
+				float(std::chrono::duration<double, std::milli>(std::chrono::steady_clock::now() - Started).count());
+			CommittedRevision = WorkingRevision;
+			++GenerationCount;
+			ApplySlowTreeResult(Result);
+		}
+	}
+	if (bPreviewPending && !PreviewJob.valid())
+	{
+		bPreviewPending = false;
+		if (Backend == BACKEND_SLOWTREE)
+		{
+			const int32_t SnapshotPreset = SlowTreePreset;
+			const int32_t SnapshotSeed = Seed;
+			const float SnapshotSeason = Season;
+			SlowTreeTuning SnapshotTuning = CollectSlowTreeTuning();
+			PreviewCancelled = std::make_shared<std::atomic<bool>>(false);
+			SnapshotTuning.Foliage.Cancelled = PreviewCancelled;
+			WorkingRevision = RequestedRevision;
+			// Only private graph data and packed buffers cross this boundary, never this node.
+			PreviewJob = std::async(std::launch::async,
+									[SnapshotPreset, SnapshotSeed, SnapshotSeason, SnapshotTuning]()
+									{
+										return SlowTreeGenerator::PreparePreset(SnapshotPreset, SnapshotSeed,
+																				SnapshotSeason, SnapshotTuning);
+									});
+		}
+		else
+		{
+			Generate();
+		}
+	}
+	set_process(bPreviewPending || PreviewJob.valid());
+}
+
+void ProceduralTree::_exit_tree()
+{
+	if (PreviewCancelled)
+	{
+		PreviewCancelled->store(true, std::memory_order_relaxed);
+	}
+	bPreviewPending = false;
+	CommittedRevision = ++RequestedRevision;
 }
 
 Ref<ArrayMesh> ProceduralTree::BakeMesh()
@@ -448,17 +590,13 @@ Ref<ArrayMesh> ProceduralTree::BakeMesh()
 
 void ProceduralTree::RequestRegenerate()
 {
-	// In-editor edits regenerate immediately; at runtime the caller decides when to pay for it.
-	if (!bAutoRegenerate)
+	if (!bAutoRegenerate || !is_inside_tree())
 	{
 		return;
 	}
-	if (!is_inside_tree())
-	{
-		return;
-	}
-
-	Generate();
+	++RequestedRevision;
+	bPreviewPending = true;
+	set_process(true);
 }
 
 void ProceduralTree::OnParametersChanged()
@@ -499,20 +637,41 @@ void ProceduralTree::ApplyPreset(int32_t Preset)
 	Parameters->ApplyPreset(Preset);
 }
 
-#define TREE_DEFINE_SETTER(Type, Name, Member, Transform) \
-	void ProceduralTree::Set##Name(Type Value)            \
-	{                                                     \
-		Member = Transform;                               \
-		RequestRegenerate();                              \
+void ProceduralTree::SetGrowthParameters(const Ref<ProceduralTreeGrowthParameters>& Value)
+{
+	const Callable Changed = callable_mp(this, &ProceduralTree::OnParametersChanged);
+	if (GrowthParameters.is_valid() && GrowthParameters->is_connected("changed", Changed))
+	{
+		GrowthParameters->disconnect("changed", Changed);
+	}
+	GrowthParameters = Value;
+	if (GrowthParameters.is_valid())
+	{
+		GrowthParameters->connect("changed", Changed);
+	}
+	RequestRegenerate();
+}
+
+#define TREE_DEFINE_SETTER(Type, Name, Member, Transform)                                                              \
+	void ProceduralTree::Set##Name(Type Value)                                                                         \
+	{                                                                                                                  \
+		const Type NewValue = Transform;                                                                               \
+		if (Member == NewValue)                                                                                        \
+		{                                                                                                              \
+			return;                                                                                                    \
+		}                                                                                                              \
+		Member = NewValue;                                                                                             \
+		RequestRegenerate();                                                                                           \
 	}
 
+TREE_DEFINE_SETTER(int32_t, FoliageMode, FoliageMode, TreeGen::ClampInt(Value, 0, 1))
+TREE_DEFINE_SETTER(bool, StructuralBranches, bStructuralBranches, Value)
+TREE_DEFINE_SETTER(bool, SpeciesRules, bSpeciesRules, Value)
 TREE_DEFINE_SETTER(int32_t, Seed, Seed, Value)
 TREE_DEFINE_SETTER(int32_t, Backend, Backend, TreeGen::ClampInt(Value, 0, 1))
 TREE_DEFINE_SETTER(int32_t, SlowTreePreset, SlowTreePreset, TreeGen::ClampInt(Value, 0, std::max(0, SlowTreeGenerator::GetPresetCount() - 1)))
 TREE_DEFINE_SETTER(bool, UseGpuTessellation, bUseGpuTessellation, Value)
-TREE_DEFINE_SETTER(float, Season, Season, TreeGen::Clamp(Value, 0.0f, 4.0f))
-TREE_DEFINE_SETTER(float, WindStrength, WindStrength, std::fmax(0.0f, Value))
-TREE_DEFINE_SETTER(float, WindTime, WindTime, Value)
+
 TREE_DEFINE_SETTER(float, LeafDensity, LeafDensity, TreeGen::Clamp(Value, 0.001f, 1.0f))
 TREE_DEFINE_SETTER(float, TrunkThickness, TrunkThickness, TreeGen::Clamp(Value, 0.1f, 5.0f))
 TREE_DEFINE_SETTER(float, RootThickness, RootThickness, TreeGen::Clamp(Value, 0.1f, 5.0f))
@@ -534,4 +693,57 @@ TREE_DEFINE_SETTER(int32_t, MaxLeaves, MaxLeaves, std::max(1, Value))
 void ProceduralTree::SetAutoRegenerate(bool bValue)
 {
 	bAutoRegenerate = bValue;
+	if (!bValue && PreviewCancelled)
+	{
+		PreviewCancelled->store(true, std::memory_order_relaxed);
+	}
+	if (!bValue)
+	{
+		bPreviewPending = false;
+		CommittedRevision = ++RequestedRevision;
+	}
+}
+
+void ProceduralTree::SetSeason(float Value)
+{
+	const float NewValue = TreeGen::Clamp(Value, 0.0f, 4.0f);
+	if (Season == NewValue)
+	{
+		return;
+	}
+	Season = NewValue;
+	if (Backend == BACKEND_SLOWTREE && FoliageMode == 1)
+	{
+		UpdateFoliageMaterial();
+	}
+	else
+	{
+		RequestRegenerate();
+	}
+}
+
+void ProceduralTree::SetWindStrength(float Value)
+{
+	WindStrength = std::fmax(0.0f, Value);
+	if (Backend == BACKEND_SLOWTREE)
+	{
+		UpdateFoliageMaterial();
+	}
+	else
+	{
+		RequestRegenerate();
+	}
+}
+
+void ProceduralTree::SetWindTime(float Value)
+{
+	WindTime = Value;
+	if (Backend == BACKEND_SLOWTREE)
+	{
+		UpdateFoliageMaterial();
+	}
+	else
+	{
+		RequestRegenerate();
+	}
 }

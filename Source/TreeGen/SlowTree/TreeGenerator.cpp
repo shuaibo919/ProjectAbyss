@@ -81,7 +81,7 @@ void TreeGenerator::emitBoneChain(const std::vector<BranchRing>& rings, int bone
                                   int simGroup, const std::string& name,
                                   int& outBase, int& outCount) {
     outBase = -1; outCount = 0;
-    if (!m_out || rings.size() < 2) return;
+    if (!m_out || rings.size() < 2 || FoliageOptions.bCrossedCards) return;
     // 该节点不绑骨(boneCount<=0): 不产出骨, 但把祖先父骨范围原样回传,
     // 使子节点仍挂到祖先骨上(骨链不断裂), 从而实现"逐节点关闭绑骨"。
     if (boneCount <= 0) { outBase = m_parentBoneBase; outCount = m_parentBoneCount; return; }
@@ -146,7 +146,16 @@ MeshBatch& TreeGenerator::getBatch(const MaterialParams& mat, bool isLeaf, bool 
 void TreeGenerator::appendCylinder(MeshBatch& batch,
                                     const std::vector<BranchRing>& rings, int sides,
                                     float uvTilingU, float uvTilingV) {
-    if (rings.size() < 2) return;
+    if (rings.size() < 2 || ShouldStop()) return;
+    GeneratedSegments += int32_t(rings.size() - 1);
+    if (GeneratedSegments > FoliageOptions.MaxSegments)
+    {
+        m_out->bSegmentBudgetApplied = true;
+        return;
+    }
+    sides = std::min(sides, FoliageOptions.RadialSegments);
+    if (FoliageOptions.bCrossedCards && rings.front().radius < 0.008f) return;
+    if (FoliageOptions.bCrossedCards && rings.front().radius < 0.025f) sides = 3;
     float pi2 = kTwoPi;
 
     // 估算总圆柱长度（用于V轴UV缩放）
@@ -216,7 +225,9 @@ void TreeGenerator::appendCollar(MeshBatch& batch,
     const std::vector<BranchRing>* trunkRings,
     float collarSink)
 {
-    if (baseFlare <= 1.0f || parentR <= 1e-5f) return;
+    if (baseFlare <= 1.0f || parentR <= 1e-5f || ShouldStop()) return;
+    if (FoliageOptions.bCrossedCards && startR < 0.025f) return;
+    sides = std::min(sides, FoliageOptions.RadialSegments);
     float pi2 = kTwoPi;
     godot::Vector3 A   = parentA.normalized();
     godot::Vector3 up  = childDir.normalized();
@@ -313,6 +324,7 @@ void TreeGenerator::appendCollar(MeshBatch& batch,
 // ---- 主入口 ----
 TreeMeshData TreeGenerator::generate(NodeGraph& graph, NodeId hlNode) {
     TreeMeshData data;
+    GeneratedSegments = 0;
     m_out = &data;
     m_hlNode = hlNode;
     // 一个工程内可有多棵植被：每个"无输入连线的 Trunk"都是一株独立植物，
@@ -362,7 +374,7 @@ void TreeGenerator::processNode(
     godot::Vector3 origin, godot::Vector3 dir,
     float parentLen, int depth)
 {
-    if (!node || depth > MAX_DEPTH) return;
+    if (!node || depth > MAX_DEPTH || ShouldStop()) return;
 
     // 祖先链模式: 只生成链上的节点, 其余(旁支/叶)直接跳过。多实例节点在各自 build
     // 函数内限制为只长一根链上代表实例。
@@ -547,6 +559,10 @@ void TreeGenerator::buildBranches(
 {
     const auto& p = node->params;
     std::mt19937 rng(p.seed + depth * 100 + m_specimenSeedOffset);
+    if (FoliageOptions.bSpeciesRules && (FoliageOptions.Preset == 1 || FoliageOptions.Preset == 3))
+    {
+        rng.seed(godot::SlowTreeFoliage::GetShootSeed(parentRings.front().center, p.seed + depth * 100 + m_specimenSeedOffset));
+    }
     std::uniform_real_distribution<float> jitter(-5.0f, 5.0f);
     std::uniform_real_distribution<float> jitterLen(0.85f, 1.15f);
 
@@ -608,11 +624,17 @@ void TreeGenerator::buildBranches(
             float attachT = (p.branchCount > 1)
                 ? godot::Math::lerp(rs, re, (float)i / (float)(p.branchCount-1))
                 : godot::Math::lerp(rs, re, 0.5f);
+            if (FoliageOptions.bSpeciesRules && (FoliageOptions.Preset == 1 || FoliageOptions.Preset == 3))
+            {
+                const float Spacing = (re - rs) / std::max(1, p.branchCount - 1);
+                attachT = std::clamp(attachT + jitter(rng) * Spacing * 0.065f, rs, re);
+            }
             attaches.push_back({ attachT, i * p.rotateOffset + jitter(rng) });
         }
     }
 
     for (const auto& at : attaches) {
+        if (ShouldStop()) break;
         float attachT = at.t;
 
         godot::Vector3 attachPos, attachDir, attachRight;
@@ -820,6 +842,10 @@ void TreeGenerator::buildTwig(
 {
     const auto& p = node->params;
     std::mt19937 rng(p.seed + depth * 77 + m_specimenSeedOffset);
+    if (FoliageOptions.bSpeciesRules && (FoliageOptions.Preset == 1 || FoliageOptions.Preset == 3))
+    {
+        rng.seed(godot::SlowTreeFoliage::GetShootSeed(parentRings.front().center, p.seed + depth * 77 + m_specimenSeedOffset));
+    }
     std::uniform_real_distribution<float> jitter(-8.0f, 8.0f);
     std::uniform_real_distribution<float> jitterLen(0.8f, 1.2f);
 
@@ -860,7 +886,13 @@ void TreeGenerator::buildTwig(
     std::uniform_real_distribution<float> attachDist(rs, re);
 
     float baseAz = 0.0f;
-    for (int i = 0; i < p.twigCount; ++i) {
+    int32_t ShootCount = p.twigCount;
+    if (FoliageOptions.bSpeciesRules && FoliageOptions.Preset == 3)
+    {
+        ShootCount = std::max(2, int32_t(std::ceil(p.twigCount * std::min(1.0f, parentLen / 1.0f))));
+    }
+    for (int i = 0; i < ShootCount; ++i) {
+        if (ShouldStop()) break;
         float az = p.alternating
                    ? (i % 2 == 0 ? baseAz : baseAz + 180.0f) + jitter(rng)
                    : i * p.rotateOffset + jitter(rng);
@@ -904,6 +936,10 @@ void TreeGenerator::buildTwig(
             startR, endR,
             p.lengthSegs, p.noiseAmount, p.noiseFreq,
             p.gnarl, p.taperPow, instGravity, rng);
+        if (FoliageOptions.bSpeciesRules && FoliageOptions.Preset == 1)
+        {
+            godot::SlowTreeFoliage::ShapePendantShoot(rings, thisLen);
+        }
 
         auto& batch = getBatch(p.material, false);
         size_t hlV = batch.vertices.size(), hlI = batch.indices.size();
@@ -955,6 +991,7 @@ void TreeGenerator::buildRoots(
     auto& batch = getBatch(p.material, false);
 
     for (int i = 0; i < p.rootCount; ++i) {
+        if (ShouldStop()) break;
         float az = i * p.rotateOffset + jitter(rng);
         float el = p.spreadAngle + varyBy(rng, p.spreadAngleVar) + jitter(rng);  // 接近90°=先近水平铺开
 
@@ -1014,6 +1051,13 @@ void TreeGenerator::buildLeafCluster(
     godot::Vector3 origin, godot::Vector3 dir)
 {
     const auto& p = node->params;
+    if (!FoliageOptions.bGenerateLeaves) { return; }
+    if (FoliageOptions.bCrossedCards && parentRings && parentRings->size() >= 2)
+    {
+        godot::SlowTreeFoliage::CollectCards(*m_out, *parentRings, p.material, FoliageOptions,
+            p.leafCount, p.leafSize, p.seed, m_windPhase);
+        return;
+    }
     std::mt19937 rng(p.seed + m_specimenSeedOffset);
     std::uniform_real_distribution<float> jitter(-p.normalJitter, p.normalJitter);
     std::uniform_real_distribution<float> radJit(0.7f, 1.3f);
@@ -1192,9 +1236,15 @@ void TreeGenerator::buildSpine(
     if (re < rs) std::swap(rs, re);
 
     for (int i = 0; i < p.spineCount; ++i) {
+        if (ShouldStop()) break;
         float attachT = (p.spineCount > 1)
             ? godot::Math::lerp(rs, re, (float)i / (float)(p.spineCount - 1))
             : godot::Math::lerp(rs, re, 0.5f);
+        if (FoliageOptions.bSpeciesRules && FoliageOptions.Preset == 5)
+        {
+            const int32_t PairCount = std::max(1, (p.spineCount + 1) / 2);
+            attachT = godot::Math::lerp(rs, re, float(i / 2) / std::max(1, PairCount - 1));
+        }
 
         godot::Vector3 attachPos, attachDir, attachRight;
         float     attachRadius = p.radiusScale;
@@ -1265,6 +1315,13 @@ void TreeGenerator::buildFrond(
 {
     if (!parentRings || parentRings->size() < 2) return;
     const auto& p = node->params;
+    if (!FoliageOptions.bGenerateLeaves) { return; }
+    if (FoliageOptions.bCrossedCards)
+    {
+        godot::SlowTreeFoliage::CollectCards(*m_out, *parentRings, p.material, FoliageOptions,
+            12, p.width, p.seed, m_windPhase);
+        return;
+    }
     const auto& rings = *parentRings;
     auto& batch = getBatch(p.material, true);
     size_t hlV = batch.vertices.size(), hlI = batch.indices.size();

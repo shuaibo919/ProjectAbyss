@@ -18,19 +18,30 @@ struct MaterialParams;
 
 namespace godot
 {
-	namespace SlowTreeMaterials
-	{
-		/** Builds a StandardMaterial3D from SlowTree material params. */
-		Ref<StandardMaterial3D> Create(const MaterialParams& Params, bool bIsLeaf);
+namespace SlowTreeMaterials
+{
+/** Builds a StandardMaterial3D from SlowTree material params. */
+Ref<StandardMaterial3D> Create(const MaterialParams& Params, bool bIsLeaf);
 
-		/**
-		 * Resolves a .vtree texture path (may be an absolute path from the design machine):
-		 * try as-is, then the basename under res://textures/treegen/ and res://addons/abyss/textures/.
-		 * Returns null when nothing loads — callers fall back to flat colour.
-		 */
-		Ref<Texture2D> ResolveTexture(const String& Path);
+/** Cached, generated fine culm fibres. Called only when committing on the main thread. */
+Ref<Texture2D> GetBambooFiberTexture();
 
-		/** ResolveTexture + R→A alpha preprocess for opacity masks. */
-		Ref<Texture2D> ResolveOpacityTexture(const String& Path);
-	} // namespace SlowTreeMaterials
+enum class EBarkTexture
+{
+	Albedo,
+	Normal
+};
+/** Periodic fissures/plates with matching normals, generated once per species on the main thread. */
+Ref<Texture2D> GetBarkTexture(int32_t Preset, EBarkTexture Type);
+
+/**
+ * Resolves a .vtree texture path (may be an absolute path from the design machine):
+ * try as-is, then the basename under res://textures/treegen/ and res://addons/abyss/textures/.
+ * Returns null when nothing loads — callers fall back to flat colour.
+ */
+Ref<Texture2D> ResolveTexture(const String& Path);
+
+/** ResolveTexture + R→A alpha preprocess for opacity masks. */
+Ref<Texture2D> ResolveOpacityTexture(const String& Path);
+} // namespace SlowTreeMaterials
 } // namespace godot

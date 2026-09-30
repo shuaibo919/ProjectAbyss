@@ -1,11 +1,13 @@
 #include "TreeGen/ProceduralTreeEditorPlugin.h"
 
 #include "TreeGen/ProceduralTree.h"
+#include "TreeGen/ProceduralTreeGrowthParameters.h"
 #include "TreeGen/SlowTree/SlowTreeCompute.h"
 
 #include <godot_cpp/classes/editor_interface.hpp>
 #include <godot_cpp/classes/editor_selection.hpp>
 #include <godot_cpp/classes/editor_undo_redo_manager.hpp>
+#include <godot_cpp/classes/foldable_container.hpp>
 #include <godot_cpp/classes/h_separator.hpp>
 #include <godot_cpp/classes/node.hpp>
 #include <godot_cpp/core/class_db.hpp>
@@ -99,8 +101,18 @@ bool ProceduralTreeEditorPlugin::_handles(Object* Target) const
 
 void ProceduralTreeEditorPlugin::_edit(Object* Target)
 {
+	const Callable OnCompleted = callable_mp(this, &ProceduralTreeEditorPlugin::SyncFromTree);
+	ProceduralTree* Previous = ResolveTree();
+	if (Previous && Previous->is_connected("generation_completed", OnCompleted))
+	{
+		Previous->disconnect("generation_completed", OnCompleted);
+	}
 	ProceduralTree* Tree = Object::cast_to<ProceduralTree>(Target);
 	EditedTreeId = (Tree != nullptr) ? Tree->get_instance_id() : ObjectID();
+	if (Tree)
+	{
+		Tree->connect("generation_completed", OnCompleted);
+	}
 
 	SyncFromTree();
 }
@@ -121,6 +133,69 @@ void ProceduralTreeEditorPlugin::OnHelloComputeProbePressed()
 	// Stage 0 gate: runs on the main thread against a fresh local RD, prints the
 	// full report into the Output panel.
 	SlowTreeCompute::hello_compute_probe(1 << 20, true);
+}
+
+void ProceduralTreeEditorPlugin::OnCrossedFoliageToggled(bool bPressed)
+{
+	if (bSyncingWidgets)
+	{
+		return;
+	}
+	ProceduralTree* Tree = ResolveTree();
+	if (Tree)
+	{
+		Tree->SetFoliageMode(bPressed ? 1 : 0);
+		SyncFromTree();
+	}
+}
+
+void ProceduralTreeEditorPlugin::OnSpeciesRulesToggled(bool bPressed)
+{
+	if (bSyncingWidgets)
+	{
+		return;
+	}
+	ProceduralTree* Tree = ResolveTree();
+	if (Tree)
+	{
+		Tree->SetSpeciesRules(bPressed);
+		SyncFromTree();
+	}
+}
+
+void ProceduralTreeEditorPlugin::OnStructuralBranchesToggled(bool bPressed)
+{
+	ProceduralTree* Tree = ResolveTree();
+	if (Tree && !bSyncingWidgets)
+	{
+		Tree->SetStructuralBranches(bPressed);
+		SyncFromTree();
+	}
+}
+
+void ProceduralTreeEditorPlugin::OnShowLeavesToggled(bool bPressed)
+{
+	ProceduralTree* Tree = ResolveTree();
+	if (Tree && !bSyncingWidgets)
+	{
+		Tree->SetGenerateLeaves(bPressed);
+	}
+}
+
+void ProceduralTreeEditorPlugin::OnGrowthValueChanged(double Value, const StringName& Property)
+{
+	ProceduralTree* Tree = ResolveTree();
+	if (!Tree || bSyncingWidgets)
+	{
+		return;
+	}
+	Ref<ProceduralTreeGrowthParameters> Parameters = Tree->GetGrowthParameters();
+	if (Parameters.is_null())
+	{
+		Parameters.instantiate();
+		Tree->SetGrowthParameters(Parameters);
+	}
+	Parameters->set(Property, Value);
 }
 
 // ==================== Panel construction ====================
@@ -241,6 +316,8 @@ void ProceduralTreeEditorPlugin::BuildPanel()
 	// Stage 2: GPU 细分开关(仅 SlowTree 后端可见; 与 inspector 的 use_gpu_tessellation 同源)。
 	GpuTessellationCheck = memnew(CheckBox);
 	GpuTessellationCheck->set_text("GPU tessellation (compute)");
+	GpuTessellationCheck->set_tooltip_text(
+		"Used by Regenerate / bake. Automatic preview uses the background CPU generator.");
 	GpuTessellationCheck->connect("toggled", callable_mp(this, &ProceduralTreeEditorPlugin::OnGpuTessellationToggled));
 	SelectionBox->add_child(GpuTessellationCheck);
 
@@ -248,6 +325,46 @@ void ProceduralTreeEditorPlugin::BuildPanel()
 	// 只暴露用户点名的 4 个(粗细/密度), 其余参数留在预设里。
 	SlowTreeTuningBox = memnew(VBoxContainer);
 	SelectionBox->add_child(SlowTreeTuningBox);
+	CrossedFoliageCheck = memnew(CheckBox);
+	CrossedFoliageCheck->set_text("Crossed leaf clusters (alpha mask)");
+	CrossedFoliageCheck->connect("toggled", callable_mp(this, &ProceduralTreeEditorPlugin::OnCrossedFoliageToggled));
+	SlowTreeTuningBox->add_child(CrossedFoliageCheck);
+	SpeciesRulesCheck = memnew(CheckBox);
+	SpeciesRulesCheck->set_text("Species branching rules");
+	SpeciesRulesCheck->connect("toggled", callable_mp(this, &ProceduralTreeEditorPlugin::OnSpeciesRulesToggled));
+	SlowTreeTuningBox->add_child(SpeciesRulesCheck);
+	ShowLeavesCheck = memnew(CheckBox);
+	ShowLeavesCheck->set_text("Show foliage");
+	ShowLeavesCheck->connect("toggled", callable_mp(this, &ProceduralTreeEditorPlugin::OnShowLeavesToggled));
+	SlowTreeTuningBox->add_child(ShowLeavesCheck);
+	GrowthFoldout = memnew(FoldableContainer);
+	GrowthFoldout->set_title("Branch growth");
+	GrowthFoldout->set_folded(true);
+	SlowTreeTuningBox->add_child(GrowthFoldout);
+	GrowthTuningBox = memnew(VBoxContainer);
+	GrowthFoldout->add_child(GrowthTuningBox);
+	StructuralBranchesCheck = memnew(CheckBox);
+	StructuralBranchesCheck->set_text("Connected branch structure");
+	StructuralBranchesCheck->connect("toggled", callable_mp(this, &ProceduralTreeEditorPlugin::OnStructuralBranchesToggled));
+	GrowthTuningBox->add_child(StructuralBranchesCheck);
+	TrunkBendSlider = AddSliderRow(GrowthTuningBox, "Trunk bend", 0.0, 3.0, 0.01);
+	TrunkBendSlider->connect("value_changed", callable_mp(this, &ProceduralTreeEditorPlugin::OnGrowthValueChanged).bind(StringName("trunk_bend")));
+	BranchBendSlider = AddSliderRow(GrowthTuningBox, "Branch bend", 0.0, 3.0, 0.01);
+	BranchBendSlider->connect("value_changed", callable_mp(this, &ProceduralTreeEditorPlugin::OnGrowthValueChanged).bind(StringName("branch_bend")));
+	ForkingSlider = AddSliderRow(GrowthTuningBox, "Unequal forks", 0.0, 2.0, 0.01);
+	ForkingSlider->connect("value_changed", callable_mp(this, &ProceduralTreeEditorPlugin::OnGrowthValueChanged).bind(StringName("forking")));
+	BambooTuningBox = memnew(VBoxContainer);
+	GrowthTuningBox->add_child(BambooTuningBox);
+	BambooInternodeSlider = AddSliderRow(BambooTuningBox, "Bamboo internode length (m)", 0.15, 0.60, 0.01);
+	BambooInternodeSlider->connect("value_changed", callable_mp(this, &ProceduralTreeEditorPlugin::OnGrowthValueChanged).bind(StringName("bamboo_internode_length")));
+	BambooNodeSlider = AddSliderRow(BambooTuningBox, "Bamboo node definition", 0.0, 2.0, 0.01);
+	BambooNodeSlider->connect("value_changed", callable_mp(this, &ProceduralTreeEditorPlugin::OnGrowthValueChanged).bind(StringName("bamboo_node_definition")));
+	BambooLeafSlider = AddSliderRow(BambooTuningBox, "Bamboo leaf scale", 0.5, 2.0, 0.01);
+	BambooLeafSlider->connect("value_changed", callable_mp(this, &ProceduralTreeEditorPlugin::OnGrowthValueChanged).bind(StringName("bamboo_leaf_scale")));
+	SlowLeafDensitySlider = AddSliderRow(SlowTreeTuningBox, "Leaf cluster density", 0.01, 1.0, 0.01);
+	SlowLeafDensitySlider->connect("value_changed", callable_mp(this, &ProceduralTreeEditorPlugin::OnDensityChanged));
+	SlowSeasonSlider = AddSliderRow(SlowTreeTuningBox, "Season (0 winter - 2 summer - 4 winter)", 0.0, 4.0, 0.01);
+	SlowSeasonSlider->connect("value_changed", callable_mp(this, &ProceduralTreeEditorPlugin::OnSeasonChanged));
 
 	TrunkThicknessSlider = AddSliderRow(SlowTreeTuningBox, "Trunk thickness", 0.1, 5.0, 0.01);
 	TrunkThicknessSlider->connect("value_changed", callable_mp(this, &ProceduralTreeEditorPlugin::OnTrunkThicknessChanged));
@@ -315,13 +432,12 @@ void ProceduralTreeEditorPlugin::SyncFromTree()
 	const bool bSlowTree = Tree->GetBackend() == ProceduralTree::BACKEND_SLOWTREE;
 	if (bSlowTree)
 	{
-		// SlowTree 没有段/叶独立计数, surface 数最有意义。
-		StatsLabel->set_text(vformat(
-			"%d verts / %d tris\n%d surfaces%s",
-			Tree->GetVertexCount(),
-			Tree->GetTriangleCount(),
-			Tree->GetSegmentCount(),
-			Tree->WasTruncated() ? String("\n(capped - vertex budget)") : String()));
+		StatsLabel->set_text(vformat("%d verts / %d tris\n%d surfaces / %d clusters\n%.1f ms build / %.1f ms submit%s",
+									 Tree->GetVertexCount(), Tree->GetTriangleCount(), Tree->get_mesh().is_valid() ? Tree->get_mesh()->get_surface_count() : 0,
+									 Tree->GetLeafCount(), Tree->GetGenerationMs(), Tree->GetCommitMs(),
+									 Tree->IsPreviewPending()
+										 ? String("\nPreview updating...")
+										 : (Tree->WasTruncated() ? String("\nSegment budget reached") : String())));
 	}
 	else
 	{
@@ -344,6 +460,38 @@ void ProceduralTreeEditorPlugin::SyncFromTree()
 	GpuTessellationCheck->set_visible(bSlowTree);
 	GpuTessellationCheck->set_pressed(Tree->ShouldUseGpuTessellation());
 	SlowTreeTuningBox->set_visible(bSlowTree);
+	CrossedFoliageCheck->set_pressed(Tree->GetFoliageMode() == 1);
+	SpeciesRulesCheck->set_pressed(Tree->HasSpeciesRules());
+	ShowLeavesCheck->set_pressed(Tree->ShouldGenerateLeaves());
+	const bool bSupportsStructure = bSlowTree && Tree->HasSpeciesRules() && Tree->GetFoliageMode() == 1 &&
+		Tree->GetSlowTreePreset() >= 0 && Tree->GetSlowTreePreset() < SlowTreeGenerator::GetPresetCount();
+	GrowthFoldout->set_visible(bSupportsStructure);
+	StructuralBranchesCheck->set_pressed(Tree->GetStructuralBranches());
+	const Ref<ProceduralTreeGrowthParameters> Growth = Tree->GetGrowthParameters();
+	TrunkBendSlider->set_value(Growth.is_valid() ? Growth->GetTrunkBend() : 1.0);
+	BranchBendSlider->set_value(Growth.is_valid() ? Growth->GetBranchBend() : 1.0);
+	ForkingSlider->set_value(Growth.is_valid() ? Growth->GetForking() : 1.0);
+	TrunkBendSlider->set_editable(Tree->GetStructuralBranches());
+	BranchBendSlider->set_editable(Tree->GetStructuralBranches());
+	const int32_t SlowPreset = Tree->GetSlowTreePreset();
+	BambooTuningBox->set_visible(SlowPreset == 4);
+	BambooInternodeSlider->set_value(Growth.is_valid() ? Growth->GetBambooInternodeLength() : 0.28);
+	BambooNodeSlider->set_value(Growth.is_valid() ? Growth->GetBambooNodeDefinition() : 1.0);
+	BambooLeafSlider->set_value(Growth.is_valid() ? Growth->GetBambooLeafScale() : 1.0);
+	BambooInternodeSlider->set_editable(Tree->GetStructuralBranches());
+	BambooNodeSlider->set_editable(Tree->GetStructuralBranches());
+	BambooLeafSlider->set_editable(Tree->GetStructuralBranches());
+	const bool bHasForks = SlowPreset == 0 || SlowPreset == 1 || SlowPreset == 3 || SlowPreset == 6;
+	ForkingSlider->set_editable(Tree->GetStructuralBranches() && bHasForks);
+	ForkingSlider->set_tooltip_text(bHasForks ? "Unequal scaffold forks."
+		: "This species keeps its main axes; additional scaffold forks are disabled.");
+	RootThicknessSlider->set_editable(!(bSupportsStructure && Tree->GetStructuralBranches() && SlowPreset == 4));
+	GpuTessellationCheck->set_disabled(bSupportsStructure && Tree->GetStructuralBranches());
+	GpuTessellationCheck->set_tooltip_text(bSupportsStructure && Tree->GetStructuralBranches()
+		? "Connected branches use the CPU worker. GPU tessellation is available for the other branch paths."
+		: "GPU tessellation for explicit generation; live preview uses the CPU worker.");
+	SlowLeafDensitySlider->set_value(Tree->GetLeafDensity());
+	SlowSeasonSlider->set_value(Tree->GetSeason());
 	TrunkThicknessSlider->set_value(Tree->GetTrunkThickness());
 	RootThicknessSlider->set_value(Tree->GetRootThickness());
 	BranchThicknessSlider->set_value(Tree->GetBranchThickness());

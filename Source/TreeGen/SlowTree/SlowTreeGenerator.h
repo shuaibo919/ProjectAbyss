@@ -2,16 +2,13 @@
 
 // SlowTree facade: 预设 → NodeGraph → TreeGenerator(CPU 生成) → ArrayMesh + 材质。
 //
-// 阶段归属:
-//  - Stage 1: 全部 CPU 路径(RunGeneration + ConvertToGodotMesh)。
-//  - Stage 2: ConvertToGodotMesh 的输入改为 GPU 读回的 Packed 数组(同一装配逻辑);
-//    RunGeneration 的细分部分由 compute 描述子发射替代, 中心线/RNG/附着计算不变。
-//  - Stage 3: 生成搬进 SlowTreeWorker 后台线程; 材质换成 SlowTreeWindShader; 烘焙面板。
+// PreparePreset/PrepareMesh only create private graph data and Packed buffers; they can
+// run on a worker. CommitMesh creates the ArrayMesh, shader and texture on the main thread.
+// Legacy geometry is one surface; crossed foliage adds one alpha-tested surface.
 //
 // 全局种子模型: SlowTree 每节点独立 seed, 无全局旋钮。本层在加载模板后按
 //   node_seed = Mix(globalSeed, nodeId, depth) 派生各节点种子(节点间差异 + 确定性)。
-//   globalSeed == 0 时**不覆盖**模板种子 → 与上游应用对同一 .vtree 逐位一致
-//   (golden 对拍的锚点)。非 0 时一棵树一个旋钮即可变种。
+//   globalSeed == 0 时不覆盖模板种子。species_rules=false 保留旧树形；本项目无上游位级 golden。
 
 #include "NodeGraph.h"
 #include "SlowTreeMeshData.h"
@@ -42,9 +39,27 @@ namespace godot
 		float RootThickness = 1.0f;
 		float BranchThickness = 1.0f;
 		float BranchDensity = 1.0f;
+		TreeFoliageOptions Foliage;
 	};
 
-	/** Generation output: one ArrayMesh surface per SlowTree batch, materials parallel. */
+	/** Private buffers prepared by a worker. Rendering resources are committed on the main thread. */
+	struct SlowTreePreparedMesh
+	{
+		std::vector<Array> Surfaces;
+		std::vector<bool> MaskedSurfaces;
+		uint32_t VertexCount = 0;
+		uint32_t TriangleCount = 0;
+		uint32_t LeafCount = 0;
+		bool bTruncated = false;
+		bool bBambooCulm = false;
+		int32_t BarkPreset = -1;
+		float GenerationMs = 0.0f;
+		float PackMs = 0.0f;
+		String Error;
+		TreeGrowthDiagnostics Growth;
+	};
+
+	/** Generation output: one solid surface and, when enabled, one masked foliage surface. */
 	struct SlowTreeMeshResult
 	{
 		Ref<ArrayMesh> Mesh;
@@ -52,7 +67,9 @@ namespace godot
 		uint32_t VertexCount = 0;
 		uint32_t TriangleCount = 0;
 		uint32_t SurfaceCount = 0;
+		uint32_t LeafCount = 0;
 		bool Truncated = false;
+		TreeGrowthDiagnostics Growth;
 		String Error;
 
 		// 分阶段耗时(ms, Stage 2/3 性能对比用)。
@@ -73,6 +90,10 @@ namespace godot
 
 	public:
 		static int32_t GetPresetCount();
+		static SlowTreePreparedMesh PreparePreset(int32_t Preset, int64_t Seed, float Season,
+												  const SlowTreeTuning& Tuning);
+		static SlowTreePreparedMesh PrepareMesh(const TreeMeshData& Data, float Season, bool Evergreen);
+		static bool CommitMesh(const SlowTreePreparedMesh& Prepared, SlowTreeMeshResult& Out, float Season);
 		static String GetPresetName(int32_t Preset);
 
 		/**
@@ -101,7 +122,8 @@ namespace godot
 		static String ValidateGraph(const NodeGraph& Graph);
 
 		/** CPU 生成(RNG/中心线/附着/细分全在调用线程)。SelfTest/Stage 2 共用。 */
-		static bool RunGeneration(NodeGraph& Graph, int64_t Seed, TreeMeshData& OutMesh, String& OutError);
+		static bool RunGeneration(NodeGraph& Graph, int64_t Seed, TreeMeshData& OutMesh, String& OutError,
+								  const TreeFoliageOptions& Options = {});
 
 		/**
 		 * GPU 生成(Stage 2): 与 RunGeneration 相同的种子派生与图遍历(共享原代码),
@@ -109,15 +131,12 @@ namespace godot
 		 * 拼回 OutMesh.batches(与 CPU 路径同一批次顺序)。GpuStats 非空时接收
 		 * emit_ms / device_ms / buffer_ms / setup_ms / gpu_ms / readback_ms / assemble_ms。
 		 */
-		static bool RunGenerationGpu(NodeGraph& Graph, int64_t Seed, TreeMeshData& OutMesh,
-		                             Dictionary* GpuStats, String& OutError);
+		static bool RunGenerationGpu(NodeGraph& Graph, int64_t Seed, TreeMeshData& OutMesh, Dictionary* GpuStats,
+									 String& OutError, const TreeFoliageOptions& Options = {});
 
-		/** TreeMeshData → ArrayMesh(batch = surface)。GPU 读回路径复用本装配(Stage 2)。 */
 		/**
-		 * TreeMeshData → **单个** vertex-coloured ArrayMesh surface。
-		 *
-		 * Season 用 TreeGen 的 0..4 语义(0/4 冬, 2 夏), Evergreen=true 时叶色不随季节变化
-		 * (针叶/竹)。花瓣按"红大于绿"自动认出并同样不变色。
+		 * Packs once into final arrays, then commits on the main thread. Season is baked into
+		 * legacy vertex colors; crossed foliage uses a shader uniform and per-card phenology.
 		 */
 		static bool ConvertToGodotMesh(const TreeMeshData& Data, SlowTreeMeshResult& Out,
 		                               float Season = 2.0f, bool Evergreen = false);

@@ -17,6 +17,9 @@
 #include <unordered_map>
 #include <vector>
 #include <cstdint>
+#include <cerrno>
+#include <cstdlib>
+#include <limits>
 
 namespace {
 
@@ -43,11 +46,26 @@ using KV = std::unordered_map<std::string, std::string>;
 
 float getF(const KV& kv, const char* k, float def) {
     auto it = kv.find(k); if (it == kv.end()) return def;
-    try { return std::stof(it->second); } catch (...) { return def; }
+    // The extension is built without exception unwinding; malformed fields still use defaults.
+    const char* Begin = it->second.c_str();
+    char* End = nullptr;
+    errno = 0;
+    const float Parsed = std::strtof(Begin, &End);
+    return End == Begin || errno == ERANGE ? def : Parsed;
 }
 int getI(const KV& kv, const char* k, int def) {
     auto it = kv.find(k); if (it == kv.end()) return def;
-    try { return std::stoi(it->second); } catch (...) { return def; }
+    const char* Begin = it->second.c_str();
+    char* End = nullptr;
+    constexpr int32_t DecimalBase = 10;
+    errno = 0;
+    const long Parsed = std::strtol(Begin, &End, DecimalBase);
+    if (End == Begin || errno == ERANGE || Parsed < std::numeric_limits<int32_t>::min() ||
+        Parsed > std::numeric_limits<int32_t>::max())
+    {
+        return def;
+    }
+    return int32_t(Parsed);
 }
 godot::Vector3 getV3(const KV& kv, const char* k, godot::Vector3 def) {
     auto it = kv.find(k); if (it == kv.end()) return def;

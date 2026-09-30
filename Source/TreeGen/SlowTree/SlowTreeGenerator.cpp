@@ -1,4 +1,5 @@
 #include "SlowTreeGenerator.h"
+#include "../ProceduralTreeGrowthParameters.h"
 
 #include "SlowTreeCompute.h"
 #include "SlowTreeMaterials.h"
@@ -203,6 +204,10 @@ namespace
 	// 只动粗细/密度; count 取整 ≥1(0 倍会生成空树)。
 	void ApplyTuning(NodeGraph& Graph, const SlowTreeTuning& Tuning)
 	{
+		if (Tuning.Foliage.bSpeciesRules)
+		{
+			SlowTreeFoliage::ApplySpeciesRules(Graph, Tuning.Foliage.Preset);
+		}
 		for (auto& [id, node] : Graph.nodes())
 		{
 			switch (node->getType())
@@ -252,6 +257,15 @@ namespace
 					p.radiusScale *= Tuning.BranchThickness;
 					break;
 				}
+				case NodeType::LeafCluster:
+				{
+					if (!Tuning.Foliage.bCrossedCards)
+					{
+						LeafClusterParams& Params = static_cast<LeafClusterNode*>(node.get())->params;
+						Params.leafCount = std::max(0, int32_t(std::round(Params.leafCount * Tuning.Foliage.Density)));
+					}
+					break;
+				}
 				default:
 					break;
 			}
@@ -262,92 +276,28 @@ namespace
 	SlowTreeTuning BuildTuning(const Dictionary& Tuning)
 	{
 		SlowTreeTuning t;
+		const Ref<ProceduralTreeGrowthParameters> Growth = Tuning.get("growth_parameters", Variant());
+		if (Growth.is_valid()) { t.Foliage.Growth = Growth->MakeSnapshot(); }
+		t.Foliage.Growth.bEnabled = bool(Tuning.get("structural_branches", true));
+		t.Foliage.Growth.bDebug = bool(Tuning.get("growth_debug", false));
+		t.Foliage.bCrossedCards = bool(Tuning.get("crossed_cards", false));
+		t.Foliage.bSpeciesRules = bool(Tuning.get("species_rules", false));
+		t.Foliage.bGenerateLeaves = bool(Tuning.get("generate_leaves", true));
+		t.Foliage.Density = std::clamp(float(Tuning.get("leaf_density", 1.0f)), 0.0f, 1.0f);
+		t.Foliage.MaxCards = std::max(0, int32_t(Tuning.get("max_leaves", 12000)));
+		t.Foliage.MaxSegments = std::max(1, int32_t(Tuning.get("max_segments", 20000)));
+		t.Foliage.RadialSegments = std::clamp(int32_t(Tuning.get("radial_segments", 32)), 3, 32);
 		if (Tuning.has("trunk_thickness")) { t.TrunkThickness = float(Tuning["trunk_thickness"]); }
 		if (Tuning.has("root_thickness")) { t.RootThickness = float(Tuning["root_thickness"]); }
 		if (Tuning.has("branch_thickness")) { t.BranchThickness = float(Tuning["branch_thickness"]); }
 		if (Tuning.has("branch_density")) { t.BranchDensity = float(Tuning["branch_density"]); }
+		t.TrunkThickness = std::clamp(t.TrunkThickness, 0.1f, 5.0f);
+		t.RootThickness = std::clamp(t.RootThickness, 0.1f, 5.0f);
+		t.BranchThickness = std::clamp(t.BranchThickness, 0.1f, 5.0f);
+		t.BranchDensity = std::clamp(t.BranchDensity, 0.1f, 5.0f);
 		return t;
 	}
 
-	// 把 SlowTree batch 装配成一个 ArrayMesh surface(分支 stride 10, 叶 stride 16)。
-	// 风场通道从第一天就进顶点格式: CUSTOM0 = (windWeight, windPhase) RG32F;
-	// 叶片另带 COLOR = albedo、CUSTOM1 = anchor RGB32F(Stage 3 风着色器消费)。
-	void AddBatchSurface(const MeshBatch& Batch, Ref<ArrayMesh>& Mesh)
-	{
-		const int stride = Batch.isLeaf ? 16 : 10;
-		const int64_t vertexCount = int64_t(Batch.vertices.size()) / stride;
-		if (vertexCount == 0 || Batch.indices.empty())
-		{
-			return;
-		}
-
-		PackedVector3Array positions;
-		PackedVector3Array normals;
-		PackedVector2Array uvs;
-		PackedFloat32Array wind;     // (weight, phase) RG32F, 每顶点 2 floats
-		PackedColorArray colors;     // 仅叶片
-		PackedFloat32Array anchors;  // 仅叶片, 每顶点 3 floats
-		positions.resize(vertexCount);
-		normals.resize(vertexCount);
-		uvs.resize(vertexCount);
-		wind.resize(vertexCount * 2);
-		if (Batch.isLeaf)
-		{
-			colors.resize(vertexCount);
-			anchors.resize(vertexCount * 3);
-		}
-
-		const float* v = Batch.vertices.data();
-		for (int64_t i = 0; i < vertexCount; ++i)
-		{
-			const float* p = v + i * stride;
-			positions.set(i, Vector3(p[0], p[1], p[2]));
-			normals.set(i, Vector3(p[3], p[4], p[5]));
-			uvs.set(i, Vector2(p[6], p[7]));
-			wind.set(i * 2 + 0, p[8]);
-			wind.set(i * 2 + 1, p[9]);
-			if (Batch.isLeaf)
-			{
-				colors.set(i, Color(p[10], p[11], p[12]));
-				anchors.set(i * 3 + 0, p[13]);
-				anchors.set(i * 3 + 1, p[14]);
-				anchors.set(i * 3 + 2, p[15]);
-			}
-		}
-
-		PackedInt32Array indices;
-		indices.resize(int64_t(Batch.indices.size()));
-		for (int64_t i = 0; i < int64_t(Batch.indices.size()); ++i)
-		{
-			indices.set(i, int32_t(Batch.indices[i]));
-		}
-
-		Array arrays;
-		arrays.resize(Mesh::ARRAY_MAX);
-		arrays[Mesh::ARRAY_VERTEX] = positions;
-		arrays[Mesh::ARRAY_NORMAL] = normals;
-		arrays[Mesh::ARRAY_TEX_UV] = uvs;
-		arrays[Mesh::ARRAY_CUSTOM0] = wind;
-		if (Batch.isLeaf)
-		{
-			arrays[Mesh::ARRAY_COLOR] = colors;
-			arrays[Mesh::ARRAY_CUSTOM1] = anchors;
-		}
-		arrays[Mesh::ARRAY_INDEX] = indices;
-
-		// fork 的自定义数组分量数来自调用方 flags(见 rendering_server.cpp
-		// mesh_create_surface_data_from_arrays): 类型值 << SHIFT。风 RG32F、锚 RGB32F。
-		// 数据必须是 PackedFloat32Array(引擎 _surface_set_data 的硬性类型检查)。
-		uint64_t customFlags = 0;
-		customFlags |= uint64_t(Mesh::ARRAY_CUSTOM_RG_FLOAT) << Mesh::ARRAY_FORMAT_CUSTOM0_SHIFT;
-		if (Batch.isLeaf)
-		{
-			customFlags |= uint64_t(Mesh::ARRAY_CUSTOM_RGB_FLOAT) << Mesh::ARRAY_FORMAT_CUSTOM1_SHIFT;
-		}
-		const BitField<Mesh::ArrayFormat> flags{ int64_t(customFlags) };
-
-		Mesh->add_surface_from_arrays(Mesh::PRIMITIVE_TRIANGLES, arrays, TypedArray<Array>(), Dictionary(), flags);
-	}
 } // namespace
 
 void SlowTreeGenerator::_bind_methods()
@@ -416,7 +366,8 @@ String SlowTreeGenerator::ValidateGraph(const NodeGraph& Graph)
 	return String();
 }
 
-bool SlowTreeGenerator::RunGeneration(NodeGraph& Graph, int64_t Seed, TreeMeshData& OutMesh, String& OutError)
+bool SlowTreeGenerator::RunGeneration(NodeGraph& Graph, int64_t Seed, TreeMeshData& OutMesh, String& OutError,
+									  const TreeFoliageOptions& Options)
 {
 	// Seed != 0: 全局旋钮派生各节点种子; == 0: 保留模板种子(位级对拍锚点)。
 	DeriveNodeSeeds(Graph, Seed);
@@ -424,7 +375,16 @@ bool SlowTreeGenerator::RunGeneration(NodeGraph& Graph, int64_t Seed, TreeMeshDa
 	FillLeafCutouts(Graph);
 
 	TreeGenerator generator;
-	OutMesh = generator.generate(Graph);
+	generator.SetFoliageOptions(Options);
+	if (SlowTreeGrowth::IsEnabled(Options))
+	{
+		SlowTreeGrowth::Generate(Graph, Options, OutMesh);
+	}
+	else
+	{
+		OutMesh = generator.generate(Graph);
+	}
+	SlowTreeFoliage::AppendCards(OutMesh, Options);
 
 	// 顶点硬上限(v1 CPU 路径: 超限即报错; Stage 2 GPU 路径改为截断标志 + 警告)。
 	uint64_t totalVertexFloats = 0;
@@ -443,9 +403,21 @@ bool SlowTreeGenerator::RunGeneration(NodeGraph& Graph, int64_t Seed, TreeMeshDa
 	return true;
 }
 
-bool SlowTreeGenerator::RunGenerationGpu(NodeGraph& Graph, int64_t Seed, TreeMeshData& OutMesh,
-                                         Dictionary* GpuStats, String& OutError)
+bool SlowTreeGenerator::RunGenerationGpu(NodeGraph& Graph, int64_t Seed, TreeMeshData& OutMesh, Dictionary* GpuStats,
+										 String& OutError, const TreeFoliageOptions& Options)
 {
+	// Connected junction topology is emitted on the CPU; the legacy independent-tube kernels cannot express it.
+	if (SlowTreeGrowth::IsEnabled(Options))
+	{
+		if (GpuStats)
+		{
+			for (const char* Key : {"device_ms", "buffer_ms", "setup_ms", "gpu_ms", "readback_ms", "assemble_ms"})
+			{
+				(*GpuStats)[Key] = 0.0;
+			}
+		}
+		return RunGeneration(Graph, Seed, OutMesh, OutError, Options);
+	}
 	// 种子派生/图遍历/中心线/RNG/附着与 CPU 路径完全同一套代码;
 	// 只有细分部分被 TreeGenerator 的 GPU 发射模式替换为描述子。
 	DeriveNodeSeeds(Graph, Seed);
@@ -455,6 +427,7 @@ bool SlowTreeGenerator::RunGenerationGpu(NodeGraph& Graph, int64_t Seed, TreeMes
 
 	TreeGpuEmission emission;
 	TreeGenerator generator;
+	generator.SetFoliageOptions(Options);
 	generator.EnableGpuEmission(&emission);
 	OutMesh = generator.generate(Graph);
 	generator.EnableGpuEmission(nullptr);   // 恢复 CPU 模式(生成器随后销毁, 防御性)
@@ -477,6 +450,7 @@ bool SlowTreeGenerator::RunGenerationGpu(NodeGraph& Graph, int64_t Seed, TreeMes
 		return false;
 	}
 
+	SlowTreeFoliage::AppendCards(OutMesh, Options);
 	if (GpuStats)
 	{
 		(*GpuStats)["emit_ms"] = EmitMs;
@@ -497,174 +471,243 @@ bool SlowTreeGenerator::RunGenerationGpu(NodeGraph& Graph, int64_t Seed, TreeMes
 	return true;
 }
 
-bool SlowTreeGenerator::ConvertToGodotMesh(
-	const TreeMeshData& Data, SlowTreeMeshResult& Out, float Season, bool Evergreen)
+SlowTreePreparedMesh SlowTreeGenerator::PrepareMesh(const TreeMeshData& Data, float Season, bool Evergreen)
 {
+	const auto Started = std::chrono::steady_clock::now();
+	SlowTreePreparedMesh Prepared;
+	Prepared.LeafCount = Data.FoliageCardCount;
+	Prepared.Growth = Data.Growth;
+	Prepared.bTruncated = Data.bSegmentBudgetApplied;
+	// Legacy geometry remains one surface. Masked sprays have their own shader/surface.
+	for (int32_t Group = 0; Group < 2; ++Group)
+	{
+		const bool bMasked = Group == 1;
+		bool bHasTangents = false;
+		int64_t VertexCount = 0;
+		int64_t IndexCount = 0;
+		for (const MeshBatch& Batch : Data.batches)
+		{
+			if (Batch.bMaskedFoliage == bMasked && !Batch.indices.empty())
+			{
+				VertexCount += int64_t(Batch.vertices.size()) / (Batch.isLeaf ? 16 : 10);
+				IndexCount += int64_t(Batch.indices.size());
+				bHasTangents = bHasTangents || !Batch.WoodTangents.empty();
+			}
+		}
+		if (VertexCount == 0 || IndexCount == 0)
+		{
+			continue;
+		}
+
+		PackedVector3Array Positions;
+		PackedFloat32Array Tangents;
+		PackedVector3Array Normals;
+		PackedVector2Array Uvs;
+		PackedColorArray Colors;
+		PackedFloat32Array Wind;
+		PackedFloat32Array Anchors;
+		PackedInt32Array Indices;
+		Positions.resize(VertexCount);
+		if (bHasTangents)
+		{
+			Tangents.resize(VertexCount * 4);
+		}
+		Normals.resize(VertexCount);
+		Uvs.resize(VertexCount);
+		Colors.resize(VertexCount);
+		Wind.resize(VertexCount * 2);
+		Anchors.resize(VertexCount * 3);
+		Indices.resize(IndexCount);
+		Vector3* PositionPtr = Positions.ptrw();
+		float* TangentPtr = Tangents.ptrw();
+		Vector3* NormalPtr = Normals.ptrw();
+		Vector2* UvPtr = Uvs.ptrw();
+		Color* ColorPtr = Colors.ptrw();
+		float* WindPtr = Wind.ptrw();
+		float* AnchorPtr = Anchors.ptrw();
+		int32_t* IndexPtr = Indices.ptrw();
+		int64_t VertexBase = 0;
+		int64_t IndexBase = 0;
+		for (const MeshBatch& Batch : Data.batches)
+		{
+			if (Batch.bMaskedFoliage != bMasked || Batch.indices.empty())
+			{
+				continue;
+			}
+			const int32_t Stride = Batch.isLeaf ? 16 : 10;
+			const int64_t Count = int64_t(Batch.vertices.size()) / Stride;
+			Prepared.bBambooCulm = Prepared.bBambooCulm || Batch.bBambooCulm;
+			if (Batch.BarkPreset >= 0)
+			{
+				Prepared.BarkPreset = Batch.BarkPreset;
+			}
+			const bool bUnchanging = Evergreen || Batch.material.albedo.x > Batch.material.albedo.y;
+			for (int64_t Index = 0; Index < Count; ++Index)
+			{
+				const float* Source = Batch.vertices.data() + Index * Stride;
+				const int64_t Destination = VertexBase + Index;
+				PositionPtr[Destination] = Vector3(Source[0], Source[1], Source[2]);
+				NormalPtr[Destination] = Vector3(Source[3], Source[4], Source[5]);
+				if (Batch.WoodTangents.size() == size_t(Count))
+				{
+					for (int32_t Component = 0; Component < 4; ++Component)
+					{
+						TangentPtr[Destination * 4 + Component] = Batch.WoodTangents[size_t(Index)][Component];
+					}
+				}
+				UvPtr[Destination] = Vector2(Source[6], Source[7]);
+				if (Batch.isLeaf)
+				{
+					const Color Base(Source[8], Source[9], Source[10]);
+					const uint32_t LeafSeed = uint32_t(int32_t(Source[13] * 733.0f)) * 73856093u ^
+											  uint32_t(int32_t(Source[14] * 733.0f)) * 19349663u ^
+											  uint32_t(int32_t(Source[15] * 733.0f)) * 83492791u;
+					ColorPtr[Destination] =
+						bMasked ? Base
+								: TreeGen::GetSeasonLeafColor(Base, TreeGen::GetNoisedLeafSeason(LeafSeed, Season),
+															  bUnchanging, false);
+					WindPtr[Destination * 2] = Source[11];
+					WindPtr[Destination * 2 + 1] = Source[12];
+					for (int32_t Component = 0; Component < 3; ++Component)
+					{
+						AnchorPtr[Destination * 3 + Component] = Source[13 + Component];
+					}
+				}
+				else
+				{
+					const Vector3& Albedo = Batch.WoodColors.size() == size_t(Count) ? Batch.WoodColors[size_t(Index)] : Batch.material.albedo;
+					ColorPtr[Destination] = Color(Albedo.x, Albedo.y, Albedo.z);
+					WindPtr[Destination * 2] = Source[8];
+					WindPtr[Destination * 2 + 1] = Source[9];
+					for (int32_t Component = 0; Component < 3; ++Component)
+					{
+						AnchorPtr[Destination * 3 + Component] = Source[Component];
+					}
+				}
+			}
+			for (const uint32_t Index : Batch.indices)
+			{
+				IndexPtr[IndexBase++] = int32_t(VertexBase + Index);
+			}
+			VertexBase += Count;
+		}
+		Array Arrays;
+		Arrays.resize(Mesh::ARRAY_MAX);
+		Arrays[Mesh::ARRAY_VERTEX] = Positions;
+		Arrays[Mesh::ARRAY_NORMAL] = Normals;
+		if (bHasTangents)
+		{
+			Arrays[Mesh::ARRAY_TANGENT] = Tangents;
+		}
+		Arrays[Mesh::ARRAY_TEX_UV] = Uvs;
+		Arrays[Mesh::ARRAY_COLOR] = Colors;
+		Arrays[Mesh::ARRAY_CUSTOM0] = Wind;
+		Arrays[Mesh::ARRAY_CUSTOM1] = Anchors;
+		Arrays[Mesh::ARRAY_INDEX] = Indices;
+		Prepared.Surfaces.push_back(Arrays);
+		Prepared.MaskedSurfaces.push_back(bMasked);
+		Prepared.VertexCount += uint32_t(VertexCount);
+		Prepared.TriangleCount += uint32_t(IndexCount / 3);
+	}
+	Prepared.PackMs =
+		float(std::chrono::duration<double, std::milli>(std::chrono::steady_clock::now() - Started).count());
+	return Prepared;
+}
+
+bool SlowTreeGenerator::CommitMesh(const SlowTreePreparedMesh& Prepared, SlowTreeMeshResult& Out, float Season)
+{
+	if (!Prepared.Error.is_empty())
+	{
+		Out.Error = Prepared.Error;
+		return false;
+	}
+	const auto Started = std::chrono::steady_clock::now();
 	Out.Mesh.instantiate();
 	Out.SurfaceMaterials.clear();
-
-	// 一个 surface, 顶点色。原实现是每个 MeshBatch 一个 surface(桃 7 个), 与本项目
-	// "单 surface 顶点色" 约定冲突, 而 PCG 的 spawn_meshes 依赖那个约定。
-	//
-	// 代价(明知): 逐节点的 roughness/metallic/normal/sss 全部丢弃, 只保留 albedo 进顶点色。
-	// 这是无资产契约的必然结果, 也是彩墨 NPR 想要的方向。
-	//
-	// 同时修掉一个既有 bug: 叶顶点的实际布局是
-	//   pos(0-2) normal(3-5) uv(6-7) **albedo(8-10) wind(11-12)** anchor(13-15)
-	// (见 TreeGenerator 的 emitVert 与 leaf_card.comp 的 stride 注释), 而原 AddBatchSurface
-	// 按 wind(8-9) colour(10-12) 读, 于是每片叶的顶点色变成 (col.b, windW, leafPhase)。
-	// LeafCluster 的 windW 恒为 1.0, 顶点色又以乘法叠在材质 albedo 上, 所以**所有叶片一直被
-	// 悄悄压暗和偏色** —— 之前记录的"针叶颜色偏灰绿"就是这个。
-	std::vector<Vector3> positions;
-	std::vector<Vector3> normals;
-	std::vector<Vector2> uvs;
-	std::vector<Color> colors;
-	std::vector<float> wind;
-	std::vector<float> anchors;
-	std::vector<int32_t> indices;
-
-	uint32_t vertexBase = 0;
-	for (const MeshBatch& batch : Data.batches)
+	const uint64_t CustomFlags = (uint64_t(Mesh::ARRAY_CUSTOM_RG_FLOAT) << Mesh::ARRAY_FORMAT_CUSTOM0_SHIFT) |
+								 (uint64_t(Mesh::ARRAY_CUSTOM_RGB_FLOAT) << Mesh::ARRAY_FORMAT_CUSTOM1_SHIFT);
+	for (size_t Index = 0; Index < Prepared.Surfaces.size(); ++Index)
 	{
-		if (batch.vertices.empty() || batch.indices.empty())
+		Out.Mesh->add_surface_from_arrays(Mesh::PRIMITIVE_TRIANGLES, Prepared.Surfaces[Index], TypedArray<Array>(),
+										  Dictionary(), BitField<Mesh::ArrayFormat>(int64_t(CustomFlags)));
+		Ref<Material> SurfaceMaterial;
+		if (Prepared.MaskedSurfaces[Index])
 		{
-			continue;
+			Out.Mesh->set_meta("treegen_masked_foliage", true);
+			SurfaceMaterial = SlowTreeFoliage::CreateMaterial(Season);
+			Out.Mesh->surface_set_name(int32_t(Index), "Foliage");
 		}
-
-		const int stride = batch.isLeaf ? 16 : 10;
-		const int64_t count = int64_t(batch.vertices.size()) / stride;
-		if (count == 0)
+		else
 		{
-			continue;
-		}
-
-		// 花不随季节变色。判据: 叶片是绿色主导, 花不是 —— GetSeasonLeafColor 对 needle/blossom
-		// 直接返回夏色, 所以这里只需要认出"不是叶子"。常绿由调用方给(颜色推不出来)。
-		const MaterialParams& mat = batch.material;
-		const bool bTreatAsUnchanging = Evergreen || (mat.albedo.x > mat.albedo.y);
-
-		const float* v = batch.vertices.data();
-		for (int64_t i = 0; i < count; ++i)
-		{
-			const float* q = v + i * stride;
-			positions.push_back(Vector3(q[0], q[1], q[2]));
-			normals.push_back(Vector3(q[3], q[4], q[5]));
-			uvs.push_back(Vector2(q[6], q[7]));
-
-			if (batch.isLeaf)
+			Ref<StandardMaterial3D> SolidMaterial;
+			SolidMaterial.instantiate();
+			SolidMaterial->set_flag(BaseMaterial3D::FLAG_ALBEDO_FROM_VERTEX_COLOR, true);
+			SolidMaterial->set_cull_mode(BaseMaterial3D::CULL_DISABLED);
+			SolidMaterial->set_roughness(0.85f);
+			if (Prepared.bBambooCulm)
 			{
-				const Color Base(q[8], q[9], q[10]);
-				// 季节抖动的种子必须**逐叶**而不是逐顶点, 否则同一片叶的几个顶点拿到不同季节,
-				// 叶面上出现渐变。同一片叶的所有顶点共享摆动锚点(basePos, 13-15), 拿它做哈希
-				// 就得到稳定的逐叶种子。
-				const uint32_t Seed = uint32_t(
-					int32_t(q[13] * 733.0f) * 73856093
-					^ int32_t(q[14] * 733.0f) * 19349663
-					^ int32_t(q[15] * 733.0f) * 83492791);
-				const float Noised = TreeGen::GetNoisedLeafSeason(Seed, Season);
-				colors.push_back(TreeGen::GetSeasonLeafColor(
-					Base, Noised, bTreatAsUnchanging, false));
-				wind.push_back(q[11]);
-				wind.push_back(q[12]);
-				anchors.push_back(q[13]);
-				anchors.push_back(q[14]);
-				anchors.push_back(q[15]);
+				SolidMaterial->set_texture(BaseMaterial3D::TEXTURE_ALBEDO, SlowTreeMaterials::GetBambooFiberTexture());
+				SolidMaterial->set_roughness(0.62f);
 			}
-			else
+			else if (Prepared.BarkPreset >= 0)
 			{
-				// 枝干没有顶点色通道, 用该 batch 的材质 albedo 填, 这样单 surface 也能分色。
-				colors.push_back(Color(mat.albedo.x, mat.albedo.y, mat.albedo.z));
-				wind.push_back(q[8]);
-				wind.push_back(q[9]);
-				// 枝干无摆动锚点, 用自身位置(等于不产生额外位移)。
-				anchors.push_back(q[0]);
-				anchors.push_back(q[1]);
-				anchors.push_back(q[2]);
+				SolidMaterial->set_texture(BaseMaterial3D::TEXTURE_ALBEDO,
+					SlowTreeMaterials::GetBarkTexture(Prepared.BarkPreset, SlowTreeMaterials::EBarkTexture::Albedo));
+				SolidMaterial->set_texture(BaseMaterial3D::TEXTURE_NORMAL,
+					SlowTreeMaterials::GetBarkTexture(Prepared.BarkPreset, SlowTreeMaterials::EBarkTexture::Normal));
+				SolidMaterial->set_feature(BaseMaterial3D::FEATURE_NORMAL_MAPPING, true);
+				SolidMaterial->set_normal_scale(0.65f);
+				SolidMaterial->set_roughness(0.93f);
 			}
+			SurfaceMaterial = SolidMaterial;
+			Out.Mesh->surface_set_name(int32_t(Index), "Wood / geometry");
 		}
-
-		for (const uint32_t idx : batch.indices)
-		{
-			indices.push_back(int32_t(vertexBase + idx));
-		}
-
-		vertexBase += uint32_t(count);
-		Out.TriangleCount += uint32_t(batch.indices.size() / 3);
+		Out.Mesh->surface_set_material(int32_t(Index), SurfaceMaterial);
+		Out.SurfaceMaterials.push_back(SurfaceMaterial);
 	}
-
-	if (positions.empty() || indices.empty())
-	{
-		Out.VertexCount = 0;
-		Out.SurfaceCount = 0;
-		return true;
-	}
-
-	PackedVector3Array pos;
-	PackedVector3Array nrm;
-	PackedVector2Array uv;
-	PackedColorArray col;
-	PackedFloat32Array wnd;
-	PackedFloat32Array anc;
-	PackedInt32Array idx;
-	pos.resize(int64_t(positions.size()));
-	nrm.resize(int64_t(normals.size()));
-	uv.resize(int64_t(uvs.size()));
-	col.resize(int64_t(colors.size()));
-	wnd.resize(int64_t(wind.size()));
-	anc.resize(int64_t(anchors.size()));
-	idx.resize(int64_t(indices.size()));
-	for (size_t i = 0; i < positions.size(); ++i)
-	{
-		pos.set(int64_t(i), positions[i]);
-		nrm.set(int64_t(i), normals[i]);
-		uv.set(int64_t(i), uvs[i]);
-		col.set(int64_t(i), colors[i]);
-	}
-	for (size_t i = 0; i < wind.size(); ++i)
-	{
-		wnd.set(int64_t(i), wind[i]);
-	}
-	for (size_t i = 0; i < anchors.size(); ++i)
-	{
-		anc.set(int64_t(i), anchors[i]);
-	}
-	for (size_t i = 0; i < indices.size(); ++i)
-	{
-		idx.set(int64_t(i), indices[i]);
-	}
-
-	Array arrays;
-	arrays.resize(Mesh::ARRAY_MAX);
-	arrays[Mesh::ARRAY_VERTEX] = pos;
-	arrays[Mesh::ARRAY_NORMAL] = nrm;
-	arrays[Mesh::ARRAY_TEX_UV] = uv;
-	arrays[Mesh::ARRAY_COLOR] = col;
-	arrays[Mesh::ARRAY_CUSTOM0] = wnd;
-	arrays[Mesh::ARRAY_CUSTOM1] = anc;
-	arrays[Mesh::ARRAY_INDEX] = idx;
-
-	uint64_t customFlags = 0;
-	customFlags |= uint64_t(Mesh::ARRAY_CUSTOM_RG_FLOAT) << Mesh::ARRAY_FORMAT_CUSTOM0_SHIFT;
-	customFlags |= uint64_t(Mesh::ARRAY_CUSTOM_RGB_FLOAT) << Mesh::ARRAY_FORMAT_CUSTOM1_SHIFT;
-	const BitField<Mesh::ArrayFormat> flags{ int64_t(customFlags) };
-
-	Out.Mesh->add_surface_from_arrays(
-		Mesh::PRIMITIVE_TRIANGLES, arrays, TypedArray<Array>(), Dictionary(), flags);
-
-	// 一棵树一个材质。叶卡是薄片必须双面, 枝干是闭合管、双面只多花填充率不出错, 所以统一
-	// CULL_DISABLED 而不是为此拆回两个 surface。
-	Ref<StandardMaterial3D> material;
-	material.instantiate();
-	material->set_flag(BaseMaterial3D::FLAG_ALBEDO_FROM_VERTEX_COLOR, true);
-	material->set_cull_mode(BaseMaterial3D::CULL_DISABLED);
-	material->set_roughness(0.85f);
-	material->set_metallic(0.0f);
-	Out.Mesh->surface_set_material(0, material);
-	Out.SurfaceMaterials.push_back(material);
-
-	Out.VertexCount = vertexBase;
-	Out.SurfaceCount = 1;
+	Out.VertexCount = Prepared.VertexCount;
+	Out.TriangleCount = Prepared.TriangleCount;
+	Out.SurfaceCount = uint32_t(Prepared.Surfaces.size());
+	Out.LeafCount = Prepared.LeafCount;
+	Out.Growth = Prepared.Growth;
+	Out.Truncated = Prepared.bTruncated;
+	Out.GenerationMs = Prepared.GenerationMs;
+	Out.ConvertMs =
+		Prepared.PackMs +
+		float(std::chrono::duration<double, std::milli>(std::chrono::steady_clock::now() - Started).count());
 	return true;
+}
+
+SlowTreePreparedMesh SlowTreeGenerator::PreparePreset(int32_t Preset, int64_t Seed, float Season,
+													  const SlowTreeTuning& Tuning)
+{
+	NodeGraph Graph;
+	SlowTreePreparedMesh Prepared;
+	if (!SlowTreePresets::BuildGraph(Preset, Graph))
+	{
+		Prepared.Error = "Invalid SlowTree preset.";
+		return Prepared;
+	}
+	SlowTreeTuning Settings = Tuning;
+	Settings.Foliage.Preset = Preset;
+	ApplyTuning(Graph, Settings);
+	TreeMeshData Data;
+	const auto Started = std::chrono::steady_clock::now();
+	if (!RunGeneration(Graph, Seed, Data, Prepared.Error, Settings.Foliage))
+	{
+		return Prepared;
+	}
+	const float GenerationMs =
+		float(std::chrono::duration<double, std::milli>(std::chrono::steady_clock::now() - Started).count());
+	Prepared = PrepareMesh(Data, Season, SlowTreePresets::IsEvergreen(Preset));
+	Prepared.GenerationMs = GenerationMs;
+	return Prepared;
+}
+
+bool SlowTreeGenerator::ConvertToGodotMesh(const TreeMeshData& Data, SlowTreeMeshResult& Out, float Season,
+										   bool Evergreen)
+{
+	return CommitMesh(PrepareMesh(Data, Season, Evergreen), Out, Season);
 }
 
 bool SlowTreeGenerator::GenerateFromGraph(NodeGraph& Graph, int64_t Seed,
@@ -691,13 +734,13 @@ bool SlowTreeGenerator::GenerateFromGraph(NodeGraph& Graph, int64_t Seed,
 	Dictionary gpuStats;
 	if (UseGpu)
 	{
-		if (!RunGenerationGpu(Graph, Seed, data, &gpuStats, error))
+		if (!RunGenerationGpu(Graph, Seed, data, &gpuStats, error, Tuning.Foliage))
 		{
 			Out.Error = error;
 			return false;
 		}
 	}
-	else if (!RunGeneration(Graph, Seed, data, error))
+	else if (!RunGeneration(Graph, Seed, data, error, Tuning.Foliage))
 	{
 		Out.Error = error;
 		return false;
@@ -735,8 +778,9 @@ Dictionary SlowTreeGenerator::Generate(int32_t Preset, int64_t Seed, bool UseGpu
 	}
 	else
 	{
-		GenerateFromGraph(graph, Seed, result, UseGpu, Season,
-			SlowTreePresets::IsEvergreen(Preset), BuildTuning(Tuning));
+		SlowTreeTuning Settings = BuildTuning(Tuning);
+		Settings.Foliage.Preset = Preset;
+		GenerateFromGraph(graph, Seed, result, UseGpu, Season, SlowTreePresets::IsEvergreen(Preset), Settings);
 	}
 
 	Dictionary out;
@@ -751,9 +795,43 @@ Dictionary SlowTreeGenerator::Generate(int32_t Preset, int64_t Seed, bool UseGpu
 	out["vertex_count"] = result.VertexCount;
 	out["triangle_count"] = result.TriangleCount;
 	out["surface_count"] = result.SurfaceCount;
+	out["leaf_count"] = result.LeafCount;
 	out["truncated"] = result.Truncated;
 	out["generation_ms"] = result.GenerationMs;
 	out["gpu_ms"] = result.GpuMs;
+	Dictionary GrowthStats;
+	GrowthStats["trunks"] = result.Growth.Trunks;
+	GrowthStats["stems"] = result.Growth.Stems;
+	GrowthStats["forks"] = result.Growth.Forks;
+	GrowthStats["segments"] = result.Growth.Segments;
+	GrowthStats["junctions"] = result.Growth.Junctions;
+	GrowthStats["omitted_junctions"] = result.Growth.OmittedJunctions;
+	GrowthStats["wood_vertices"] = result.Growth.WoodVertices;
+	out["growth_stats"] = GrowthStats;
+	out["tessellation_backend"] = result.Growth.Stems > 0 ? "cpu_connected" : (UseGpu ? "gpu" : "cpu");
+	if (!result.Growth.Points.empty())
+	{
+		Dictionary Skeleton;
+		PackedVector3Array Points;
+		PackedFloat32Array Radii;
+		PackedInt32Array Offsets;
+		PackedInt32Array Parents;
+		PackedInt32Array Attachments;
+		PackedInt32Array Roles;
+		for (const Vector3& Point : result.Growth.Points) { Points.push_back(Point); }
+		for (const float Radius : result.Growth.Radii) { Radii.push_back(Radius); }
+		for (const int32_t Offset : result.Growth.Offsets) { Offsets.push_back(Offset); }
+		for (const int32_t Parent : result.Growth.Parents) { Parents.push_back(Parent); }
+		for (const int32_t Attachment : result.Growth.Attachments) { Attachments.push_back(Attachment); }
+		for (const int32_t Role : result.Growth.Roles) { Roles.push_back(Role); }
+		Skeleton["points"] = Points;
+		Skeleton["radii"] = Radii;
+		Skeleton["offsets"] = Offsets;
+		Skeleton["parents"] = Parents;
+		Skeleton["attachments"] = Attachments;
+		Skeleton["roles"] = Roles;
+		out["growth_skeleton"] = Skeleton;
+	}
 	out["convert_ms"] = result.ConvertMs;
 	return out;
 }
@@ -769,7 +847,10 @@ Dictionary SlowTreeGenerator::GenerateFromFile(const String& VtreePath, int64_t 
 	}
 	else
 	{
-		GenerateFromGraph(graph, Seed, result, UseGpu, Season, false, BuildTuning(Tuning));
+		SlowTreeTuning Settings = BuildTuning(Tuning);
+		// Species recipes describe bundled presets only; an imported graph owns its complete topology.
+		Settings.Foliage.Growth.bEnabled = false;
+		GenerateFromGraph(graph, Seed, result, UseGpu, Season, false, Settings);
 	}
 
 	Dictionary out;
@@ -784,6 +865,7 @@ Dictionary SlowTreeGenerator::GenerateFromFile(const String& VtreePath, int64_t 
 	out["vertex_count"] = result.VertexCount;
 	out["triangle_count"] = result.TriangleCount;
 	out["surface_count"] = result.SurfaceCount;
+	out["leaf_count"] = result.LeafCount;
 	out["truncated"] = result.Truncated;
 	out["generation_ms"] = result.GenerationMs;
 	out["convert_ms"] = result.ConvertMs;
