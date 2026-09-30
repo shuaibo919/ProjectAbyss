@@ -198,13 +198,19 @@ func execute( ctx : FlowData.EvaluationContext ):
 	if point_seeds != null and point_seeds.size() != in_size:
 		point_seeds = null
 
-	# Collect which indices use the same resource.
+	# Spatial batches let the renderer cull and choose LODs independently. A zero
+	# cell size preserves the original per-resource grouping for existing graphs.
 	var mmis := {}
+	var cell_size: float = settings.instance_cell_size
 	for idx in range( in_size ):
 		var mesh = _resolve_mesh_for_point(idx, meshes, variants, variant_weights, selector_stream, point_seeds)
 		if mesh == null:
 			continue
-		var key = mesh
+		var cell := Vector2i.ZERO
+		if cell_size > 0.0:
+			var at: Vector3 = transforms.atIndex(idx).origin
+			cell = Vector2i(floori(at.x / cell_size), floori(at.z / cell_size))
+		var key = [mesh, cell]
 		var mmi = mmis.get( key, null )
 		if mmi == null:
 			mmis[ key ] = []
@@ -218,15 +224,19 @@ func execute( ctx : FlowData.EvaluationContext ):
 			setError("Color attribute '%s' must have %d values or 1 value (got %d)" % [settings.color_attribute, in_size, color_size])
 			return
 
-	for res in mmis.keys():
+	for key in mmis.keys():
+		var res: Mesh = key[0]
 		var mmi : MultiMeshInstance3D = spawnNode( MultiMeshInstance3D )
+		if cell_size > 0.0:
+			mmi.set_meta("flow_instance_cell", key[1])
+			mmi.set_meta("flow_instance_cell_size", cell_size)
 		
 		var multimesh := MultiMesh.new()
 		multimesh.mesh = res
 		multimesh.transform_format = MultiMesh.TransformFormat.TRANSFORM_3D
 		if has_colors:
 			multimesh.use_colors = true
-		var ids = mmis[res]
+		var ids = mmis[key]
 		multimesh.instance_count = ids.size()
 		
 		# We could also create a large buffer and perform a single update
@@ -239,7 +249,7 @@ func execute( ctx : FlowData.EvaluationContext ):
 			idx += 1
 			
 		mmi.multimesh = multimesh
-		if has_colors:
+		if has_colors and not res.get_meta("treegen_masked_foliage", false):
 			var mat = StandardMaterial3D.new()
 			mat.vertex_color_use_as_albedo = true
 			mat.roughness = 0.3

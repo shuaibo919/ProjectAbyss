@@ -24,6 +24,9 @@ extends NodeSettings
 @export var spawn_parent_path : String = ""
 ## If enabled, deletes previously spawned mesh instances before evaluation.
 @export var clear_previous_instances : bool = true
+## Split each mesh variant into XZ cells for independent frustum culling and mesh LOD.
+## Zero keeps one MultiMesh per variant, as in existing graphs.
+@export_range(0.0, 256.0, 1.0) var instance_cell_size : float = 0.0
 
 func _init():
 	super._init()

@@ -1,6 +1,38 @@
-[gd_scene load_steps=2 format=3]
+[gd_scene format=3 uid="uid://v3ykhmvq2qgm"]
 
-[ext_resource type="Script" path="res://Map/Map_RiverTown.gd" id="1"]
+[ext_resource type="Script" uid="uid://0uksr8bntdg0" path="res://Map/Map_RiverTown.gd" id="1"]
 
-[node name="Map_RiverTown" type="Node3D"]
+[node name="Map_RiverTown" type="Node3D" unique_id=856587669]
 script = ExtResource("1")
+
+[node name="PreviewCam hero" type="Camera3D" parent="." unique_id=728980663]
+transform = Transform3D(-0.9992629, 0.015729764, -0.035016835, 0, 0.9121924, 0.4097621, 0.038387552, 0.4094601, -0.91152006, -2.1870937, 95.3, -163.77074)
+fov = 40.0
+
+[node name="PreviewCam overview" type="Camera3D" parent="." unique_id=1833217843]
+transform = Transform3D(-0.99597555, -0.05945257, 0.067067385, 0, 0.74831104, 0.663348, -0.08962501, 0.6606784, -0.7452995, 16.641743, 235.3, -216.40604)
+fov = 40.0
+
+[node name="PreviewCam gate" type="Camera3D" parent="." unique_id=20641774]
+transform = Transform3D(-0.9977422, -0.0053736786, 0.066944905, 0, 0.9967938, 0.080012806, -0.067160234, 0.07983215, -0.9945432, 33.338917, 21, -43.37232)
+fov = 40.0
+
+[node name="PreviewCam bridge" type="Camera3D" parent="." unique_id=883934493]
+transform = Transform3D(-0.99816424, 0.0005193277, 0.060563497, 0, 0.9999632, -0.008574613, -0.060565725, -0.008558872, -0.9981275, 2.4264278, -1.1999998, -44.423706)
+fov = 40.0
+
+[node name="PreviewCam street" type="Camera3D" parent="." unique_id=1042868273]
+transform = Transform3D(-0.9866336, -0.0067838877, 0.16281329, 0, 0.99913305, 0.041630547, -0.16295457, 0.041074097, -0.9857782, -28.526485, 6, -39.40048)
+fov = 40.0
+
+[node name="PreviewCam city" type="Camera3D" parent="." unique_id=335930159]
+transform = Transform3D(-0.79591596, 0.22281183, -0.56291443, 0, 0.9298114, 0.36803636, 0.6054071, 0.292926, -0.74005175, -1.3918409, 56, -72.42011)
+fov = 40.0
+
+[node name="PreviewCam lane" type="Camera3D" parent="." unique_id=990871334]
+transform = Transform3D(0.16295461, 0.023208484, 0.98636055, 0, 0.9997233, -0.023522902, -0.98663354, 0.0038331654, 0.16290952, -30.264944, 2.7, -30.68216)
+fov = 40.0
+
+[node name="PreviewCam courtyard" type="Camera3D" parent="." unique_id=2000146176]
+transform = Transform3D(-0.7793227, 0.38676003, -0.49302423, 0, 0.7867958, 0.6172134, 0.62662286, 0.4810084, -0.6131678, 72.33607, 50, -8.552141)
+fov = 40.0
