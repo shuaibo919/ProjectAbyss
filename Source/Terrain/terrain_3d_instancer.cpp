@@ -468,9 +468,17 @@ void Terrain3DInstancer::_backup_region(const Ref<Terrain3DRegion> &p_region) {
 	if (p_region.is_null()) {
 		return;
 	}
+#ifdef WITH_ABYSS
+	// Back up into whichever editor is operating, so Terrain3DAgent's instancer edits can be undone.
+	Terrain3DEditor *editor = _terrain ? _terrain->get_operating_editor() : nullptr;
+	if (editor && editor->is_operating()) {
+		editor->backup_region(p_region);
+	} else {
+#else
 	if (_terrain && _terrain->get_editor() && _terrain->get_editor()->is_operating()) {
 		_terrain->get_editor()->backup_region(p_region);
 	} else {
+#endif
 		p_region->set_modified(true);
 	}
 }

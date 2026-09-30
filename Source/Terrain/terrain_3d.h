@@ -59,6 +59,11 @@ private:
 	Terrain3DInstancer *_instancer = nullptr;
 	Terrain3DEditor *_editor = nullptr;
 	Object *_editor_plugin = nullptr;
+#ifdef WITH_ABYSS
+	// The editor mid-operation. Scripts and Terrain3DAgent drive their own Terrain3DEditor, which
+	// is not _editor (setting that rebuilds the shader with the plugin's brush decal injected).
+	Terrain3DEditor *_operating_editor = nullptr;
+#endif
 
 	// Regions
 	RegionSize _region_size = SIZE_256;
@@ -166,6 +171,10 @@ public:
 	Terrain3DEditor *get_editor() const { return _editor; }
 	void set_plugin(Object *p_plugin);
 	Object *get_plugin() const { return _editor_plugin; }
+#ifdef WITH_ABYSS
+	void set_operating_editor(Terrain3DEditor *p_editor) { _operating_editor = p_editor; }
+	Terrain3DEditor *get_operating_editor() const { return _operating_editor ? _operating_editor : _editor; }
+#endif
 
 	// Regions
 	void set_region_size(const RegionSize p_size);

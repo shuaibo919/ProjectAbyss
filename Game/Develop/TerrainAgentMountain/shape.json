@@ -1,0 +1,214 @@
+[
+ {
+  "op": "set_properties",
+  "properties": {
+   "ocean_enabled": true,
+   "material.world_background": "None"
+  }
+ },
+ {
+  "op": "add_regions",
+  "area": [
+   -1024,
+   -1024,
+   2048,
+   2048
+  ]
+ },
+ {
+  "op": "apply_noise",
+  "area": [
+   -1024,
+   -1024,
+   2048,
+   2048
+  ],
+  "mode": "set",
+  "seed": 4,
+  "frequency": 0.0008,
+  "octaves": 4,
+  "amplitude": 35,
+  "base": 40,
+  "auto_regions": false
+ },
+ {
+  "op": "set_height_area",
+  "center": [
+   -460,
+   300
+  ],
+  "radius": 340,
+  "height": 150,
+  "mode": "add",
+  "falloff": 340,
+  "auto_regions": false
+ },
+ {
+  "op": "set_height_area",
+  "center": [
+   -200,
+   90
+  ],
+  "radius": 400,
+  "height": 250,
+  "mode": "add",
+  "falloff": 400,
+  "auto_regions": false
+ },
+ {
+  "op": "set_height_area",
+  "center": [
+   60,
+   -110
+  ],
+  "radius": 430,
+  "height": 330,
+  "mode": "add",
+  "falloff": 430,
+  "auto_regions": false
+ },
+ {
+  "op": "set_height_area",
+  "center": [
+   320,
+   -260
+  ],
+  "radius": 380,
+  "height": 250,
+  "mode": "add",
+  "falloff": 380,
+  "auto_regions": false
+ },
+ {
+  "op": "set_height_area",
+  "center": [
+   560,
+   -440
+  ],
+  "radius": 320,
+  "height": 160,
+  "mode": "add",
+  "falloff": 320,
+  "auto_regions": false
+ },
+ {
+  "op": "apply_noise",
+  "center": [
+   40,
+   -80
+  ],
+  "radius": 950,
+  "mode": "add",
+  "falloff": 720,
+  "seed": 21,
+  "frequency": 0.0016,
+  "fractal_type": "ridged",
+  "octaves": 5,
+  "gain": 0.42,
+  "unsigned": true,
+  "exponent": 1.6,
+  "amplitude": 300,
+  "auto_regions": false
+ },
+ {
+  "op": "brush",
+  "action": "lower",
+  "size": 170,
+  "strength": 130,
+  "passes": 5,
+  "spacing": 12,
+  "falloff": 0.9,
+  "auto_regions": false,
+  "points": [
+   [
+    330,
+    120
+   ],
+   [
+    420,
+    330
+   ],
+   [
+    360,
+    520
+   ],
+   [
+    470,
+    700
+   ],
+   [
+    640,
+    860
+   ]
+  ]
+ },
+ {
+  "op": "brush",
+  "action": "smooth",
+  "size": 110,
+  "passes": 3,
+  "spacing": 20,
+  "auto_regions": false,
+  "points": [
+   [
+    330,
+    120
+   ],
+   [
+    420,
+    330
+   ],
+   [
+    360,
+    520
+   ],
+   [
+    470,
+    700
+   ],
+   [
+    640,
+    860
+   ]
+  ]
+ },
+ {
+  "op": "set_height_area",
+  "center": [
+   -560,
+   -560
+  ],
+  "radius": 260,
+  "height": -8,
+  "mode": "min",
+  "falloff": 170,
+  "auto_regions": false
+ },
+ {
+  "op": "set_height_area",
+  "center": [
+   0,
+   0
+  ],
+  "radius": 930,
+  "height": -30,
+  "invert": true,
+  "falloff": 260,
+  "auto_regions": false
+ },
+ {
+  "op": "set_height_area",
+  "center": [
+   0,
+   0
+  ],
+  "radius": 1030,
+  "height": -260,
+  "invert": true,
+  "falloff": 110,
+  "auto_regions": false
+ },
+ {
+  "op": "get_summary"
+ }
+]

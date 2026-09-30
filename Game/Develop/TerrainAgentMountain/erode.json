@@ -1,0 +1,5 @@
+[
+ {"op": "stream_power", "k": 2e-5, "seed": 3},
+ {"op": "erode", "seed": 1, "thermal_iterations": 4, "talus_angle": 40},
+ {"op": "save"}
+]

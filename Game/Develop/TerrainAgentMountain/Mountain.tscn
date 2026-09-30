@@ -1,0 +1,33 @@
+[gd_scene format=3]
+
+[ext_resource type="Terrain3DAssets" path="res://Develop/TerrainAgentMountain/assets.tres" id="1_5p1cc"]
+[ext_resource type="Material" path="res://addons/terrain_3d/extras/shaders/M_ocean.tres" id="1_817bm"]
+
+[sub_resource type="Terrain3DMaterial" id="Terrain3DMaterial_5p1cc"]
+_shader_parameters = {
+&"bias_distance": null,
+&"blend_sharpness": null,
+&"depth_blur": null,
+&"distant_normal_scale": null,
+&"flat_terrain_normals": null,
+&"general_uniforms": null,
+&"ground_level": null,
+&"mipmap_bias": null,
+&"mipmaps": null,
+&"private": null,
+&"region_blend": null
+}
+world_background = 0
+
+[node name="Mountain" type="Node3D" unique_id=763530232]
+
+[node name="Terrain3D" type="Terrain3D" parent="." unique_id=1798024914]
+data_directory = "res://Develop/TerrainAgentMountain/data"
+material = SubResource("Terrain3DMaterial_5p1cc")
+assets = ExtResource("1_5p1cc")
+vertex_spacing = 2.0
+displacement_sharpness = 0.5
+ocean_enabled = true
+ocean_material = ExtResource("1_817bm")
+top_level = true
+metadata/_edit_lock_ = true

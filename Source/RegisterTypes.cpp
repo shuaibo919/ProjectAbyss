@@ -10,10 +10,14 @@
 // Terrain3D
 #include "Terrain/terrain_3d.h"
 #include "Terrain/terrain_3d_editor.h"
+#ifdef WITH_ABYSS
+#include "Terrain/terrain_3d_agent.h"
+#endif
 // Procedural trees (port of "Real-Time GPU Tree Generation", Kuth et al., HPG 2025)
 #include "TreeGen/ProceduralTree.h"
 #include "TreeGen/ProceduralTreeEditorPlugin.h"
 #include "TreeGen/ProceduralTreeParameters.h"
+#include "TreeGen/ProceduralTreeGrowthParameters.h"
 // SlowTree integration (SpeedTree-style generator + compute-shader pipeline)
 #include "TreeGen/SlowTree/SlowTreeCompute.h"
 #include "TreeGen/SlowTree/SlowTreeGenerator.h"
@@ -85,10 +89,14 @@ void initialize_abyss_module(ModuleInitializationLevel p_level) {
 	GDREGISTER_CLASS(Terrain3DRegion);
 	GDREGISTER_CLASS(Terrain3DTextureAsset);
 	GDREGISTER_CLASS(Terrain3DUtil);
+#ifdef WITH_ABYSS
+	GDREGISTER_CLASS(Terrain3DAgent);
+#endif
 
 	GDREGISTER_CLASS(ProceduralTreeLeafParameters);
 	GDREGISTER_CLASS(ProceduralTreeFruitParameters);
 	GDREGISTER_CLASS(ProceduralTreeParameters);
+	GDREGISTER_CLASS(ProceduralTreeGrowthParameters);
 	GDREGISTER_CLASS(ProceduralTree);
 
 	GDREGISTER_CLASS(SlowTreeCompute);

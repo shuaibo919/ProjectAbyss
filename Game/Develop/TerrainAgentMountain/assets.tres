@@ -1,0 +1,62 @@
+[gd_resource type="Terrain3DAssets" format=3]
+
+[ext_resource type="Texture2D" path="res://demo/assets/textures/ground037_alb_ht.png" id="1_w1cbf"]
+[ext_resource type="Texture2D" path="res://demo/assets/textures/ground037_nrm_rgh.png" id="2_ve6v4"]
+[ext_resource type="Texture2D" path="res://demo/assets/textures/rock023_alb_ht.png" id="3_2dk2d"]
+[ext_resource type="Texture2D" path="res://demo/assets/textures/rock023_nrm_rgh.png" id="4_ly3td"]
+
+[sub_resource type="StandardMaterial3D" id="StandardMaterial3D_e324h"]
+transparency = 4
+cull_mode = 2
+vertex_color_use_as_albedo = true
+backlight_enabled = true
+backlight = Color(0.5, 0.5, 0.5, 1)
+distance_fade_mode = 1
+distance_fade_min_distance = 128.0
+distance_fade_max_distance = 96.0
+metadata/terrain3d_generated_material = true
+
+[sub_resource type="Terrain3DMeshAsset" id="Terrain3DMeshAsset_qg4x3"]
+generated_type = 1
+height_offset = 0.5
+density = 10.0
+material_override = SubResource("StandardMaterial3D_e324h")
+last_lod = 0
+last_shadow_lod = 0
+lod0_range = 128.0
+
+[sub_resource type="Terrain3DTextureAsset" id="Terrain3DTextureAsset_4y584"]
+name = "Grass"
+albedo_color = Color(0.60784316, 0.70980394, 0.43529412, 1)
+albedo_texture = ExtResource("1_w1cbf")
+normal_texture = ExtResource("2_ve6v4")
+detiling_rotation = 0.2
+
+[sub_resource type="Terrain3DTextureAsset" id="Terrain3DTextureAsset_jo03c"]
+name = "Cliff"
+id = 1
+albedo_color = Color(0.5411765, 0.52156866, 0.5019608, 1)
+albedo_texture = ExtResource("3_2dk2d")
+normal_texture = ExtResource("4_ly3td")
+uv_scale = 0.04
+
+[sub_resource type="Terrain3DTextureAsset" id="Terrain3DTextureAsset_n3n14"]
+name = "Scree"
+id = 2
+albedo_color = Color(0.7882353, 0.70980394, 0.5882353, 1)
+albedo_texture = ExtResource("3_2dk2d")
+normal_texture = ExtResource("4_ly3td")
+uv_scale = 0.12
+
+[sub_resource type="Terrain3DTextureAsset" id="Terrain3DTextureAsset_wkh4q"]
+name = "Snow"
+id = 3
+albedo_color = Color(3.2, 3.3, 3.6, 1)
+albedo_texture = ExtResource("1_w1cbf")
+normal_texture = ExtResource("2_ve6v4")
+roughness = 0.2
+uv_scale = 0.05
+
+[resource]
+mesh_list = Array[Terrain3DMeshAsset]([SubResource("Terrain3DMeshAsset_qg4x3")])
+texture_list = Array[Terrain3DTextureAsset]([SubResource("Terrain3DTextureAsset_4y584"), SubResource("Terrain3DTextureAsset_jo03c"), SubResource("Terrain3DTextureAsset_n3n14"), SubResource("Terrain3DTextureAsset_wkh4q")])

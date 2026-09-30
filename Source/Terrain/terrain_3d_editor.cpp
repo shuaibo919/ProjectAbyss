@@ -158,12 +158,22 @@ void Terrain3DEditor::_operate_map(const Vector3 &p_global_position, const real_
 		rot += p_camera_direction;
 	}
 	// Rotate the decal to align with the brush
+#ifdef WITH_ABYSS
+	// Only the plugin's own editor drives its decal, and the ui can be null while the plugin tears down.
+	if (_is_plugin_editor()) {
+		Node *node = cast_to<Node>(_terrain->get_plugin()->get("ui"));
+		if (node && node->has_method("set_decal_rotation")) {
+			node->call("set_decal_rotation", rot);
+		}
+	}
+#else
 	if (_terrain->get_plugin()) {
 		Node *node = cast_to<Node>(_terrain->get_plugin()->get("ui"));
 		if (node->has_method("set_decal_rotation")) {
 			node->call("set_decal_rotation", rot);
 		}
 	}
+#endif
 	AABB edited_area;
 	edited_area.position = p_global_position - Vector3(brush_size, 0.f, brush_size) * .5f;
 	edited_area.size = Vector3(brush_size, 0.f, brush_size);
@@ -586,7 +596,12 @@ void Terrain3DEditor::_operate_map(const Vector3 &p_global_position, const real_
 }
 
 void Terrain3DEditor::_store_undo() {
+#ifdef WITH_ABYSS
+	// Without a plugin the snapshots go to the local history below instead of being dropped.
+	IS_INIT_MESG("_terrain isn't initialized, returning", VOID);
+#else
 	IS_INIT_COND_MESG(!_terrain->get_plugin(), "_terrain isn't initialized, returning", VOID);
+#endif
 	if (_tool < 0 || _tool >= TOOL_MAX) {
 		return;
 	}
@@ -633,6 +648,16 @@ void Terrain3DEditor::_store_undo() {
 	}
 
 	// Request the plugin store the undo/redo data.
+#ifdef WITH_ABYSS
+	if (!_terrain->get_plugin() || !_terrain->get_editor()) {
+		String local_name = String("Terrain3D ") + OPNAME[_operation] + String(" ") + TOOLNAME[_tool];
+		_push_local_history(local_name, _undo_data.duplicate(), redo_data);
+		return;
+	}
+	// Bind undo to the plugin's editor: a script's or Terrain3DAgent's editor may be freed long
+	// before the user presses Ctrl+Z, and apply_undo() only needs the terrain, not the brush state.
+	Terrain3DEditor *undo_editor = _terrain->get_editor();
+#endif
 	if (_terrain->get_plugin()->has_method("create_undo_action")) {
 		LOG(INFO, "Storing undo snapshot");
 		String action_name = String("Terrain3D ") + OPNAME[_operation] + String(" ") + TOOLNAME[_tool];
@@ -641,11 +666,19 @@ void Terrain3DEditor::_store_undo() {
 
 		LOG(DEBUG, "Storing undo snapshot: ");
 		Util::print_dict("_undo_data snapshot", _undo_data, DEBUG);
+#ifdef WITH_ABYSS
+		_terrain->get_plugin()->call("add_undo_method", Callable(undo_editor, "apply_undo").bind(_undo_data.duplicate()));
+#else
 		_terrain->get_plugin()->call("add_undo_method", Callable(this, "apply_undo").bind(_undo_data.duplicate()));
+#endif
 
 		LOG(DEBUG, "Storing redo snapshot: ");
 		Util::print_dict("redo_data snapshot", redo_data, DEBUG);
+#ifdef WITH_ABYSS
+		_terrain->get_plugin()->call("add_do_method", Callable(undo_editor, "apply_undo").bind(redo_data));
+#else
 		_terrain->get_plugin()->call("add_do_method", Callable(this, "apply_undo").bind(redo_data));
+#endif
 
 		LOG(DEBUG, "Committing undo action");
 		_terrain->get_plugin()->call("commit_action", false);
@@ -653,7 +686,11 @@ void Terrain3DEditor::_store_undo() {
 }
 
 void Terrain3DEditor::_apply_undo(const Dictionary &p_data) {
+#ifdef WITH_ABYSS
+	IS_DATA_INIT_MESG("_terrain isn't initialized, returning", VOID);
+#else
 	IS_INIT_COND_MESG(!_terrain->get_plugin(), "_terrain isn't initialized, returning", VOID);
+#endif
 	LOG(INFO, "Applying Undo/Redo data");
 
 	Terrain3DData *data = _terrain->get_data();
@@ -894,6 +931,13 @@ void Terrain3DEditor::set_brush_data(const Dictionary &p_data) {
 void Terrain3DEditor::set_tool(const Tool p_tool) {
 	Tool old_tool = _tool;
 	SET_IF_DIFF(_tool, CLAMP(p_tool, Tool(0), TOOL_MAX));
+#ifdef WITH_ABYSS
+	// The shader only reflects the tool of the terrain's own editor; any other editor would pay
+	// a full shader rebuild for nothing.
+	if (_terrain && _terrain->get_editor() != this) {
+		return;
+	}
+#endif
 	if (_terrain && (_tool == Tool::NAVIGATION || old_tool == Tool::NAVIGATION || _tool == Tool::REGION || old_tool == Tool::REGION)) {
 		_terrain->get_material()->update(Terrain3DMaterial::FULL_REBUILD);
 	}
@@ -916,6 +960,9 @@ void Terrain3DEditor::start_operation(const Vector3 &p_global_position) {
 	_terrain->get_instancer()->reset_density_counter();
 	_operation_position = p_global_position;
 	_operation_movement = V3_ZERO;
+#ifdef WITH_ABYSS
+	_terrain->set_operating_editor(this);
+#endif
 }
 
 // Called on mouse movement with left mouse button down
@@ -993,7 +1040,93 @@ void Terrain3DEditor::stop_operation() {
 	_added_removed_locations = TypedArray<Vector2i>();
 	_terrain->get_data()->clear_edited_area();
 	_is_operating = false;
+#ifdef WITH_ABYSS
+	if (_terrain->get_operating_editor() == this) {
+		_terrain->set_operating_editor(nullptr);
+	}
+#endif
 }
+
+#ifdef WITH_ABYSS
+bool Terrain3DEditor::_is_plugin_editor() const {
+	return _terrain && _terrain->get_plugin() && _terrain->get_editor() == this;
+}
+
+void Terrain3DEditor::_push_local_history(const String &p_name, const Dictionary &p_undo, const Dictionary &p_redo) {
+	Dictionary entry;
+	entry["name"] = p_name;
+	entry["undo"] = p_undo;
+	entry["redo"] = p_redo;
+	_local_undo.push_back(entry);
+	_local_redo.clear();
+	while (_local_undo.size() > _local_history_limit) {
+		_local_undo.pop_front();
+	}
+	LOG(INFO, "Stored local undo snapshot '", p_name, "', history: ", _local_undo.size());
+}
+
+// _apply_undo() installs the snapshot regions as the live regions. Hand it copies so later edits
+// cannot write through into the history and corrupt a subsequent redo.
+Dictionary Terrain3DEditor::_detach_history_regions(const Dictionary &p_data) const {
+	Dictionary data = p_data.duplicate();
+	if (data.has("edited_regions")) {
+		TypedArray<Terrain3DRegion> copies;
+		TypedArray<Terrain3DRegion> regions = data["edited_regions"];
+		for (const Ref<Terrain3DRegion> region : regions) {
+			if (region.is_valid()) {
+				copies.push_back(region->duplicate(true));
+			}
+		}
+		data["edited_regions"] = copies;
+	}
+	return data;
+}
+
+bool Terrain3DEditor::undo_local() {
+	IS_DATA_INIT_MESG("Terrain isn't initialized", false);
+	if (_is_operating || _local_undo.is_empty()) {
+		return false;
+	}
+	Dictionary entry = _local_undo.pop_back();
+	LOG(INFO, "Local undo: ", entry["name"]);
+	_apply_undo(_detach_history_regions(entry["undo"]));
+	_local_redo.push_back(entry);
+	return true;
+}
+
+bool Terrain3DEditor::redo_local() {
+	IS_DATA_INIT_MESG("Terrain isn't initialized", false);
+	if (_is_operating || _local_redo.is_empty()) {
+		return false;
+	}
+	Dictionary entry = _local_redo.pop_back();
+	LOG(INFO, "Local redo: ", entry["name"]);
+	_apply_undo(_detach_history_regions(entry["redo"]));
+	_local_undo.push_back(entry);
+	return true;
+}
+
+PackedStringArray Terrain3DEditor::get_local_undo_names() const {
+	PackedStringArray names;
+	for (int i = 0; i < _local_undo.size(); i++) {
+		Dictionary entry = _local_undo[i];
+		names.push_back(entry["name"]);
+	}
+	return names;
+}
+
+void Terrain3DEditor::clear_local_history() {
+	_local_undo.clear();
+	_local_redo.clear();
+}
+
+void Terrain3DEditor::set_local_history_limit(const int p_limit) {
+	_local_history_limit = CLAMP(p_limit, 0, 256);
+	while (_local_undo.size() > _local_history_limit) {
+		_local_undo.pop_front();
+	}
+}
+#endif
 
 ///////////////////////////
 // Protected Functions
@@ -1036,4 +1169,14 @@ void Terrain3DEditor::_bind_methods() {
 	ClassDB::bind_method(D_METHOD("stop_operation"), &Terrain3DEditor::stop_operation);
 
 	ClassDB::bind_method(D_METHOD("apply_undo", "data"), &Terrain3DEditor::_apply_undo);
+#ifdef WITH_ABYSS
+	ClassDB::bind_method(D_METHOD("undo_local"), &Terrain3DEditor::undo_local);
+	ClassDB::bind_method(D_METHOD("redo_local"), &Terrain3DEditor::redo_local);
+	ClassDB::bind_method(D_METHOD("get_local_undo_count"), &Terrain3DEditor::get_local_undo_count);
+	ClassDB::bind_method(D_METHOD("get_local_redo_count"), &Terrain3DEditor::get_local_redo_count);
+	ClassDB::bind_method(D_METHOD("get_local_undo_names"), &Terrain3DEditor::get_local_undo_names);
+	ClassDB::bind_method(D_METHOD("clear_local_history"), &Terrain3DEditor::clear_local_history);
+	ClassDB::bind_method(D_METHOD("set_local_history_limit", "limit"), &Terrain3DEditor::set_local_history_limit);
+	ClassDB::bind_method(D_METHOD("get_local_history_limit"), &Terrain3DEditor::get_local_history_limit);
+#endif
 }

@@ -1,0 +1,115 @@
+[
+ {
+  "op": "add_texture",
+  "id": 0,
+  "name": "Grass",
+  "albedo": "res://demo/assets/textures/ground037_alb_ht.png",
+  "normal": "res://demo/assets/textures/ground037_nrm_rgh.png",
+  "uv_scale": 0.1,
+  "detiling_rotation": 0.2,
+  "albedo_color": "#9bb56f"
+ },
+ {
+  "op": "add_texture",
+  "id": 1,
+  "name": "Cliff",
+  "albedo": "res://demo/assets/textures/rock023_alb_ht.png",
+  "normal": "res://demo/assets/textures/rock023_nrm_rgh.png",
+  "uv_scale": 0.04,
+  "albedo_color": "#8a8580"
+ },
+ {
+  "op": "add_texture",
+  "id": 2,
+  "name": "Scree",
+  "albedo": "res://demo/assets/textures/rock023_alb_ht.png",
+  "normal": "res://demo/assets/textures/rock023_nrm_rgh.png",
+  "uv_scale": 0.12,
+  "albedo_color": "#c9b596"
+ },
+ {
+  "op": "add_texture",
+  "id": 3,
+  "name": "Snow",
+  "albedo": "res://demo/assets/textures/ground037_alb_ht.png",
+  "normal": "res://demo/assets/textures/ground037_nrm_rgh.png",
+  "uv_scale": 0.05,
+  "albedo_color": [
+   3.2,
+   3.3,
+   3.6
+  ],
+  "roughness": 0.2
+ },
+ {
+  "op": "paint_texture_rules",
+  "rules": [
+   {
+    "asset_id": 3,
+    "height": [
+     460,
+     1000
+    ],
+    "slope": [
+     0,
+     50
+    ]
+   },
+   {
+    "asset_id": 1,
+    "slope": [
+     44,
+     90
+    ]
+   },
+   {
+    "asset_id": 2,
+    "height": [
+     300,
+     1000
+    ],
+    "slope": [
+     26,
+     90
+    ]
+   },
+   {
+    "asset_id": 2,
+    "height": [
+     400,
+     1000
+    ]
+   },
+   {
+    "asset_id": 2,
+    "height": [
+     -100,
+     4
+    ]
+   },
+   {
+    "asset_id": 0
+   }
+  ]
+ },
+ {
+  "op": "erode",
+  "droplets": 400000,
+  "seed": 9,
+  "erode_rate": 0.0,
+  "paint": {
+   "flow": 2,
+   "flow_fraction": 0.025
+  }
+ },
+ {
+  "op": "set_properties",
+  "properties": {
+   "material.show_checkered": false
+  }
+ },
+ {
+  "op": "save",
+  "assets_path": "res://Develop/TerrainAgentMountain/assets.tres"
+ }
+]

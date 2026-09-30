@@ -100,6 +100,17 @@ private:
 	void _apply_undo(const Dictionary &p_data);
 	float _average(const AverageMode p_mode, const Vector3 &p_global_position, const float p_base, const float p_nan_val = 0.f, bool p_alt = false) const;
 	Color _average(const Vector3 &p_global_position, const Color &p_base) const;
+#ifdef WITH_ABYSS
+	// Undo history for edits no EditorPlugin records: runtime scripts and Terrain3DAgent.
+	// Each entry is Dictionary{ name, undo, redo } in the _apply_undo() format.
+	Array _local_undo;
+	Array _local_redo;
+	int _local_history_limit = 16;
+
+	bool _is_plugin_editor() const;
+	void _push_local_history(const String &p_name, const Dictionary &p_undo, const Dictionary &p_redo);
+	Dictionary _detach_history_regions(const Dictionary &p_data) const;
+#endif
 
 public:
 	Terrain3DEditor() {}
@@ -120,6 +131,16 @@ public:
 	void operate(const Vector3 &p_global_position, const real_t p_camera_direction);
 	void backup_region(const Ref<Terrain3DRegion> &p_region);
 	void stop_operation();
+#ifdef WITH_ABYSS
+	bool undo_local();
+	bool redo_local();
+	int get_local_undo_count() const { return _local_undo.size(); }
+	int get_local_redo_count() const { return _local_redo.size(); }
+	PackedStringArray get_local_undo_names() const;
+	void clear_local_history();
+	void set_local_history_limit(const int p_limit);
+	int get_local_history_limit() const { return _local_history_limit; }
+#endif
 
 protected:
 	static void _bind_methods();

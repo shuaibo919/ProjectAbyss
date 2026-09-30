@@ -14,12 +14,22 @@ if os.path.isfile(custom_api_file):
 else:
     ARGUMENTS.setdefault("api_version", "4.7")
 
+# WITH_ABYSS guards ProjectAbyss's additions inside vendored code (Source/Terrain), so an upstream
+# update can be merged and checked with them compiled out: `scons with_abyss=no`. Popped before
+# godot-cpp parses ARGUMENTS, which would warn about an unknown variable.
+with_abyss = ARGUMENTS.pop("with_abyss", "yes").lower() not in ("no", "false", "0", "off")
+
 # This lets SCons know that we're using godot-cpp, from the godot-cpp folder.
 env = SConscript("godot-cpp/SConstruct")
 
 # Force MSVC English output — avoids CP936 mojibake in UTF-8 terminals.
 # Must go through scons ENV dict so child processes (cl.exe, link.exe) inherit it.
 env['ENV']['VSLANG'] = '1033'
+
+# Our sources get their own environment so the define never reaches (and rebuilds) godot-cpp.
+env = env.Clone()
+if with_abyss:
+    env.Append(CPPDEFINES=["WITH_ABYSS"])
 
 # Configures the 'src' directory as a source for header files.
 env.Append(CPPPATH=["Source/"])
