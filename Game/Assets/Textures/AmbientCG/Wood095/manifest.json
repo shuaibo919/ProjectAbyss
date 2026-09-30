@@ -1,0 +1,15 @@
+{
+  "asset_id": "Wood095",
+  "source_url": "https://ambientcg.com/a/Wood095",
+  "license_spdx": "CC0-1.0",
+  "attribution_text": "ambientCG asset - CC0 1.0 Universal. Attribution not required.",
+  "download_attribute": "1K-JPG",
+  "download_url": "https://ambientcg.com/get?file=Wood095_1K-JPG.zip",
+  "maps": {
+    "albedo": "E:\\ProjectAbyss\\Game\\Assets\\Textures\\AmbientCG\\Wood095\\Wood095_1K-JPG_Color.jpg",
+    "displacement": "E:\\ProjectAbyss\\Game\\Assets\\Textures\\AmbientCG\\Wood095\\Wood095_1K-JPG_Displacement.jpg",
+    "normal": "E:\\ProjectAbyss\\Game\\Assets\\Textures\\AmbientCG\\Wood095\\Wood095_1K-JPG_NormalGL.jpg",
+    "roughness": "E:\\ProjectAbyss\\Game\\Assets\\Textures\\AmbientCG\\Wood095\\Wood095_1K-JPG_Roughness.jpg"
+  },
+  "material": "E:\\ProjectAbyss\\Game\\Assets\\Textures\\AmbientCG\\Wood095\\Wood095.tres"
+}
